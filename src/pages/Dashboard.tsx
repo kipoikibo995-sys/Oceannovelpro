@@ -641,7 +641,7 @@ export default function Dashboard() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.25 }}
-      className="flex-1 min-h-screen w-full bg-[#F6F1E7] font-['Outfit'] text-[#0E1D26] selection:bg-[#E8561F] selection:text-white"
+      className="flex-1 min-h-0 h-full w-full overflow-y-auto custom-scrollbar bg-[#F6F1E7] font-['Outfit'] text-[#0E1D26] selection:bg-[#E8561F] selection:text-white"
     >
       <div className="max-w-[1320px] mx-auto w-full px-4 sm:px-6 lg:px-10 py-5 lg:py-7 flex flex-col gap-6 lg:gap-8">
         {/* ================= HEADER ================= */}
