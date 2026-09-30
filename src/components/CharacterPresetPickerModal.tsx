@@ -21,6 +21,10 @@ import {
   CHARACTER_ROLES
 } from "@/data/characterPresets";
 
+// Paper grain for the desk surface
+const GRAIN =
+  'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")';
+
 interface CharacterPresetPickerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -126,480 +130,289 @@ ${preset.physicalAppearance}
     }
   };
 
-  const getRoleBadgeColor = (role: string) => {
+  const roleTone = (role: string) => {
     switch (role.toUpperCase()) {
       case "PROTAGONIST":
-        return "bg-emerald-950/80 text-emerald-300 border-emerald-600/40";
+        return "bg-[#F0B54B] text-[#0E1D26]";
       case "ANTAGONIST":
-        return "bg-rose-950/80 text-rose-300 border-rose-600/40";
+        return "bg-[#E8561F] text-white";
       case "RIVAL":
-        return "bg-amber-950/80 text-amber-300 border-amber-600/40";
-      case "MENTOR":
-        return "bg-purple-950/80 text-purple-300 border-purple-600/40";
-      case "ALLY":
-        return "bg-cyan-950/80 text-cyan-300 border-cyan-600/40";
+        return "bg-[#0E1D26] text-[#F6F1E7]";
       default:
-        return "bg-stone-800 text-stone-300 border-stone-600/40";
+        return "bg-[#FDFBF6] text-[#0E1D26]";
     }
   };
+  const tilt = (id: string) => ((id.split("").reduce((s, c) => s + c.charCodeAt(0), 0) % 7) - 3) * 0.5;
+  const pinColor = (id: string) => ["#E8561F", "#0E1D26", "#F0B54B"][id.length % 3];
+
+  const chip = (active: boolean) =>
+    `h-8 px-3 rounded-full text-[12px] font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+      active ? "bg-[#0E1D26] text-[#F6F1E7]" : "bg-[#FDFBF6]/80 text-[#0E1D26]/65 hover:text-[#0E1D26]"
+    }`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-7xl max-h-[92vh] flex flex-col bg-[#2b1812] border border-[#8c503c]/60 rounded-md shadow-2xl overflow-hidden text-[#fcfaf5]">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-[#0E1D26]/60 backdrop-blur-sm font-['Outfit'] text-[#0E1D26] animate-in fade-in duration-200">
+      <div className="relative w-full max-w-7xl max-h-[92vh] flex flex-col rounded-[28px] shadow-2xl overflow-hidden" style={{ backgroundColor: "#ECE5D8" }}>
+        <div className="absolute inset-0 pointer-events-none mix-blend-multiply opacity-30" style={{ backgroundImage: GRAIN }} />
+
         {/* Header */}
-        <div className="flex items-start justify-between p-5 sm:p-6 border-b border-[#5d3f32] bg-[#22120d]/90">
+        <div className="relative flex items-start justify-between gap-4 px-6 sm:px-8 pt-6 pb-4">
           <div>
-            <div className="flex items-center gap-2.5 mb-1.5">
-              <span className="p-1.5 rounded bg-[#b8785e]/20 text-[#d49a89] border border-[#b8785e]/30">
-                <Users className="w-5 h-5" />
-              </span>
-              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#fcfaf5] tracking-wide">
-                {title}
-              </h2>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#8c503c]/40 text-[#d49a89] border border-[#8c503c]/50">
-                50 Ready Characters
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm font-serif italic text-[#d49a89]/80 leading-relaxed max-w-3xl">
-              {subtitle}
-            </p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Archetype library · {CHARACTER_PRESETS.length} ready characters</p>
+            <h2 className="mt-2 text-[28px] sm:text-[34px] font-extrabold leading-none tracking-[-0.02em]">{title}</h2>
+            <p className="mt-2 text-[14px] text-[#0E1D26]/60 max-w-2xl">{subtitle}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-sm bg-[#3d261d]/80 hover:bg-[#5d3f32] text-stone-400 hover:text-white flex items-center justify-center transition-colors border border-[#8c503c]/30"
-          >
-            <X className="w-5 h-5 stroke-[1.5]" />
+          <button onClick={onClose} aria-label="Close" className="w-10 h-10 shrink-0 rounded-full bg-[#FDFBF6] hover:bg-white text-[#0E1D26]/60 hover:text-[#0E1D26] flex items-center justify-center shadow-sm cursor-pointer">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Filter & Search Bar */}
-        <div className="p-4 sm:p-5 border-b border-[#5d3f32] bg-[#24140e]/95 space-y-3 shrink-0">
-          <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-            {/* Search Input */}
+        {/* Search & filters */}
+        <div className="relative px-6 sm:px-8 pb-4 space-y-3 border-b border-[#0E1D26]/10">
+          <div className="flex flex-col md:flex-row gap-3 md:items-center">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[#0E1D26]/35 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name, archetype, race, trait, or keyword (e.g. elf, assassin, mentor)..."
-                className="w-full bg-[#1b0e0a] border border-[#8c503c]/40 rounded px-9 py-2 text-xs sm:text-sm text-stone-200 placeholder-stone-500 focus:outline-none focus:border-[#b8785e] transition-colors"
+                placeholder="Search name, race, trait or keyword — elf, assassin, mentor…"
+                className="w-full h-11 pl-11 pr-10 bg-[#FDFBF6] border border-[#DDD3C2] rounded-full text-[14px] placeholder:text-[#0E1D26]/35 outline-none focus:border-[#0E1D26]/35"
               />
               {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-white"
-                >
+                <button onClick={() => setSearchQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#0E1D26]/40 hover:text-[#0E1D26] cursor-pointer">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-
-            {/* Results count indicator */}
-            <div className="text-[11px] font-mono text-[#d49a89]/70 shrink-0 self-center">
-              Showing <span className="font-bold text-[#fcfaf5]">{filteredPresets.length}</span> of 50 Archetypes
-            </div>
+            <span className="text-[13px] text-[#0E1D26]/55 shrink-0">
+              Showing <strong className="text-[#0E1D26]">{filteredPresets.length}</strong> of {CHARACTER_PRESETS.length}
+            </span>
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mr-1 shrink-0 flex items-center gap-1">
-              <Layers className="w-3 h-3 text-[#b8785e]" /> Class:
-            </span>
+          <div className="flex items-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40 mr-1 shrink-0">Class</span>
             {CHARACTER_CATEGORIES.map((cat) => {
-              const count = cat === "All" 
-                ? CHARACTER_PRESETS.length 
-                : CHARACTER_PRESETS.filter(p => p.category === cat).length;
-              const isSelected = selectedCategory === cat;
+              const count = cat === "All" ? CHARACTER_PRESETS.length : CHARACTER_PRESETS.filter((p) => p.category === cat).length;
               return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1 rounded text-[10px] font-bold tracking-wider uppercase shrink-0 transition-all border ${
-                    isSelected
-                      ? "bg-[#b8785e] text-white border-[#d49a89] shadow-sm"
-                      : "bg-[#1f100a] text-stone-300 border-[#5d3f32]/60 hover:border-[#8c503c] hover:text-white"
-                  }`}
-                >
-                  {cat} ({count})
+                <button key={cat} onClick={() => setSelectedCategory(cat)} className={chip(selectedCategory === cat)}>
+                  {cat} <span className="opacity-50">{count}</span>
                 </button>
               );
             })}
           </div>
-
-          {/* Role Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mr-1 shrink-0 flex items-center gap-1">
-              <Crown className="w-3 h-3 text-[#b8785e]" /> Role:
-            </span>
+          <div className="flex items-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40 mr-1 shrink-0">Role</span>
             {CHARACTER_ROLES.map((role) => {
-              const count = role === "All"
-                ? CHARACTER_PRESETS.length
-                : CHARACTER_PRESETS.filter(p => p.role.toUpperCase() === role.toUpperCase()).length;
-              const isSelected = selectedRole === role;
+              const count = role === "All" ? CHARACTER_PRESETS.length : CHARACTER_PRESETS.filter((p) => p.role.toUpperCase() === role.toUpperCase()).length;
               return (
-                <button
-                  key={role}
-                  onClick={() => setSelectedRole(role)}
-                  className={`px-2.5 py-0.5 rounded text-[9.5px] font-bold tracking-wider uppercase shrink-0 transition-all border ${
-                    isSelected
-                      ? "bg-[#8c503c] text-white border-[#d49a89]"
-                      : "bg-[#180c07] text-stone-400 border-[#4a2e23] hover:border-[#8c503c]/60 hover:text-stone-200"
-                  }`}
-                >
-                  {role} ({count})
+                <button key={role} onClick={() => setSelectedRole(role)} className={chip(selectedRole === role)}>
+                  <span className="capitalize">{role.toLowerCase()}</span> <span className="opacity-50">{count}</span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Character Card Grid */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#20100a] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-[#5d3f32] [&::-webkit-scrollbar-track]:bg-[#180c07]">
+        {/* Pinned polaroids */}
+        <div className="relative flex-1 overflow-y-auto custom-scrollbar px-6 sm:px-8 py-8">
           {filteredPresets.length === 0 ? (
-            <div className="h-64 flex flex-col items-center justify-center text-center p-6">
-              <Compass className="w-12 h-12 text-[#8c503c]/60 mb-3" />
-              <h3 className="font-serif text-lg font-bold text-[#fcfaf5]">No archetypes found</h3>
-              <p className="text-xs text-stone-400 mt-1 max-w-md">
-                Try clearing your search query or switching categories to browse the other available characters.
-              </p>
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedCategory("All");
-                  setSelectedRole("All");
-                }}
-                className="mt-4 px-4 py-1.5 rounded bg-[#b8785e] hover:bg-[#a66850] text-white text-xs font-bold uppercase tracking-wider transition-colors"
-              >
-                Reset Filters
-              </button>
+            <div className="h-64 flex items-center justify-center">
+              <div className="relative bg-[#F7E3A6] px-7 py-6 -rotate-2 shadow-[0_14px_24px_-16px_rgba(14,29,38,0.6)] text-center">
+                <p className="font-['Caveat'] text-[26px] font-bold leading-tight">No archetypes match.</p>
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedCategory("All");
+                    setSelectedRole("All");
+                  }}
+                  className="mt-3 h-9 px-4 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[12px] font-bold cursor-pointer"
+                >
+                  Reset filters
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-10">
               {filteredPresets.map((preset) => (
                 <div
                   key={preset.id}
-                  className="group relative flex flex-col bg-[#2b1812] border border-[#5d3f32] hover:border-[#b8785e] rounded-sm overflow-hidden transition-all duration-300 hover:shadow-[0_8px_24px_rgba(0,0,0,0.5)] hover:-translate-y-0.5"
+                  style={{ transform: `rotate(${tilt(preset.id)}deg)` }}
+                  className="group relative bg-[#FDFBF6] p-2.5 pb-3 shadow-[0_16px_26px_-18px_rgba(14,29,38,0.6),0_1px_2px_rgba(14,29,38,0.15)] transition-transform duration-300 hover:!rotate-0 hover:-translate-y-1"
                 >
-                  {/* Portrait Header */}
-                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#180c07]">
-                    <img
-                      src={preset.imageUrl}
-                      alt={preset.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#2b1812] via-transparent to-black/30" />
-                    
-                    {/* Top Badges */}
-                    <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
-                      <span className={`text-[9px] font-bold tracking-widest uppercase px-2 py-0.5 rounded border backdrop-blur-md shadow-sm ${getRoleBadgeColor(preset.role)}`}>
-                        {preset.role}
-                      </span>
-                      <span className="text-[9px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-black/60 text-[#d49a89] border border-white/10 backdrop-blur-md">
-                        {preset.mbti}
-                      </span>
-                    </div>
+                  {/* push pin */}
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 z-10 w-3.5 h-3.5 rounded-full shadow-[1px_2px_3px_rgba(0,0,0,0.35)]" style={{ background: pinColor(preset.id) }} />
 
-                    {/* Category Label at bottom of image */}
-                    <div className="absolute bottom-2 left-2.5 right-2.5 pointer-events-none">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-[#d49a89] drop-shadow-md">
-                        {preset.category}
-                      </span>
-                    </div>
-                  </div>
+                  <button onClick={() => setInspectingPreset(preset)} className="relative block w-full aspect-[3/4] overflow-hidden bg-[#EFE9DE] cursor-pointer" title="Open dossier">
+                    <img src={preset.imageUrl} alt={preset.name} loading="lazy" className="w-full h-full object-cover" />
+                    <span className={`absolute left-2 bottom-2 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] shadow-sm ${roleTone(preset.role)}`}>
+                      {preset.role.toLowerCase()}
+                    </span>
+                  </button>
 
-                  {/* Body Content */}
-                  <div className="flex-1 flex flex-col p-4 space-y-3">
-                    <div>
-                      <h3 className="font-serif text-lg font-bold text-[#fcfaf5] group-hover:text-[#d49a89] transition-colors leading-tight">
-                        {preset.name}
-                      </h3>
-                      <p className="text-[11px] font-serif italic text-amber-200/80 tracking-wide mt-0.5">
-                        {preset.title}
-                      </p>
-                      <div className="text-[10px] text-stone-400 mt-1 flex items-center gap-1.5 font-mono">
-                        <span>{preset.race}</span>
-                        <span>•</span>
-                        <span>Age {preset.age}</span>
-                      </div>
-                    </div>
+                  <p className="mt-2 font-['Caveat'] text-[22px] font-bold leading-none text-center line-clamp-1" title={preset.name}>
+                    {preset.name}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[#0E1D26]/50 text-center line-clamp-1">
+                    {preset.race} · {preset.age}
+                  </p>
 
-                    {/* Archetype Badge */}
-                    <div className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#1e100a] border border-[#5d3f32]/60 text-[9.5px] font-bold text-[#d49a89] uppercase tracking-wider">
-                      <BookOpen className="w-3 h-3 text-[#b8785e] shrink-0" />
-                      <span className="truncate">{preset.archetype}</span>
-                    </div>
-
-                    {/* Traits Pills */}
-                    <div className="flex flex-wrap gap-1">
-                      {preset.traits.slice(0, 4).map((trait, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[9px] px-1.5 py-0.5 rounded-xs bg-[#3d261d]/80 text-stone-300 border border-[#5d3f32]/50 font-medium"
-                        >
-                          {trait}
-                        </span>
-                      ))}
-                      {preset.traits.length > 4 && (
-                        <span className="text-[9px] px-1 text-stone-400 font-mono">
-                          +{preset.traits.length - 4}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Backstory Excerpt */}
-                    <p className="text-[11px] font-serif text-stone-300/90 leading-relaxed line-clamp-3 italic pt-1 border-t border-[#4a2e23]">
-                      "{preset.backstory}"
-                    </p>
-
-                    {/* Action Buttons */}
-                    <div className="mt-auto pt-3 flex items-center gap-2 border-t border-[#4a2e23]">
-                      <button
-                        onClick={() => setInspectingPreset(preset)}
-                        className="flex-1 py-1.5 px-2 rounded-xs bg-[#3d261d] hover:bg-[#5d3f32] text-[#fcfaf5] text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1 border border-[#8c503c]/40"
-                        title="View Full Character Sheet"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-[#d49a89]" /> Dossier
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          onSelectPreset(preset, false);
-                          onClose();
-                        }}
-                        className="flex-1 py-1.5 px-2 rounded-xs bg-[#b8785e] hover:bg-[#a66850] text-white text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1 shadow-sm"
-                        title="Load into Editor"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> {actionLabel}
-                      </button>
-                    </div>
+                  <div className="mt-2.5 flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => setInspectingPreset(preset)}
+                      className="flex-1 h-8 rounded-full border border-[#E4DAC8] text-[11px] font-semibold hover:border-[#0E1D26]/35 flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> Dossier
+                    </button>
+                    <button
+                      onClick={() => {
+                        onSelectPreset(preset, false);
+                        onClose();
+                      }}
+                      className="flex-1 h-8 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
+                      title="Load into editor"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Use
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-
-        {/* Footer info */}
-        <div className="p-3 sm:p-4 border-t border-[#5d3f32] bg-[#22120d] flex flex-col sm:flex-row items-center justify-between text-[11px] text-stone-400 gap-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="font-serif italic text-[#d49a89]">
-              💡 Tip: Click "Dossier" to view full motivation, conflicts, trauma, abilities, and gear before importing.
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-1 rounded bg-[#3d261d] hover:bg-[#5d3f32] text-stone-300 hover:text-white text-xs font-bold uppercase tracking-wider transition-colors"
-          >
-            Close
-          </button>
-        </div>
       </div>
 
-      {/* Inspecting Full Dossier Sheet Modal */}
+      {/* Dossier — a paper file */}
       {inspectingPreset && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[#fcfaf5] text-[#332218] rounded-sm shadow-2xl overflow-hidden border border-[#e5e0d5]">
-            
-            {/* Toast inside Inspect */}
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6 bg-[#0E1D26]/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[#FDFBF6] rounded-[4px] shadow-2xl overflow-hidden">
             {copiedNotification && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#332218] text-white px-4 py-2 rounded text-xs font-bold uppercase tracking-widest shadow-xl flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-400" /> {copiedNotification}
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-[#0E1D26] text-[#F6F1E7] px-4 py-2 rounded-full text-[12px] font-semibold shadow-xl flex items-center gap-2">
+                <Check className="w-4 h-4 text-[#F0B54B]" /> {copiedNotification}
               </div>
             )}
 
-            {/* Inspect Top Nav */}
-            <div className="flex items-center justify-between p-4 px-6 border-b border-[#e5e0d5] bg-[#f4efe6]">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#8c503c] bg-[#ede8dc] px-2 py-0.5 rounded">
-                  Character Dossier #{inspectingPreset.id.replace('char-preset-', '')}
-                </span>
-                <span className="text-[10px] font-mono text-stone-500">
-                  • {inspectingPreset.category}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#EFE6D6]">
+              <span className="px-2.5 py-1 border border-[#0E1D26]/40 text-[10px] font-bold uppercase tracking-[0.18em]">
+                Dossier #{inspectingPreset.id.replace("char-preset-", "")} · {inspectingPreset.category}
+              </span>
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleCopySheet(inspectingPreset)}
-                  className="px-2.5 py-1 rounded bg-white hover:bg-stone-100 text-stone-700 text-[10px] font-bold uppercase tracking-wider border border-stone-300 transition-colors flex items-center gap-1.5 shadow-sm"
-                  title="Copy Full Markdown Dossier"
+                  className="h-9 px-4 rounded-full border border-[#E4DAC8] hover:border-[#0E1D26]/35 text-[12px] font-semibold flex items-center gap-1.5 cursor-pointer"
+                  title="Copy full dossier as Markdown"
                 >
-                  <Copy className="w-3.5 h-3.5 text-[#8c503c]" /> Copy Dossier
+                  <Copy className="w-3.5 h-3.5" /> Copy dossier
                 </button>
-                <button
-                  onClick={() => setInspectingPreset(null)}
-                  className="w-7 h-7 rounded text-stone-400 hover:text-stone-800 flex items-center justify-center transition-colors"
-                >
-                  <X className="w-5 h-5 stroke-[1.5]" />
+                <button onClick={() => setInspectingPreset(null)} aria-label="Close" className="w-9 h-9 rounded-full text-[#0E1D26]/50 hover:text-[#0E1D26] hover:bg-[#F1ECE2] flex items-center justify-center cursor-pointer">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Inspect Body Content */}
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-stone-300">
-              
-              {/* Header Profile Section */}
-              <div className="flex flex-col sm:flex-row gap-6 items-start">
-                <div className="w-full sm:w-48 aspect-[3/4] shrink-0 rounded-sm overflow-hidden border border-[#e5e0d5] shadow-md bg-stone-100">
-                  <img
-                    src={inspectingPreset.imageUrl}
-                    alt={inspectingPreset.name}
-                    className="w-full h-full object-cover"
-                  />
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-8 space-y-7">
+              <div className="flex flex-col sm:flex-row gap-7 items-start">
+                <div className="relative w-44 shrink-0 bg-white p-2 pb-8 shadow-[0_14px_24px_-14px_rgba(14,29,38,0.6)] -rotate-2">
+                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-16 h-5 bg-[#F0B54B]/55 rotate-3" />
+                  <img src={inspectingPreset.imageUrl} alt={inspectingPreset.name} className="w-full aspect-[3/4] object-cover" />
+                  <p className="absolute bottom-1.5 inset-x-0 text-center font-['Caveat'] text-[20px] font-bold truncate px-2">{inspectingPreset.name.split(" ")[0]}</p>
                 </div>
 
-                <div className="flex-1 space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded border ${getRoleBadgeColor(inspectingPreset.role)}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${roleTone(inspectingPreset.role)} border border-[#0E1D26]/10`}>
                       {inspectingPreset.role}
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-[#ede8dc] text-[#5d3f32] px-2 py-0.5 rounded border border-[#e5e0d5]">
-                      MBTI: {inspectingPreset.mbti}
-                    </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-[#ede8dc] text-[#5d3f32] px-2 py-0.5 rounded border border-[#e5e0d5]">
-                      Status: {inspectingPreset.status}
-                    </span>
+                    <span className="px-2 py-0.5 bg-[#F1ECE2] text-[10px] font-bold uppercase tracking-[0.12em]">MBTI {inspectingPreset.mbti}</span>
+                    <span className="px-2 py-0.5 bg-[#F1ECE2] text-[10px] font-bold uppercase tracking-[0.12em]">{inspectingPreset.status}</span>
                   </div>
-
-                  <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#4a3225]">
-                    {inspectingPreset.name}
-                  </h1>
-                  <p className="font-serif text-lg italic text-[#b8785e]">
-                    "{inspectingPreset.title}"
-                  </p>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-[#e5e0d5] text-xs">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase text-stone-400 block">Species / Race</span>
-                      <span className="font-bold text-[#4a3225]">{inspectingPreset.race}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold uppercase text-stone-400 block">Age</span>
-                      <span className="font-bold text-[#4a3225]">{inspectingPreset.age}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold uppercase text-stone-400 block">Faction / Group</span>
-                      <span className="font-bold text-[#4a3225]">{inspectingPreset.group}</span>
+                  <h1 className="mt-3 text-[32px] sm:text-[38px] font-extrabold leading-none tracking-[-0.02em]">{inspectingPreset.name}</h1>
+                  <p className="mt-2 text-[16px] font-semibold text-[#E8561F]">{inspectingPreset.title}</p>
+                  <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-[#EFE6D6] text-[13px]">
+                    {[
+                      ["Race", inspectingPreset.race],
+                      ["Age", inspectingPreset.age],
+                      ["Gender", inspectingPreset.gender],
+                      ["Group", inspectingPreset.group],
+                    ].map(([k, v]) => (
+                      <div key={k}>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40">{k}</p>
+                        <p className="mt-0.5 font-semibold">{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40">Archetype · {inspectingPreset.archetype}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {inspectingPreset.traits.map((trait, idx) => (
+                        <span key={idx} className="px-2 py-0.5 bg-[#F1ECE2] text-[10px] font-bold uppercase tracking-[0.08em]" style={{ transform: `rotate(${idx % 2 ? 1 : -1}deg)` }}>
+                          {trait}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Archetype & Traits */}
-              <div className="p-4 rounded bg-[#f4efe6] border border-[#e5e0d5] space-y-2">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-[#b8785e]" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#8c503c]">
-                    Archetype: {inspectingPreset.archetype}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {inspectingPreset.traits.map((trait, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-white text-[#5d3f32] border border-[#e5e0d5] rounded-xs shadow-2xs"
-                    >
-                      {trait}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Core Narrative Pillars */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded bg-white border border-[#e5e0d5] shadow-xs space-y-1.5">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#b8785e] flex items-center gap-1.5">
-                    <Compass className="w-3.5 h-3.5" /> Core Goal
-                  </h4>
-                  <p className="text-xs font-serif leading-relaxed text-[#4a3225]">
-                    {inspectingPreset.goal}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded bg-white border border-[#e5e0d5] shadow-xs space-y-1.5">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-700 flex items-center gap-1.5">
-                    <Flame className="w-3.5 h-3.5" /> Conflict
-                  </h4>
-                  <p className="text-xs font-serif leading-relaxed text-[#4a3225]">
-                    {inspectingPreset.conflict}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded bg-white border border-[#e5e0d5] shadow-xs space-y-1.5">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-rose-700 flex items-center gap-1.5">
-                    <Heart className="w-3.5 h-3.5" /> Inciting Trauma
-                  </h4>
-                  <p className="text-xs font-serif leading-relaxed text-[#4a3225]">
-                    {inspectingPreset.trauma}
-                  </p>
-                </div>
+                {[
+                  ["Core goal", inspectingPreset.goal, "#F7E3A6"],
+                  ["Conflict", inspectingPreset.conflict, "#F4DCCB"],
+                  ["Inciting trauma", inspectingPreset.trauma, "#E3E6DC"],
+                ].map(([k, v, bg], i) => (
+                  <div key={k} className="relative p-4 shadow-[0_10px_18px_-14px_rgba(14,29,38,0.6)]" style={{ background: bg, transform: `rotate(${[-1, 0.5, -0.5][i]}deg)` }}>
+                    <p className="font-['Caveat'] text-[22px] font-bold leading-none">{k}</p>
+                    <p className="mt-2 text-[13px] leading-relaxed text-[#0E1D26]/75">{v}</p>
+                  </div>
+                ))}
               </div>
 
-              {/* Backstory */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-[#8c503c] border-b border-[#e5e0d5] pb-1">
-                  Backstory & Origins
-                </h4>
-                <p className="font-serif text-sm leading-relaxed text-[#332218] bg-[#fcfaf5] p-4 rounded border border-[#e5e0d5]">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40">Backstory & origins</p>
+                <p
+                  className="mt-2 text-[14px] leading-[26px] text-[#0E1D26]/80"
+                  style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 25px, rgba(14,29,38,0.08) 25px 26px)" }}
+                >
                   {inspectingPreset.backstory}
                 </p>
               </div>
 
-              {/* Physical Appearance */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-[#8c503c] border-b border-[#e5e0d5] pb-1">
-                  Physical Appearance & Visual Signature
-                </h4>
-                <p className="font-serif text-xs leading-relaxed text-[#4a3225] bg-[#f4efe6] p-3 rounded border border-[#e5e0d5]">
-                  {inspectingPreset.physicalAppearance}
-                </p>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40">Appearance</p>
+                <p className="mt-2 text-[13px] leading-relaxed text-[#0E1D26]/70">{inspectingPreset.physicalAppearance}</p>
               </div>
 
-              {/* Combat & Gear */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-3.5 rounded bg-white border border-[#e5e0d5] shadow-xs">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#b8785e] block mb-1">
-                    Signature Ability / Magic
-                  </span>
-                  <p className="text-xs font-serif font-semibold text-[#4a3225]">
-                    {inspectingPreset.signatureAbility}
-                  </p>
-                </div>
-                <div className="p-3.5 rounded bg-white border border-[#e5e0d5] shadow-xs">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#b8785e] block mb-1">
-                    Iconic Relics & Gear
-                  </span>
-                  <p className="text-xs font-serif font-semibold text-[#4a3225]">
-                    {inspectingPreset.gear}
-                  </p>
-                </div>
+                {[
+                  ["Signature ability", inspectingPreset.signatureAbility],
+                  ["Gear & relics", inspectingPreset.gear],
+                ].map(([k, v]) => (
+                  <div key={k} className="p-4 rounded-2xl bg-[#F6F1E7]">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40">{k}</p>
+                    <p className="mt-1 text-[13px] font-semibold">{v}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Inspect Footer Actions */}
-            <div className="p-4 px-6 border-t border-[#e5e0d5] bg-[#f4efe6] flex items-center justify-between">
-              <button
-                onClick={() => setInspectingPreset(null)}
-                className="px-4 py-2 rounded bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-bold uppercase tracking-wider transition-colors"
-              >
-                Back to List
+            <div className="px-6 py-4 border-t border-[#EFE6D6] flex items-center justify-between">
+              <button onClick={() => setInspectingPreset(null)} className="h-10 px-5 rounded-full text-[13px] font-semibold text-[#0E1D26]/60 hover:text-[#0E1D26] hover:bg-[#F1ECE2] cursor-pointer">
+                Back to list
               </button>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    const preset = inspectingPreset;
-                    setInspectingPreset(null);
-                    onSelectPreset(preset, false);
-                    onClose();
-                  }}
-                  className="px-6 py-2 rounded bg-[#b8785e] hover:bg-[#a66850] text-white text-xs font-bold uppercase tracking-widest shadow-md transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Load This Character
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  const preset = inspectingPreset;
+                  setInspectingPreset(null);
+                  onSelectPreset(preset, false);
+                  onClose();
+                }}
+                className="h-11 pl-5 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[13px] font-bold flex items-center gap-2.5 cursor-pointer"
+              >
+                {actionLabel}
+                <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                  <Plus className="w-4 h-4" />
+                </span>
+              </button>
             </div>
           </div>
         </div>
