@@ -71,7 +71,7 @@ export default function UpgradeModal({
           desc: description || "The Regular Edition provides 25 deep character dossiers per novel. Upgrade to Pro Edition for infinite characters, clan hierarchies, and divine pantheons.",
           perks: [
             "Unlimited character dossiers per manuscript",
-            "Access to the complete 25+ high-res fantasy portrait presets",
+            "Access to 49 high-res fantasy character portraits",
             "Infinite relationship graph networks & family trees",
             "Full character psychology & MBTI archetypes export",
           ],
@@ -84,7 +84,7 @@ export default function UpgradeModal({
           perks: [
             "Unlimited locations, kingdoms, and landmarks",
             "Interactive fantasy world map & route connecting canvas",
-            "Full 25+ preset fantasy location art library",
+            "Preset fantasy location art library",
             "Regional lore and atmospheric climate matrices",
           ],
         };
@@ -94,8 +94,8 @@ export default function UpgradeModal({
           heading: "Exclusive Fantasy Art & Portrait Library",
           desc: description || "The curated 50+ high-res Fantasy Portrait and Location Art Library is exclusively available in Pro Edition. In the Regular Edition, you can still upload your own images from your device or paste web image links freely!",
           perks: [
-            "Instant access to 25+ curated fantasy character portraits",
-            "25+ atmospheric fantasy location backgrounds and landscape art",
+            "Instant access to 49 curated fantasy character portraits",
+            "Atmospheric fantasy location backgrounds and landscape art",
             "Pre-calibrated genre tags, archetypes, and lighting presets",
             "Commercial publication rights for all built-in art assets",
           ],

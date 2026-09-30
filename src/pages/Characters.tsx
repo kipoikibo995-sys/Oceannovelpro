@@ -2510,7 +2510,7 @@ ${backstoryText}`;
                       <span className="font-serif font-bold text-xs uppercase tracking-wider text-[#4a3225]">Portrait Studio & Visuals</span>
                     </div>
                     <p className="text-stone-600 leading-relaxed font-sans pl-7">
-                      Click <strong className="text-[#4a3225] font-semibold">Portrait Library</strong> to browse 25 high-resolution genre presets or upload/drop your own custom concept art and reference portraits.
+                      Click <strong className="text-[#4a3225] font-semibold">Portrait Library</strong> to browse 49 high-resolution character portraits or upload/drop your own custom concept art and reference portraits.
                     </p>
                   </div>
 

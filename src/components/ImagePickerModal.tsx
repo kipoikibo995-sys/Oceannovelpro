@@ -335,7 +335,7 @@ export default function ImagePickerModal({
                     </span>
                   </div>
                   <h3 className="font-serif text-xl font-bold text-[#4A3225]">
-                    {type === "character" ? "Fantasy Portrait Library (25 Presets)" : "Location Landmark Library (25 Presets)"}
+                    {type === "character" ? `Fantasy Portrait Library (${FANTASY_PRESET_PORTRAITS.length} portraits)` : `Location Landmark Library (${FANTASY_PRESET_LOCATIONS.length} presets)`}
                   </h3>
                   <p className="text-xs text-stone-600 font-serif leading-relaxed">
                     The curated library of high-definition character portraits and fantasy landscape art is available in <strong>Ocean Novel Pro</strong>. In this Author Edition (FE), you can freely upload your own photos or paste web image links using the other tabs!
