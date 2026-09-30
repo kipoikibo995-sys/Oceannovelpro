@@ -72,6 +72,45 @@ const MOCK_NODES: any[] = [];
 
 const MOCK_EDGES: any[] = [];
 
+/* ---- Desk props: paper grain, washi tape and push pins ---- */
+
+const PAPER_GRAIN =
+  'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")';
+
+// Light linen desk / cork board surfaces
+const DESK_STYLE: React.CSSProperties = { backgroundColor: "#ECE5D8" };
+const CORK_STYLE: React.CSSProperties = { backgroundColor: "#DCC9A8" };
+
+function Grain({ opacity = 0.35 }: { opacity?: number }) {
+  return (
+    <div
+      className="absolute inset-0 pointer-events-none mix-blend-multiply"
+      style={{ backgroundImage: PAPER_GRAIN, opacity }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function Tape({ className, tone = "light", rotate = -3 }: { className?: string; tone?: "light" | "mustard" | "navy"; rotate?: number }) {
+  const bg = tone === "mustard" ? "rgba(240,181,75,0.55)" : tone === "navy" ? "rgba(14,29,38,0.18)" : "rgba(255,255,255,0.62)";
+  return (
+    <div
+      className={cn("absolute h-5 w-16 shadow-[0_1px_2px_rgba(14,29,38,0.12)] pointer-events-none", className)}
+      style={{ background: bg, transform: `rotate(${rotate}deg)`, clipPath: "polygon(3% 0, 97% 4%, 100% 96%, 0 100%)" }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function Pin({ color, className }: { color: string; className?: string }) {
+  return (
+    <div className={cn("absolute pointer-events-none", className)} aria-hidden="true">
+      <div className="w-3.5 h-3.5 rounded-full shadow-[1px_2px_3px_rgba(0,0,0,0.35)]" style={{ background: color }} />
+      <div className="absolute top-[3px] left-[3px] w-1.5 h-1.5 rounded-full bg-white/45" />
+    </div>
+  );
+}
+
 export const RELATION_OPTIONS = [
   { label: "ALLY", color: "#78c3b4", icon: UserPlus },
   { label: "ENEMY", color: "#e15b64", icon: Swords },
@@ -1515,6 +1554,14 @@ ${backstoryText}`;
         ? [char.traits.trim()]
         : [];
 
+  // Stable small tilt per character so the desk looks hand-arranged
+  const tiltFor = (id: string, range = 3) => {
+    const sum = String(id).split("").reduce((s, ch) => s + ch.charCodeAt(0), 0);
+    return ((sum % (range * 2 + 1)) - range) * 0.5;
+  };
+  const PIN_COLORS = ["#E8561F", "#0E1D26", "#F0B54B"];
+  const pinFor = (id: string) => PIN_COLORS[String(id).length % PIN_COLORS.length];
+
   const iconBtn = (active = false) =>
     cn(
       "w-10 h-10 rounded-full flex items-center justify-center border transition-colors cursor-pointer",
@@ -1522,10 +1569,11 @@ ${backstoryText}`;
     );
 
   return (
-    <div className="flex-1 flex flex-col w-full h-full overflow-hidden relative bg-[#F8F5EE] text-[#0E1D26] font-['Outfit']">
+    <div className="flex-1 flex flex-col w-full h-full overflow-hidden relative text-[#0E1D26] font-['Outfit']" style={DESK_STYLE}>
+      <Grain opacity={0.28} />
       <div className="flex-1 relative flex flex-col overflow-hidden">
         {/* Header */}
-        <div className={cn("shrink-0 w-full", viewMode === "registry" ? "max-w-[1400px] mx-auto px-6 lg:px-10 pt-8 lg:pt-10 pb-5" : "px-5 py-3 border-b border-[#E9E2D4] bg-[#F8F5EE]")}>
+        <div className={cn("shrink-0 w-full", viewMode === "registry" ? "max-w-[1400px] mx-auto px-6 lg:px-10 pt-8 lg:pt-10 pb-5" : "px-5 py-3 border-b border-[#D8CDB9] bg-[#F3EEE4]/90 backdrop-blur relative z-10")}>
           {viewMode === "registry" && (
             <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
               <div>
@@ -1719,21 +1767,25 @@ ${backstoryText}`;
 
         {viewMode === "registry" ? (
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <div className="max-w-[1400px] mx-auto px-6 lg:px-10 pb-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {/* New character */}
+            <div className="max-w-[1400px] mx-auto px-6 lg:px-10 pt-4 pb-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-9">
+              {/* New character — a sticky note */}
               <button
                 onClick={handleOpenEditorNew}
+                style={{ transform: "rotate(-1.5deg)" }}
                 className={cn(
-                  "group rounded-3xl border-2 border-dashed flex flex-col items-center justify-center p-6 text-center transition-colors cursor-pointer",
-                  registryView === "gallery" ? "min-h-[300px]" : "min-h-[260px]",
-                  isCharacterLimitReached ? "border-[#E8561F]/40 hover:border-[#E8561F]" : "border-[#0E1D26]/15 hover:border-[#0E1D26]/35"
+                  "group relative flex flex-col items-center justify-center p-6 text-center rounded-[3px] transition-transform duration-300 hover:!rotate-0 hover:-translate-y-1 cursor-pointer shadow-[0_14px_24px_-16px_rgba(14,29,38,0.55),0_1px_2px_rgba(14,29,38,0.15)]",
+                  registryView === "gallery" ? "min-h-[300px]" : "min-h-[280px]",
+                  isCharacterLimitReached ? "bg-[#F6D9C9]" : "bg-[#F7E3A6]"
                 )}
               >
-                <span className="w-12 h-12 rounded-full bg-white border border-[#E9E2D4] flex items-center justify-center text-[#0E1D26]/50 group-hover:text-[#0E1D26] transition-colors">
+                <Tape className="-top-2.5 left-1/2 -translate-x-1/2" rotate={2} />
+                <span className="w-12 h-12 rounded-full border-2 border-dashed border-[#0E1D26]/25 flex items-center justify-center text-[#0E1D26]/55 group-hover:text-[#0E1D26] transition-colors">
                   {isCharacterLimitReached ? <IconLock className="w-5 h-5" /> : <IconPlus className="w-5 h-5" />}
                 </span>
-                <span className="mt-3 text-[14px] font-semibold">{isCharacterLimitReached ? "Plan limit reached" : "New character"}</span>
-                <span className="mt-1 text-[12px] text-[#0E1D26]/45">
+                <span className="mt-3 font-['Caveat'] text-[26px] font-bold leading-none">
+                  {isCharacterLimitReached ? "Plan limit reached" : "New character"}
+                </span>
+                <span className="mt-2 text-[12px] text-[#0E1D26]/55">
                   {characters.length} / {maxCharacters === Infinity ? "∞" : maxCharacters} characters
                 </span>
               </button>
@@ -1747,30 +1799,43 @@ ${backstoryText}`;
                     return acc;
                   }, {} as Record<string, any[]>)
                 ).map(([groupName, groupChars]: [string, any[]]) => (
-                  <div key={groupName} className="rounded-3xl bg-white border border-[#E9E2D4] p-6 min-h-[260px] flex flex-col">
-                    <div className="flex items-center gap-2 text-[#0E1D26]/45">
-                      <IconFolder className="w-4 h-4" />
-                      <span className="text-[11px] font-bold uppercase tracking-[0.16em]">Folder</span>
-                    </div>
-                    <h2 className="mt-3 text-[22px] font-extrabold leading-tight truncate">{groupName === "none" ? "Ungrouped" : groupName}</h2>
-                    <p className="mt-1 text-[13px] text-[#0E1D26]/55">
-                      {groupChars.length} {groupChars.length === 1 ? "character" : "characters"}
-                    </p>
-                    <div className="mt-auto flex -space-x-2">
-                      {groupChars.slice(0, 6).map((c) => (
-                        <img key={c.id} src={c.imageUrl} alt={c.name} title={c.name} className="w-9 h-9 rounded-full ring-2 ring-white object-cover" />
-                      ))}
+                  <div key={groupName} className="relative pt-5 min-h-[280px] flex flex-col" style={{ transform: `rotate(${tiltFor(groupName, 2)}deg)` }}>
+                    {/* Manila folder tab */}
+                    <div
+                      className="absolute top-0 left-0 w-[46%] h-7 rounded-t-md bg-[#E4CB98]"
+                      style={{ clipPath: "polygon(0 0, 86% 0, 100% 100%, 0 100%)" }}
+                    />
+                    <div className="relative flex-1 flex flex-col rounded-b-md rounded-tr-md bg-[#EDD8AC] p-6 overflow-hidden shadow-[0_14px_24px_-16px_rgba(14,29,38,0.55),0_1px_2px_rgba(14,29,38,0.15)]">
+                      <Grain opacity={0.25} />
+                      <span className="relative px-2 py-0.5 w-fit bg-[#FBF8F2] text-[10px] font-bold uppercase tracking-[0.18em] shadow-sm">Case folder</span>
+                      <h2 className="relative mt-4 font-['Caveat'] text-[34px] font-bold leading-none truncate">{groupName === "none" ? "Ungrouped" : groupName}</h2>
+                      <p className="relative mt-1 text-[13px] text-[#0E1D26]/60">
+                        {groupChars.length} {groupChars.length === 1 ? "file" : "files"} inside
+                      </p>
+                      <div className="relative mt-auto flex -space-x-3">
+                        {groupChars.slice(0, 5).map((c, i) => (
+                          <div key={c.id} className="bg-white p-1 pb-3 shadow-md" style={{ transform: `rotate(${(i % 2 ? 4 : -4) + tiltFor(c.id, 1)}deg)` }}>
+                            <img src={c.imageUrl} alt={c.name} title={c.name} className="w-10 h-12 object-cover" />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))
               ) : registryView === "gallery" ? (
                 filteredAndSortedCharacters.map((char) => (
-                  <button key={char.id} onClick={() => handleOpenEditorEdit(char)} className="group text-left cursor-pointer">
-                    <div className="aspect-[3/4] rounded-3xl overflow-hidden bg-[#EFE9DE]">
-                      <img src={char.imageUrl} alt={char.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+                  <button
+                    key={char.id}
+                    onClick={() => handleOpenEditorEdit(char)}
+                    style={{ transform: `rotate(${tiltFor(char.id)}deg)` }}
+                    className="group relative text-left bg-[#FDFBF6] p-3 pb-4 shadow-[0_16px_26px_-18px_rgba(14,29,38,0.6),0_1px_2px_rgba(14,29,38,0.15)] transition-transform duration-300 hover:!rotate-0 hover:-translate-y-1 cursor-pointer"
+                  >
+                    <Pin color={pinFor(char.id)} className="-top-1.5 left-1/2 -translate-x-1/2 z-10" />
+                    <div className="aspect-[3/4] overflow-hidden bg-[#EFE9DE]">
+                      <img src={char.imageUrl} alt={char.name} className="w-full h-full object-cover" />
                     </div>
-                    <p className="mt-3 px-1 text-[15px] font-bold truncate">{char.name}</p>
-                    <p className="px-1 text-[12px] text-[#0E1D26]/50 truncate capitalize">{(char.role || "").toLowerCase()}</p>
+                    <p className="mt-2.5 font-['Caveat'] text-[24px] font-bold leading-none text-center truncate">{char.name}</p>
+                    <p className="mt-0.5 text-[11px] text-[#0E1D26]/50 text-center truncate capitalize">{(char.role || "").toLowerCase()}</p>
                   </button>
                 ))
               ) : (
@@ -1780,8 +1845,10 @@ ${backstoryText}`;
                     <div
                       key={char.id}
                       onClick={() => handleOpenEditorEdit(char)}
-                      className="group rounded-3xl bg-white border border-[#E9E2D4] hover:border-[#0E1D26]/25 p-5 min-h-[260px] flex flex-col transition-colors cursor-pointer"
+                      style={{ transform: `rotate(${tiltFor(char.id, 2)}deg)` }}
+                      className="group relative bg-[#FDFBF6] p-5 pt-6 min-h-[280px] flex flex-col rounded-[3px] shadow-[0_16px_26px_-18px_rgba(14,29,38,0.6),0_1px_2px_rgba(14,29,38,0.15)] transition-transform duration-300 hover:!rotate-0 hover:-translate-y-1 cursor-pointer"
                     >
+                      <Tape className="-top-2.5 left-1/2 -translate-x-1/2" tone={char.role === "PROTAGONIST" ? "mustard" : "light"} rotate={tiltFor(char.id + "t", 3) * 2} />
                       <div className="flex items-center gap-4">
                         <button
                           onClick={(e) => {
@@ -1789,9 +1856,9 @@ ${backstoryText}`;
                             setQuickImageChar(char);
                           }}
                           title="Change portrait"
-                          className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden bg-[#EFE9DE] cursor-pointer"
+                          className="w-[76px] shrink-0 bg-white p-1 pb-3.5 shadow-[0_6px_12px_-6px_rgba(14,29,38,0.5)] -rotate-3 group-hover:rotate-0 transition-transform cursor-pointer"
                         >
-                          <img src={char.imageUrl} alt={char.name} className="w-full h-full object-cover" />
+                          <img src={char.imageUrl} alt={char.name} className="w-full aspect-square object-cover" />
                         </button>
                         <div className="min-w-0">
                           <h3 className="text-[17px] font-bold leading-tight truncate">{char.name}</h3>
@@ -1805,20 +1872,27 @@ ${backstoryText}`;
                         </div>
                       </div>
 
-                      <p className="mt-4 text-[13px] leading-relaxed text-[#0E1D26]/60 line-clamp-3">
+                      {/* Ruled-paper notes */}
+                      <p
+                        className="mt-4 text-[13px] leading-[22px] text-[#0E1D26]/65 line-clamp-3"
+                        style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 21px, rgba(14,29,38,0.08) 21px 22px)" }}
+                      >
                         {char.backstory || char.description || char.shortBio || "No backstory yet."}
                       </p>
 
                       <div className="mt-auto pt-4 flex items-end justify-between gap-2">
                         <div className="flex flex-wrap gap-1 min-w-0">
                           {traits.slice(0, 3).map((trait, i) => (
-                            <span key={`${char.id}-${trait}-${i}`} className="px-2 py-0.5 rounded-full bg-[#F1ECE2] text-[11px] text-[#0E1D26]/65">
+                            <span key={`${char.id}-${trait}-${i}`} className="px-2 py-0.5 bg-[#F1ECE2] text-[11px] text-[#0E1D26]/65 shadow-[0_1px_1px_rgba(14,29,38,0.08)]" style={{ transform: `rotate(${i % 2 ? 1 : -1}deg)` }}>
                               {trait}
                             </span>
                           ))}
                           {traits.length > 3 && <span className="px-1 text-[11px] text-[#0E1D26]/40">+{traits.length - 3}</span>}
                         </div>
                         <div className="flex items-center shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={(e) => { e.stopPropagation(); handleOpenEditorEdit(char); }} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/40 hover:text-[#0E1D26] hover:bg-[#F1ECE2] cursor-pointer" title="Edit">
+                            <IconEdit className="w-4 h-4" />
+                          </button>
                           <button onClick={(e) => handleCopyText(char, e)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/40 hover:text-[#0E1D26] hover:bg-[#F8F5EE] cursor-pointer" title="Copy info for AI">
                             {copiedCharId === char.id ? <IconTick className="w-4 h-4 text-emerald-600" /> : <IconCopy className="w-4 h-4" />}
                           </button>
@@ -1890,8 +1964,8 @@ ${backstoryText}`;
             {/* Board */}
             <div
               ref={canvasRef}
-              className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing bg-[#FBF9F5]"
-              style={{ backgroundImage: "radial-gradient(rgba(14,29,38,0.09) 1px, transparent 1px)", backgroundSize: `${22 * scale}px ${22 * scale}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}
+              className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
+              style={CORK_STYLE}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "copy";
@@ -1919,9 +1993,18 @@ ${backstoryText}`;
                 else handleZoomOut();
               }}
             >
+              {/* Cork texture + soft vignette */}
+              <Grain opacity={0.55} />
+              <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 0 120px rgba(90,60,30,0.25)" }} />
+
               {nodes.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <p className="text-[14px] text-[#0E1D26]/40">Drag characters from the left, then pull a wire between two portraits.</p>
+                  <div className="relative bg-[#F7E3A6] px-6 py-5 rotate-[-2deg] shadow-[0_14px_24px_-16px_rgba(14,29,38,0.6)]">
+                    <Tape className="-top-2.5 left-1/2 -translate-x-1/2" rotate={3} />
+                    <p className="font-['Caveat'] text-[24px] font-bold leading-snug text-center max-w-[260px]">
+                      Pin characters from the left, then pull a string between two photos.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -1956,7 +2039,9 @@ ${backstoryText}`;
 
                     return (
                       <g key={edge.id}>
-                        <path d={`M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`} stroke={edge.color} strokeWidth="2" opacity="0.75" fill="none" strokeLinecap="round" />
+                        {/* string with a soft cast shadow */}
+                        <path d={`M ${sx} ${sy + 3} Q ${cx} ${cy + 3} ${tx} ${ty + 3}`} stroke="rgba(60,40,20,0.25)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                        <path d={`M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`} stroke={edge.color} strokeWidth="2.2" fill="none" strokeLinecap="round" />
                         <g
                           transform={`translate(${mx}, ${my})`}
                           className="pointer-events-auto cursor-pointer group"
@@ -1965,7 +2050,10 @@ ${backstoryText}`;
                             setPendingEdge({ source: edge.source, target: edge.target, edgeId: edge.id });
                           }}
                         >
-                          <rect x={-labelWidth / 2} y="-11" width={labelWidth} height="22" rx="11" fill="#FFFFFF" stroke="#E9E2D4" strokeWidth="1" className="group-hover:stroke-[#0E1D26]/40 transition-colors" />
+                          {/* paper tag with a strip of tape */}
+                          <rect x={-labelWidth / 2 + 1} y="-9" width={labelWidth} height="22" fill="rgba(60,40,20,0.18)" />
+                          <rect x={-labelWidth / 2} y="-11" width={labelWidth} height="22" fill="#FDFBF6" stroke="#E4DAC8" strokeWidth="1" className="group-hover:stroke-[#0E1D26]/40 transition-colors" />
+                          <rect x="-12" y="-15" width="24" height="7" fill="rgba(255,255,255,0.7)" transform="rotate(-4)" />
                           <foreignObject x={-labelWidth / 2 + 7} y="-7" width="14" height="14">
                             <div className="w-full h-full flex items-center justify-center">
                               <EdgeIcon className="w-3 h-3" style={{ color: edge.color }} />
@@ -2019,43 +2107,49 @@ ${backstoryText}`;
                     <div
                       key={node.id}
                       className="absolute flex flex-col items-center cursor-grab active:cursor-grabbing hover:z-20 group"
-                      style={{ left: node.x, top: node.y, transform: "translate(-50%, -24px)", touchAction: "none" }}
+                      style={{ left: node.x, top: node.y, transform: "translate(-50%, -36px)", touchAction: "none" }}
                       onPointerDown={(e) => handleNodePointerDown(e, node.id)}
                       onPointerMove={handleNodePointerMove}
                       onPointerUp={handlePointerUp}
                       onPointerCancel={handlePointerUp}
                     >
-                      <div className="relative" title={char.name}>
-                        <img
-                          src={char.imageUrl}
-                          alt=""
-                          className={cn(
-                            "w-[88px] h-[88px] rounded-full object-cover bg-white ring-4 shadow-[0_10px_24px_-12px_rgba(14,29,38,0.55)] pointer-events-none transition-shadow",
-                            selectedCharId === node.id ? "ring-[#E8561F]" : "ring-white"
-                          )}
-                        />
-                        {/* Wire handle */}
+                      {/* Pinned polaroid */}
+                      <div
+                        className={cn(
+                          "relative w-[110px] bg-[#FDFBF6] p-1.5 pb-0 shadow-[0_14px_22px_-12px_rgba(40,25,10,0.65),0_1px_2px_rgba(40,25,10,0.2)] transition-shadow",
+                          selectedCharId === node.id && "outline outline-2 outline-offset-2 outline-[#E8561F]"
+                        )}
+                        style={{ transform: `rotate(${tiltFor(node.id)}deg)` }}
+                        title={char.name}
+                      >
+                        <Pin color={pinFor(char.id)} className="-top-1.5 left-1/2 -translate-x-1/2 z-10" />
+                        <img src={char.imageUrl} alt="" className="w-full h-[100px] object-cover pointer-events-none" />
+                        <p className="h-8 flex items-center justify-center px-1 font-['Caveat'] text-[19px] font-bold leading-none text-center truncate pointer-events-none">
+                          {char.name}
+                        </p>
+
+                        {/* String handle */}
                         <div
-                          className="absolute -right-1 bottom-1 w-7 h-7 bg-white border border-[#E9E2D4] rounded-full flex items-center justify-center text-[#0E1D26]/55 opacity-0 group-hover:opacity-100 hover:bg-[#0E1D26] hover:text-white transition cursor-crosshair shadow-sm z-30"
+                          className="absolute -right-3 top-[88px] w-7 h-7 bg-white border border-[#E4DAC8] rounded-full flex items-center justify-center text-[#0E1D26]/55 opacity-0 group-hover:opacity-100 hover:bg-[#0E1D26] hover:text-white transition cursor-crosshair shadow-sm z-30"
                           onPointerDown={(e) => handleStartDrawEdge(e, node.id)}
-                          title="Pull a relationship wire"
+                          title="Pull a relationship string"
                         >
                           <IconLink className="w-3.5 h-3.5" />
                         </div>
-                      </div>
-                      <div className="mt-2 max-w-[140px] px-2.5 py-1 rounded-full bg-white/90 border border-[#E9E2D4] text-center pointer-events-none">
-                        <p className="text-[12px] font-bold leading-tight truncate">{char.name}</p>
                       </div>
 
                       {/* Dossier card */}
                       {selectedCharId === node.id && (
                         <div
-                          className="absolute left-[calc(50%+60px)] top-0 w-72 bg-white rounded-3xl shadow-[0_24px_48px_-20px_rgba(14,29,38,0.45)] border border-[#E9E2D4] p-5 cursor-auto z-50 text-left animate-in fade-in zoom-in-95 duration-150"
+                          className="absolute left-[calc(50%+72px)] top-0 w-72 bg-[#FDFBF6] rounded-[3px] shadow-[0_24px_40px_-20px_rgba(40,25,10,0.6),0_1px_2px_rgba(40,25,10,0.2)] p-5 pt-6 cursor-auto z-50 text-left animate-in fade-in zoom-in-95 duration-150"
                           style={{ touchAction: "auto" }}
                           onPointerDown={(e) => e.stopPropagation()}
                         >
+                          <Tape className="-top-2.5 left-1/2 -translate-x-1/2" tone="mustard" rotate={-2} />
                           <div className="flex items-center gap-3">
-                            <img src={char.imageUrl} alt="" className="w-14 h-14 rounded-2xl object-cover" />
+                            <div className="bg-white p-1 pb-2.5 shadow-md -rotate-2 shrink-0">
+                              <img src={char.imageUrl} alt="" className="w-14 h-14 object-cover" />
+                            </div>
                             <div className="min-w-0">
                               <h3 className="text-[17px] font-bold leading-tight truncate">{char.name}</h3>
                               <p className="mt-0.5 text-[12px] text-[#0E1D26]/50 truncate">
