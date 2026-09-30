@@ -16,7 +16,8 @@ import { AppLayout, ProjectLayout } from "./components/layout/layouts";
 import { storage } from "./lib/storage";
 import { auth } from "./lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { RefreshCw, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
+import WaveLoader from "./components/brand/WaveLoader";
 import Dashboard from "./pages/Dashboard";
 import CreateProject from "./pages/CreateProject";
 import ProjectOverview from "./pages/ProjectOverview";
@@ -57,21 +58,7 @@ function ProtectedRoute() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen w-full bg-[#F4F1EA] flex flex-col items-center justify-center text-[#4A3225] select-none p-6">
-        <div className="flex flex-col items-center max-w-sm text-center">
-          <img
-            src="https://res.cloudinary.com/mekoxs1q/image/upload/v1790161979/cb32de78-f03c-42e2-b8fc-b0cdf160a1db_pzozap.png"
-            alt="Ocean Novel"
-            className="w-56 sm:w-72 md:w-80 max-w-full h-auto object-contain select-none drop-shadow-xs"
-          />
-          <div className="flex items-center gap-2.5 text-xs sm:text-sm text-stone-500 font-serif mt-5">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#8C503C]" />
-            <span className="tracking-wide">Verifying Author Access...</span>
-          </div>
-        </div>
-      </div>
-    );
+    return <WaveLoader label="Opening your library…" />;
   }
 
   // If user is not authenticated, redirect directly to Login

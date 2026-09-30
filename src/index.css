@@ -120,3 +120,29 @@ input, textarea, .ProseMirror, .select-text, .allow-select {
 .ProseMirror p {
   text-align: justify;
 }
+
+/* Ocean loading screen */
+@keyframes ocean-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes ocean-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(-0.6deg); }
+}
+@keyframes ocean-line {
+  0% { stroke-dasharray: 0 100; stroke-dashoffset: 0; }
+  50% { stroke-dasharray: 100 0; stroke-dashoffset: 0; }
+  100% { stroke-dasharray: 0 100; stroke-dashoffset: -100; }
+}
+@keyframes ocean-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ocean-wave { animation: ocean-drift 16s linear infinite; will-change: transform; }
+.ocean-bob { animation: ocean-bob 4.5s ease-in-out infinite; }
+.ocean-line { animation: ocean-line 2.4s ease-in-out infinite; }
+.ocean-fade-in { animation: ocean-fade-in 0.4s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .ocean-wave, .ocean-bob, .ocean-line { animation: none; }
+}
