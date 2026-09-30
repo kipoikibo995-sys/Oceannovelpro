@@ -255,12 +255,12 @@ export default function CreateProject() {
     }, 400);
   };
 
-  const labelCls = "block pl-1 mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#0E1D26]/55";
+  const labelCls = "block pl-1 mb-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#0E1D26]/55";
   const inputCls =
-    "w-full h-[52px] px-5 bg-white border border-[#E4DAC8] rounded-full text-[15px] text-[#0E1D26] placeholder:text-[#0E1D26]/35 outline-none transition focus:border-[#E8561F] focus:ring-4 focus:ring-[#E8561F]/12";
+    "w-full h-[46px] px-5 bg-white border border-[#E4DAC8] rounded-full text-[15px] text-[#0E1D26] placeholder:text-[#0E1D26]/35 outline-none transition focus:border-[#E8561F] focus:ring-4 focus:ring-[#E8561F]/12";
   const pill = (active: boolean) =>
     cn(
-      "px-3.5 py-2 rounded-full text-[12px] font-semibold border transition-colors cursor-pointer",
+      "px-3.5 py-1.5 rounded-full text-[12px] font-semibold border transition-colors cursor-pointer",
       active ? "bg-[#0E1D26] border-[#0E1D26] text-[#F6F1E7]" : "bg-white border-[#E4DAC8] text-[#0E1D26]/70 hover:border-[#0E1D26]/40"
     );
   const atQuota = existingProjects.length >= maxProjects;
@@ -323,37 +323,32 @@ export default function CreateProject() {
         </aside>
 
         {/* ================= RIGHT: FORM ================= */}
-        <main className="flex-1 px-6 sm:px-10 lg:px-16 py-10 lg:py-14 flex justify-center">
+        <main className="flex-1 px-6 sm:px-10 lg:px-14 py-8 lg:py-4 flex justify-center lg:items-center">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className="w-full max-w-[560px]"
+            className="w-full max-w-[600px]"
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-end justify-between gap-4">
               <div>
                 <Tag>New Book</Tag>
-                <h1 className="mt-4 text-[40px] sm:text-[48px] font-extrabold leading-[0.98] tracking-[-0.02em]">
-                  Start a new
-                  <br />
-                  <span className="text-[#E8561F]">Story.</span>
+                <h1 className="mt-3 text-[34px] sm:text-[40px] font-extrabold leading-none tracking-[-0.02em]">
+                  Start a new <span className="text-[#E8561F]">Story.</span>
                 </h1>
               </div>
               <button
                 type="button"
                 onClick={() => setIsHelpOpen(true)}
-                className="shrink-0 mt-1 h-10 px-4 rounded-full bg-white border border-[#E4DAC8] hover:border-[#E8561F] text-[12px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+                className="shrink-0 h-10 px-4 rounded-full bg-white border border-[#E4DAC8] hover:border-[#E8561F] text-[12px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
                 title="Manuscript Setup Guide & AI Prompt"
               >
                 <IconQuill className="w-4 h-4 text-[#E8561F]" />
                 <span className="hidden sm:inline">Guide & AI prompt</span>
               </button>
             </div>
-            <p className="mt-3 text-[15px] text-[#0E1D26]/60">
-              A few details now — you can change all of them later in the Story Bible.
-            </p>
 
-            <div className="mt-8 space-y-6">
+            <div className="mt-5 space-y-4">
               <div>
                 <label className={labelCls}>Manuscript title</label>
                 <input
@@ -361,7 +356,7 @@ export default function CreateProject() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Whispers of the Astral Spire"
-                  className={cn(inputCls, "h-[58px] text-[18px] font-semibold")}
+                  className={cn(inputCls, "h-[50px] text-[17px] font-semibold")}
                   autoFocus
                 />
               </div>
@@ -398,8 +393,8 @@ export default function CreateProject() {
                   value={logline}
                   onChange={(e) => setLogline(e.target.value)}
                   placeholder="In one or two sentences — the core conflict and the mystery of your story."
-                  rows={3}
-                  className="w-full px-5 py-4 bg-white border border-[#E4DAC8] rounded-[26px] text-[14px] leading-relaxed placeholder:text-[#0E1D26]/35 outline-none resize-none transition focus:border-[#E8561F] focus:ring-4 focus:ring-[#E8561F]/12"
+                  rows={2}
+                  className="w-full px-5 py-3 bg-white border border-[#E4DAC8] rounded-[26px] text-[14px] leading-relaxed placeholder:text-[#0E1D26]/35 outline-none resize-none transition focus:border-[#E8561F] focus:ring-4 focus:ring-[#E8561F]/12"
                 />
               </div>
 
@@ -425,7 +420,7 @@ export default function CreateProject() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>
                     Cover colour · <span className="text-[#E8561F]">{COVER_PALETTES[palette].name}</span>
@@ -479,19 +474,19 @@ export default function CreateProject() {
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-1">
                 <button
                   type="button"
                   onClick={handleCreate}
                   disabled={isSubmitting || !title.trim()}
-                  className="group w-full h-[58px] pl-7 pr-2 bg-[#E8561F] hover:bg-[#D44B17] text-white rounded-full text-[16px] font-bold flex items-center justify-between shadow-[0_14px_30px_-14px_rgba(232,86,31,0.9)] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="group w-full h-[54px] pl-7 pr-2 bg-[#E8561F] hover:bg-[#D44B17] text-white rounded-full text-[16px] font-bold flex items-center justify-between shadow-[0_14px_30px_-14px_rgba(232,86,31,0.9)] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span>{isSubmitting ? "Creating your book…" : "Create & Start Writing"}</span>
                   <span className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center transition-transform group-hover:translate-x-0.5">
                     <IconArrow className="w-5 h-5" />
                   </span>
                 </button>
-                <p className="mt-3 text-center text-[12px] text-[#0E1D26]/50">
+                <p className="mt-2 text-center text-[12px] text-[#0E1D26]/50">
                   {!title.trim()
                     ? "Add a title to create your book."
                     : atQuota
