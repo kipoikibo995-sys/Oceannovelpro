@@ -44,21 +44,38 @@ export function Tag({
 /* Book cover — deterministic Bauhaus art per book                     */
 /* ------------------------------------------------------------------ */
 
-const COVER_PALETTES = [
-  { bg: "#F6F1E7", a: "#E8561F", b: "#F0B54B", c: "#0E1D26", ink: "#0E1D26" },
-  { bg: "#0E1D26", a: "#E8561F", b: "#F0B54B", c: "#F6F1E7", ink: "#F6F1E7" },
-  { bg: "#E8561F", a: "#0E1D26", b: "#F0B54B", c: "#F6F1E7", ink: "#F6F1E7" },
-  { bg: "#E9DCC5", a: "#0E1D26", b: "#E8561F", c: "#F0B54B", ink: "#0E1D26" },
-  { bg: "#F0B54B", a: "#0E1D26", b: "#E8561F", c: "#F6F1E7", ink: "#0E1D26" },
+export const COVER_PALETTES = [
+  { name: "Ivory", bg: "#F6F1E7", a: "#E8561F", b: "#F0B54B", c: "#0E1D26", ink: "#0E1D26" },
+  { name: "Midnight", bg: "#0E1D26", a: "#E8561F", b: "#F0B54B", c: "#F6F1E7", ink: "#F6F1E7" },
+  { name: "Ember", bg: "#E8561F", a: "#0E1D26", b: "#F0B54B", c: "#F6F1E7", ink: "#F6F1E7" },
+  { name: "Sandstone", bg: "#E9DCC5", a: "#0E1D26", b: "#E8561F", c: "#F0B54B", ink: "#0E1D26" },
+  { name: "Saffron", bg: "#F0B54B", a: "#0E1D26", b: "#E8561F", c: "#F6F1E7", ink: "#0E1D26" },
 ];
+
+export const COVER_ARTWORKS = ["Sun & Column", "Arch", "Stairs"] as const;
 
 export function hashSeed(seed: string) {
   return seed.split("").reduce((acc, ch, i) => (acc * 31 + ch.charCodeAt(0) * (i + 1)) >>> 0, 7);
 }
 
+// A book's chosen cover is stored in ProjectMeta.themeColor as "ocean:<palette>:<artwork>".
+// Older books keep their legacy Tailwind class and fall back to the genre-derived look.
+export function coverTheme(palette: number, artwork: number) {
+  return `ocean:${palette}:${artwork}`;
+}
+
+function parseCoverTheme(theme?: string) {
+  const m = /^ocean:(\d+):(\d+)$/.exec(theme || "");
+  if (!m) return null;
+  return {
+    palette: COVER_PALETTES[Number(m[1]) % COVER_PALETTES.length],
+    artwork: Number(m[2]) % COVER_ARTWORKS.length,
+  };
+}
+
 // Same palette the book's cover uses — lets spines and covers match
-export function coverPaletteFor(genre: string, seed: string) {
-  return paletteFor(genre, hashSeed(seed));
+export function coverPaletteFor(genre: string, seed: string, theme?: string) {
+  return parseCoverTheme(theme)?.palette ?? paletteFor(genre, hashSeed(seed));
 }
 
 // Genre nudges the palette so shelves read at a glance; the seed varies the composition
@@ -77,6 +94,7 @@ export function BookCover({
   genre = "",
   seed,
   subtitle,
+  theme,
   className,
   titleClassName,
 }: {
@@ -84,12 +102,14 @@ export function BookCover({
   genre?: string;
   seed: string;
   subtitle?: string;
+  theme?: string;
   className?: string;
   titleClassName?: string;
 }) {
   const h = hashSeed(seed || title);
-  const p = paletteFor(genre, h);
-  const variant = h % 3;
+  const chosen = parseCoverTheme(theme);
+  const p = chosen?.palette ?? paletteFor(genre, h);
+  const variant = chosen?.artwork ?? h % 3;
 
   return (
     <div className={cn("relative overflow-hidden rounded-r-md rounded-l-sm", className)} style={{ background: p.bg }}>
@@ -144,13 +164,17 @@ export function BookMockup({
   genre,
   seed,
   subtitle,
+  theme,
   className,
+  titleClassName = "text-[26px]",
 }: {
   title: string;
   genre?: string;
   seed: string;
   subtitle?: string;
+  theme?: string;
   className?: string;
+  titleClassName?: string;
 }) {
   return (
     <motion.div
@@ -167,8 +191,9 @@ export function BookMockup({
         genre={genre}
         seed={seed}
         subtitle={subtitle}
+        theme={theme}
         className="absolute inset-0 shadow-[18px_24px_40px_-12px_rgba(0,0,0,0.6)]"
-        titleClassName="text-[26px]"
+        titleClassName={titleClassName}
       />
     </motion.div>
   );

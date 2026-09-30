@@ -795,6 +795,7 @@ export default function Dashboard() {
                 title={activeProject?.title || "Ocean Novel"}
                 genre={activeProject?.genre}
                 seed={activeProject?.id || "ocean-novel"}
+                theme={activeProject?.themeColor}
                 subtitle={activeProject?.genre || "Story Studio"}
                 className="w-[170px] h-[224px] lg:w-[190px] lg:h-[250px]"
               />
@@ -861,7 +862,7 @@ export default function Dashboard() {
                 <div className="shrink-0 w-10 h-20 mr-2 rounded-t-full bg-[#F0B54B]" aria-hidden="true" />
 
                 {savedProjects.map((proj, index) => {
-                  const palette = coverPaletteFor(proj.genre || "", proj.id);
+                  const palette = coverPaletteFor(proj.genre || "", proj.id, proj.themeColor);
                   const isSelected = activeProject?.id === proj.id;
                   const ratio = Math.min(1, Math.max(0, (proj.currentWords || 0) / (proj.wordGoal || 75000)));
                   const pct = Math.round(ratio * 100);
@@ -1625,6 +1626,7 @@ export default function Dashboard() {
                   title={projectToDelete.title}
                   genre={projectToDelete.genre}
                   seed={projectToDelete.id}
+                  theme={projectToDelete.themeColor}
                   className="w-14 h-[74px] shrink-0"
                   titleClassName="text-[8px]"
                 />

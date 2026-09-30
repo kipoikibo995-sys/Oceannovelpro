@@ -1,173 +1,73 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  ChevronLeft, 
-  BookOpen, 
-  Feather, 
-  Compass, 
-  Flame, 
-  ShieldAlert, 
-  Hourglass,
-  Layers,
-  HelpCircle,
-  Copy,
-  Check,
-  Info,
-  X,
-  ArrowRight,
-  Shield,
-  Crown,
-  Moon,
-  Waves
-} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { storage } from "@/lib/storage";
 import { PLAN_LIMITS } from "@/lib/license";
 import UpgradeModal from "@/components/UpgradeModal";
+import {
+  BookCover,
+  BookMockup,
+  COVER_ARTWORKS,
+  COVER_PALETTES,
+  IconArrow,
+  IconBookWave,
+  IconClose,
+  IconQuill,
+  IconTick,
+  Tag,
+  coverTheme,
+} from "@/components/brand/ocean-ui";
 
 interface GenreTheme {
   name: string;
-  icon: React.ElementType;
   tagline: string;
-  bgGradient: string;
-  spotlightGlow: string;
-  accent: string;
-  accentBorder: string;
-  accentText: string;
-  particleColor: string;
-  cardBg: string;
-  cardBorder: string;
-  defaultBindingName: string;
+  // Default cover (index into COVER_PALETTES / COVER_ARTWORKS) until the author picks one
+  palette: number;
+  artwork: number;
 }
 
 const GENRE_THEMES: Record<string, GenreTheme> = {
   "High & Epic Fantasy": {
     name: "High & Epic Fantasy",
-    icon: Crown,
     tagline: "Ancient dynastic oaths, world-shattering magic & forgotten empires",
-    bgGradient: "radial-gradient(ellipse 90% 80% at 30% 45%, #F4F1EA 0%, #EFE9DE 50%, #E3D9C8 100%)",
-    spotlightGlow: "radial-gradient(circle 380px at 32% 48%, rgba(140, 80, 60, 0.12), rgba(217, 119, 6, 0.08), transparent 75%)",
-    accent: "bg-[#8C503C] hover:bg-[#723E2E]",
-    accentBorder: "border-[#8C503C]/40 focus-within:border-[#8C503C]",
-    accentText: "text-[#8C503C]",
-    particleColor: "rgba(140, 80, 60, 0.45)",
-    cardBg: "bg-[#FCFAF5]/90 backdrop-blur-xl",
-    cardBorder: "border-[#E5E0D5]",
-    defaultBindingName: "Obsidian",
+    palette: 0,
+    artwork: 0,
   },
   "Dark Fantasy & Grimdark": {
     name: "Dark Fantasy & Grimdark",
-    icon: Moon,
     tagline: "Forbidden blood sorcery, cursed relics & unforgiving realms",
-    bgGradient: "radial-gradient(ellipse 90% 80% at 30% 45%, #F0EAE1 0%, #E6DDCE 50%, #DACFBD 100%)",
-    spotlightGlow: "radial-gradient(circle 380px at 32% 48%, rgba(68, 46, 35, 0.15), rgba(140, 80, 60, 0.1), transparent 75%)",
-    accent: "bg-[#442E23] hover:bg-[#2C1D16]",
-    accentBorder: "border-[#442E23]/40 focus-within:border-[#442E23]",
-    accentText: "text-[#442E23]",
-    particleColor: "rgba(68, 46, 35, 0.45)",
-    cardBg: "bg-[#FCFAF5]/90 backdrop-blur-xl",
-    cardBorder: "border-[#E5E0D5]",
-    defaultBindingName: "Mahogany",
+    palette: 2,
+    artwork: 2,
   },
   "Gothic & Coastal Fantasy": {
     name: "Gothic & Coastal Fantasy",
-    icon: Waves,
     tagline: "Salt-stained codices, drowned archives & mist-bound archipelagoes",
-    bgGradient: "radial-gradient(ellipse 90% 80% at 30% 45%, #F2EFE8 0%, #E8E5DC 50%, #D8D4C8 100%)",
-    spotlightGlow: "radial-gradient(circle 380px at 32% 48%, rgba(44, 29, 22, 0.12), rgba(140, 80, 60, 0.08), transparent 75%)",
-    accent: "bg-[#334D43] hover:bg-[#23352E]",
-    accentBorder: "border-[#334D43]/40 focus-within:border-[#334D43]",
-    accentText: "text-[#334D43]",
-    particleColor: "rgba(51, 77, 67, 0.4)",
-    cardBg: "bg-[#FCFAF5]/90 backdrop-blur-xl",
-    cardBorder: "border-[#E5E0D5]",
-    defaultBindingName: "Forest",
+    palette: 0,
+    artwork: 1,
   },
   "Mythic & Folklore Fantasy": {
     name: "Mythic & Folklore Fantasy",
-    icon: Compass,
     tagline: "Primeval pantheons, world trees & ancestral folklore",
-    bgGradient: "radial-gradient(ellipse 90% 80% at 30% 45%, #F6F2EA 0%, #EDE5D6 50%, #DFD5C2 100%)",
-    spotlightGlow: "radial-gradient(circle 380px at 32% 48%, rgba(217, 119, 6, 0.15), rgba(140, 80, 60, 0.1), transparent 75%)",
-    accent: "bg-[#B45309] hover:bg-[#92400E]",
-    accentBorder: "border-[#D97706]/40 focus-within:border-[#B45309]",
-    accentText: "text-[#92400E]",
-    particleColor: "rgba(217, 119, 6, 0.45)",
-    cardBg: "bg-[#FCFAF5]/90 backdrop-blur-xl",
-    cardBorder: "border-[#E5E0D5]",
-    defaultBindingName: "Parchment",
+    palette: 4,
+    artwork: 0,
   },
   "Arcane & Gaslamp Fantasy": {
     name: "Arcane & Gaslamp Fantasy",
-    icon: Compass,
     tagline: "Alchemical colleges, secret mage guilds & clockwork mysteries",
-    bgGradient: "radial-gradient(ellipse 90% 80% at 30% 45%, #F3F1EC 0%, #E9E6DE 50%, #DAD5C9 100%)",
-    spotlightGlow: "radial-gradient(circle 380px at 32% 48%, rgba(140, 80, 60, 0.15), rgba(180, 83, 9, 0.1), transparent 75%)",
-    accent: "bg-[#8C503C] hover:bg-[#723E2E]",
-    accentBorder: "border-[#8C503C]/40 focus-within:border-[#8C503C]",
-    accentText: "text-[#8C503C]",
-    particleColor: "rgba(140, 80, 60, 0.4)",
-    cardBg: "bg-[#FCFAF5]/90 backdrop-blur-xl",
-    cardBorder: "border-[#E5E0D5]",
-    defaultBindingName: "Midnight",
+    palette: 3,
+    artwork: 1,
   },
   "Sword & Sorcery": {
     name: "Sword & Sorcery",
-    icon: Shield,
     tagline: "Heroic wanderers, forbidden catacombs & daring escapades",
-    bgGradient: "radial-gradient(ellipse 90% 80% at 30% 45%, #F5EFEB 0%, #EADFD9 50%, #DCCEC6 100%)",
-    spotlightGlow: "radial-gradient(circle 380px at 32% 48%, rgba(140, 80, 60, 0.18), rgba(68, 46, 35, 0.1), transparent 75%)",
-    accent: "bg-[#8C503C] hover:bg-[#723E2E]",
-    accentBorder: "border-[#8C503C]/40 focus-within:border-[#8C503C]",
-    accentText: "text-[#8C503C]",
-    particleColor: "rgba(140, 80, 60, 0.45)",
-    cardBg: "bg-[#FCFAF5]/90 backdrop-blur-xl",
-    cardBorder: "border-[#E5E0D5]",
-    defaultBindingName: "Mahogany",
+    palette: 2,
+    artwork: 0,
   },
 };
 
 const GENRES = Object.keys(GENRE_THEMES);
 const AUDIENCES = ["Middle Grade", "Young Adult (YA)", "New Adult", "Adult"];
-
-const COLORS = [
-  {
-    name: "Obsidian",
-    bg: "bg-[#1E252B]",
-    text: "text-[#E5E0D5]",
-    accent: "bg-[#8C503C]",
-    ribbon: "bg-rose-700",
-  },
-  {
-    name: "Mahogany",
-    bg: "bg-[#3D1F1F]",
-    text: "text-[#E5E0D5]",
-    accent: "bg-[#D3BFA9]",
-    ribbon: "bg-amber-600",
-  },
-  {
-    name: "Forest",
-    bg: "bg-[#1B2F24]",
-    text: "text-[#F4F1EA]",
-    accent: "bg-[#E5E0D5]",
-    ribbon: "bg-stone-300",
-  },
-  {
-    name: "Midnight",
-    bg: "bg-[#14142B]",
-    text: "text-[#E5E0D5]",
-    accent: "bg-[#5C7C8A]",
-    ribbon: "bg-indigo-400",
-  },
-  {
-    name: "Parchment",
-    bg: "bg-[#C4AC93]",
-    text: "text-[#2B231B]",
-    accent: "bg-[#8C503C]",
-    ribbon: "bg-rose-900",
-  },
-];
 
 const NEW_MANUSCRIPT_ARCHITECT_PROMPT = `I want you to help me prepare the information needed to create a new novel project.
 
@@ -203,13 +103,13 @@ Choose exactly ONE:
 - New Adult
 - Adult
 
-7. Cover Theme
+7. Cover Colour
 Choose exactly ONE:
-- Forest
-- Crimson
-- Emerald
-- Midnight
 - Ivory
+- Midnight
+- Ember
+- Sandstone
+- Saffron
 
 Do not generate characters, locations, worldbuilding, chapter outlines, scenes, or additional story content.
 
@@ -221,120 +121,7 @@ Word Count Target: ...
 Logline / Central Premise: ...
 Primary Genre: ...
 Target Audience: ...
-Cover Theme: ...`;
-
-// Floating Dust & Particles Component (Disabled to remove sparkling star particles)
-function AmbientParticles({ color: _color }: { color: string }) {
-  return null;
-}
-
-// Fantasy Constellation Graphic
-function ConstellationOverlay() {
-  return (
-    <div className="absolute inset-0 pointer-events-none z-5 opacity-25 mix-blend-multiply transition-opacity duration-1000">
-      {/* Top Right Constellation */}
-      <svg
-        className="absolute top-4 right-6 w-72 h-72 text-[#8C503C]/40"
-        viewBox="0 0 200 200"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle cx="30" cy="40" r="2.5" fill="currentColor" />
-        <circle cx="85" cy="25" r="2" fill="currentColor" />
-        <circle cx="140" cy="55" r="3" fill="currentColor" />
-        <circle cx="170" cy="115" r="2" fill="currentColor" />
-        <circle cx="120" cy="160" r="2.5" fill="currentColor" />
-        <circle cx="65" cy="130" r="2" fill="currentColor" />
-        <line x1="30" y1="40" x2="85" y2="25" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 3" />
-        <line x1="85" y1="25" x2="140" y2="55" stroke="currentColor" strokeWidth="0.6" />
-        <line x1="140" y1="55" x2="170" y2="115" stroke="currentColor" strokeWidth="0.6" strokeDasharray="2 2" />
-        <line x1="170" y1="115" x2="120" y2="160" stroke="currentColor" strokeWidth="0.6" />
-        <line x1="120" y1="160" x2="65" y2="130" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 3" />
-        <line x1="65" y1="130" x2="30" y2="40" stroke="currentColor" strokeWidth="0.6" />
-      </svg>
-
-      {/* Bottom Left Celestial Arc */}
-      <svg
-        className="absolute bottom-6 left-12 w-64 h-64 text-[#442E23]/30"
-        viewBox="0 0 200 200"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle cx="50" cy="150" r="2" fill="currentColor" />
-        <circle cx="90" cy="110" r="2.5" fill="currentColor" />
-        <circle cx="145" cy="95" r="2" fill="currentColor" />
-        <circle cx="180" cy="60" r="3" fill="currentColor" />
-        <line x1="50" y1="150" x2="90" y2="110" stroke="currentColor" strokeWidth="0.6" />
-        <line x1="90" y1="110" x2="145" y2="95" stroke="currentColor" strokeWidth="0.6" strokeDasharray="2 2" />
-        <line x1="145" y1="95" x2="180" y2="60" stroke="currentColor" strokeWidth="0.6" />
-        <circle cx="180" cy="60" r="8" fill="currentColor" opacity="0.15" />
-      </svg>
-    </div>
-  );
-}
-
-// Vintage Corner Filigree Ornamental Borders
-function CornerFiligree() {
-  return (
-    <div className="absolute inset-0 pointer-events-none z-5">
-      {/* Top-Left Corner */}
-      <svg
-        className="absolute top-3 left-3 w-14 h-14 text-[#8C503C]/20 transition-all duration-700"
-        viewBox="0 0 100 100"
-        fill="none"
-        stroke="currentColor"
-      >
-        <path d="M5 45 V 10 C 5 7.2 7.2 5 10 5 H 45" strokeWidth="1.5" />
-        <path d="M12 35 V 15 C 12 13.3 13.3 12 15 12 H 35" strokeWidth="0.75" strokeDasharray="2 2" />
-        <circle cx="10" cy="10" r="3" fill="currentColor" />
-        <circle cx="45" cy="5" r="2" fill="currentColor" />
-        <circle cx="5" cy="45" r="2" fill="currentColor" />
-      </svg>
-
-      {/* Top-Right Corner */}
-      <svg
-        className="absolute top-3 right-3 w-14 h-14 text-[#8C503C]/20 transition-all duration-700"
-        viewBox="0 0 100 100"
-        fill="none"
-        stroke="currentColor"
-      >
-        <path d="M95 45 V 10 C 95 7.2 92.8 5 90 5 H 55" strokeWidth="1.5" />
-        <path d="M88 35 V 15 C 88 13.3 86.7 12 85 12 H 65" strokeWidth="0.75" strokeDasharray="2 2" />
-        <circle cx="90" cy="10" r="3" fill="currentColor" />
-        <circle cx="55" cy="5" r="2" fill="currentColor" />
-        <circle cx="95" cy="45" r="2" fill="currentColor" />
-      </svg>
-
-      {/* Bottom-Left Corner */}
-      <svg
-        className="absolute bottom-3 left-3 w-14 h-14 text-[#8C503C]/20 transition-all duration-700"
-        viewBox="0 0 100 100"
-        fill="none"
-        stroke="currentColor"
-      >
-        <path d="M5 55 V 90 C 5 92.8 7.2 95 10 95 H 45" strokeWidth="1.5" />
-        <path d="M12 65 V 85 C 12 86.7 13.3 88 15 88 H 35" strokeWidth="0.75" strokeDasharray="2 2" />
-        <circle cx="10" cy="90" r="3" fill="currentColor" />
-        <circle cx="45" cy="95" r="2" fill="currentColor" />
-        <circle cx="5" cy="55" r="2" fill="currentColor" />
-      </svg>
-
-      {/* Bottom-Right Corner */}
-      <svg
-        className="absolute bottom-3 right-3 w-14 h-14 text-[#8C503C]/20 transition-all duration-700"
-        viewBox="0 0 100 100"
-        fill="none"
-        stroke="currentColor"
-      >
-        <path d="M95 55 V 90 C 95 92.8 92.8 95 90 95 H 55" strokeWidth="1.5" />
-        <path d="M88 65 V 85 C 88 86.7 86.7 88 85 88 H 65" strokeWidth="0.75" strokeDasharray="2 2" />
-        <circle cx="90" cy="90" r="3" fill="currentColor" />
-        <circle cx="55" cy="95" r="2" fill="currentColor" />
-        <circle cx="95" cy="55" r="2" fill="currentColor" />
-      </svg>
-    </div>
-  );
-}
+Cover Colour: ...`;
 
 export default function CreateProject() {
   const navigate = useNavigate();
@@ -344,7 +131,8 @@ export default function CreateProject() {
   const [genre, setGenre] = useState(GENRES[0]);
   const [audience, setAudience] = useState(AUDIENCES[1]);
   const [wordCount, setWordCount] = useState<number | string>(80000);
-  const [colorStyle, setColorStyle] = useState(COLORS[3]); // Default Midnight
+  const [palette, setPalette] = useState(GENRE_THEMES[GENRES[0]].palette);
+  const [artwork, setArtwork] = useState(GENRE_THEMES[GENRES[0]].artwork);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isPromptCopied, setIsPromptCopied] = useState(false);
@@ -353,7 +141,7 @@ export default function CreateProject() {
   // License check
   const profile = storage.getUserProfile();
   const existingProjects = storage.getProjects();
-  const maxProjects = PLAN_LIMITS[profile?.plan || 'free'].maxProjects;
+  const maxProjects = PLAN_LIMITS[profile?.plan || "free"].maxProjects;
 
   const handleCopyArchitectPrompt = async () => {
     try {
@@ -373,19 +161,19 @@ export default function CreateProject() {
     }
   };
 
-  // Active theme based on selected genre
-  const currentTheme = GENRE_THEMES[genre] || GENRE_THEMES.Fantasy;
+  const currentTheme = GENRE_THEMES[genre] || GENRE_THEMES[GENRES[0]];
+  const theme = coverTheme(palette, artwork);
 
-  // Auto-adapt default binding color when genre switches if user hasn't overridden
-  const userChangedBindingRef = useRef(false);
+  // Genre suggests a cover until the author chooses one themselves
+  const userChangedCoverRef = useRef(false);
 
   const handleGenreChange = (newGenre: string) => {
     setGenre(newGenre);
-    if (!userChangedBindingRef.current) {
-      const theme = GENRE_THEMES[newGenre];
-      if (theme) {
-        const found = COLORS.find((c) => c.name === theme.defaultBindingName);
-        if (found) setColorStyle(found);
+    if (!userChangedCoverRef.current) {
+      const t = GENRE_THEMES[newGenre];
+      if (t) {
+        setPalette(t.palette);
+        setArtwork(t.artwork);
       }
     }
   };
@@ -412,7 +200,7 @@ export default function CreateProject() {
         wordGoal: wordCount ? Number(wordCount) : 50000,
         currentWords: 0,
         lastModified: Date.now(),
-        themeColor: colorStyle.bg,
+        themeColor: theme,
       });
 
       // Save initial project data with rich prologue structure
@@ -467,576 +255,345 @@ export default function CreateProject() {
     }, 400);
   };
 
-  const handleBack = () => {
-    navigate("/dashboard");
-  };
+  const labelCls = "block pl-1 mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#0E1D26]/55";
+  const inputCls =
+    "w-full h-[52px] px-5 bg-white border border-[#E4DAC8] rounded-full text-[15px] text-[#0E1D26] placeholder:text-[#0E1D26]/35 outline-none transition focus:border-[#E8561F] focus:ring-4 focus:ring-[#E8561F]/12";
+  const pill = (active: boolean) =>
+    cn(
+      "px-3.5 py-2 rounded-full text-[12px] font-semibold border transition-colors cursor-pointer",
+      active ? "bg-[#0E1D26] border-[#0E1D26] text-[#F6F1E7]" : "bg-white border-[#E4DAC8] text-[#0E1D26]/70 hover:border-[#0E1D26]/40"
+    );
+  const atQuota = existingProjects.length >= maxProjects;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.35 }}
-      className="flex-1 h-[100dvh] w-full overflow-hidden flex flex-col relative font-sans selection:bg-amber-600 selection:text-white transition-colors duration-1000"
-      style={{
-        background: currentTheme.bgGradient,
-      }}
+      transition={{ duration: 0.3 }}
+      className="flex-1 min-h-0 h-full w-full overflow-y-auto custom-scrollbar bg-[#F6F1E7] font-['Outfit'] text-[#0E1D26] selection:bg-[#E8561F] selection:text-white"
     >
-      {/* 1. Parchment Old Paper Texture (5-8% opacity for subtle classic library tactile feel) */}
-      <div
-        className="absolute inset-0 opacity-[0.07] mix-blend-overlay pointer-events-none z-1"
-        style={{
-          backgroundImage:
-            'url("data:image/svg+xml,%3Csvg viewBox=%220 0 400 400%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noise%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.75%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3CfeColorMatrix type=%22matrix%22 values=%221 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noise)%22/%3E%3C/svg%3E")',
-        }}
-      />
+      <div className="min-h-full flex flex-col lg:flex-row">
+        {/* ================= LEFT: LIVE COVER PREVIEW ================= */}
+        <aside className="relative overflow-hidden bg-[#0E1D26] text-[#F6F1E7] lg:w-[44%] lg:sticky lg:top-0 lg:h-screen flex flex-col">
+          <div className="absolute -left-20 -bottom-28 w-[300px] h-[380px] rounded-t-full bg-[#F0B54B] rotate-[18deg]" aria-hidden="true" />
+          <div className="absolute right-10 top-24 w-[120px] h-[120px] rounded-full border-[18px] border-[#E8561F]/85 hidden sm:block" aria-hidden="true" />
 
-      {/* 2. Spotlight Glow Behind Book Preview */}
-      <div
-        className="absolute inset-0 pointer-events-none z-2 transition-all duration-1000 ease-out"
-        style={{
-          background: currentTheme.spotlightGlow,
-        }}
-      />
-
-      {/* 3. Ambient Star / Embers Particles */}
-      <AmbientParticles color={currentTheme.particleColor} />
-
-      {/* 4. Constellation graphics when Fantasy or Sci-Fi is active */}
-      {(genre === "Fantasy" || genre === "Sci-Fi") && <ConstellationOverlay />}
-
-      {/* 5. Ornamental Corner Filigree for classic bookbinding atmosphere */}
-      <CornerFiligree />
-
-      {/* Top Header Bar */}
-      <div className="relative z-20 px-6 py-4 lg:px-12 lg:py-5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-2.5 text-stone-700 hover:text-[#4A3225] transition-all group"
-          >
-            <div className="w-8 h-8 rounded-full bg-white/80 border border-[#DCD5C9] flex items-center justify-center group-hover:bg-white group-hover:scale-105 transition-all shadow-xs">
-              <ChevronLeft className="w-4 h-4 text-[#8C503C] group-hover:text-[#723E2E]" />
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-stone-500 group-hover:text-[#8C503C]">
-                Back to Archives
-              </span>
-              <span className="text-[10px] text-stone-600 font-serif italic hidden sm:inline">
-                Author Dashboard
-              </span>
-            </div>
-          </button>
-
-          {/* Guide / Help Button */}
-          <button
-            type="button"
-            onClick={() => setIsHelpOpen(true)}
-            className="w-7 h-7 rounded-full bg-[#8C503C]/10 hover:bg-[#8C503C]/20 border border-[#8C503C]/30 text-[#8C503C] flex items-center justify-center transition-all shadow-xs group hover:scale-105"
-            title="Manuscript Setup Guide & AI Prompt"
-            aria-label="Manuscript Setup Guide & AI Prompt"
-          >
-            <HelpCircle className="w-4 h-4 transition-transform group-hover:rotate-12" />
-          </button>
-        </div>
-
-        {/* Case File Metadata Stamp */}
-        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/70 border border-[#E5E0D5] shadow-xs">
-          <div className="w-2 h-2 rounded-full bg-[#8C503C] animate-pulse shadow-[0_0_8px_rgba(140,80,60,0.5)]" />
-          <span className="text-[9px] font-mono tracking-widest text-[#6B5344] uppercase font-bold">
-            DOSSIER REGISTRY // FORM-7B
-          </span>
-        </div>
-      </div>
-
-      {/* Main Content: Split Screen Layout */}
-      <div className="relative z-10 flex-1 flex flex-col lg:flex-row items-center justify-center max-w-[1440px] mx-auto w-full px-6 lg:px-14 gap-8 lg:gap-20 h-full min-h-0 pb-6 lg:pb-8 overflow-y-auto lg:overflow-visible">
-        
-        {/* LEFT COLUMN: 3D BOOK PREVIEW CANVAS */}
-        <motion.div
-          initial={{ opacity: 0, x: -40, rotateY: -15 }}
-          animate={{ opacity: 1, x: 0, rotateY: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="flex-1 flex flex-col justify-center items-center w-full max-w-[420px] lg:max-w-[480px] shrink-0"
-        >
-          {/* Spotlight Pedestal aura */}
-          <div className="relative w-[210px] h-[300px] lg:w-[260px] lg:h-[380px] group [perspective:1400px]">
-            {/* Soft shadow below book */}
-            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-[90%] h-12 bg-stone-900/35 blur-xl rounded-full transition-transform duration-700 group-hover:scale-105" />
-
-            {/* 3D Book Container */}
-            <div
-              className={cn(
-                "relative w-full h-full rounded-r-lg rounded-l-[4px] shadow-2xl transition-all duration-700 [transform-style:preserve-3d]",
-                "rotate-y-[-14deg] rotate-x-[4deg] hover:rotate-y-[-4deg] hover:rotate-x-[1deg]",
-                "border-r border-t border-b border-white/20",
-                colorStyle.bg
-              )}
+          <div className="relative z-10 px-6 sm:px-10 pt-6 flex items-center justify-between">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="group h-10 pl-1 pr-4 rounded-full border border-[#F6F1E7]/25 hover:border-[#F6F1E7] text-[13px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
             >
-              {/* Gold Foil Embossed Corner Brackets on Book Cover */}
-              <div className="absolute top-2 left-3 w-5 h-5 border-t border-l border-amber-300/40 pointer-events-none" />
-              <div className="absolute top-2 right-3 w-5 h-5 border-t border-r border-amber-300/40 pointer-events-none" />
-              <div className="absolute bottom-2 left-3 w-5 h-5 border-b border-l border-amber-300/40 pointer-events-none" />
-              <div className="absolute bottom-2 right-3 w-5 h-5 border-b border-r border-amber-300/40 pointer-events-none" />
-
-              {/* Book Paper Edges (3D Depth Stack) */}
-              <div className="absolute inset-y-[3px] -right-[5px] lg:-right-[6px] w-[5px] lg:w-[6px] bg-[#E5E0D5] rounded-r-sm shadow-[inset_1px_0_3px_rgba(0,0,0,0.35)]" />
-              <div className="absolute -bottom-[4px] lg:-bottom-[5px] inset-x-[3px] h-[4px] lg:h-[5px] bg-[#D8D2C5] rounded-b-sm shadow-[inset_0_1px_3px_rgba(0,0,0,0.35)]" />
-
-              {/* Cover Textured Overlay */}
-              <div
-                className="absolute inset-0 opacity-[0.22] mix-blend-overlay pointer-events-none rounded-r-lg rounded-l-[4px]"
-                style={{
-                  backgroundImage:
-                    'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")',
-                }}
-              />
-
-              {/* Spine Crease & Shading */}
-              <div className="absolute left-0 inset-y-0 w-5 lg:w-6 bg-gradient-to-r from-black/70 via-black/30 to-transparent rounded-l-[4px] mix-blend-multiply pointer-events-none" />
-              <div className="absolute left-[1px] inset-y-0 w-px bg-white/20 pointer-events-none" />
-              <div className="absolute left-4 lg:left-5 inset-y-0 w-px bg-black/15 pointer-events-none" />
-
-              {/* Silk Ribbon Bookmark */}
-              <div
-                className={cn(
-                  "absolute top-0 left-7 lg:left-9 w-4 lg:w-5 h-20 shadow-lg pointer-events-none transition-colors duration-500",
-                  colorStyle.ribbon
-                )}
-                style={{
-                  clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%)",
-                }}
-              />
-
-              {/* Book Cover Typography & Layout */}
-              <div className="absolute inset-0 flex flex-col p-6 lg:p-8 pt-10 lg:pt-14 z-10 pointer-events-none transition-colors duration-500">
-                <div className="flex-1 flex flex-col items-center text-center h-full">
-                  
-                  {/* Genre Stamp Banner */}
-                  <div className="flex items-center px-3 py-1 rounded-full bg-black/30 border border-white/20 backdrop-blur-xs mb-4 shrink-0 shadow-xs">
-                    <span
-                      className={cn(
-                        "text-[8px] lg:text-[9px] font-bold uppercase tracking-[0.25em]",
-                        colorStyle.text
-                      )}
-                    >
-                      {genre}
-                    </span>
-                  </div>
-
-                  {/* Title Frame */}
-                  <div className="w-full border-t border-b border-amber-300/30 py-4 lg:py-6 flex flex-col items-center justify-center shrink-0">
-                    <h2
-                      className={cn(
-                        "text-xl lg:text-2xl font-serif font-bold leading-snug drop-shadow-md px-2 break-words max-w-full transition-colors duration-500 line-clamp-3 text-amber-100",
-                        colorStyle.text
-                      )}
-                    >
-                      {title || "Whispers of the Astral Spire"}
-                    </h2>
-                  </div>
-
-                  <div className="flex-1 min-h-[1rem]"></div>
-
-                  {/* Author Emblem Footer */}
-                  <div
-                    className={cn(
-                      "mt-auto flex flex-col items-center opacity-90 transition-colors duration-500 shrink-0",
-                      colorStyle.text
-                    )}
-                  >
-                    <BookOpen className="w-4 h-4 mb-2 opacity-60 text-amber-200" />
-                    <span className="text-[8px] lg:text-[9px] font-bold uppercase tracking-[0.22em] px-2 line-clamp-1 text-stone-200">
-                      {author || "Author Pen Name"}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <span className="w-8 h-8 rounded-full bg-[#F6F1E7]/10 flex items-center justify-center">
+                <IconArrow className="w-4 h-4 rotate-180 transition-transform group-hover:-translate-x-0.5" />
+              </span>
+              Dashboard
+            </button>
+            <div className="flex items-center gap-2">
+              <IconBookWave className="w-6 h-6 text-[#F0B54B]" />
+              <span className="text-[15px] font-bold tracking-tight">Ocean Novel</span>
             </div>
           </div>
 
-          {/* Genre Tagline under book */}
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-12 lg:py-0">
+            <BookMockup
+              title={title || "Whispers of the Astral Spire"}
+              subtitle={author || "Author Pen Name"}
+              genre={genre}
+              seed="new-book"
+              theme={theme}
+              className="w-[200px] h-[264px] sm:w-[230px] sm:h-[304px]"
+              titleClassName={(title || "Whispers of the Astral Spire").length > 24 ? "text-[22px]" : "text-[28px]"}
+            />
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={genre}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+                className="mt-12 text-center max-w-[340px]"
+              >
+                <Tag tone="light">{genre}</Tag>
+                <p className="mt-3 text-[15px] leading-relaxed text-[#F6F1E7]/70">{currentTheme.tagline}</p>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </aside>
+
+        {/* ================= RIGHT: FORM ================= */}
+        <main className="flex-1 px-6 sm:px-10 lg:px-16 py-10 lg:py-14 flex justify-center">
           <motion.div
-            key={genre}
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="mt-8 text-center max-w-xs"
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="w-full max-w-[560px]"
           >
-            <p className="font-serif italic text-xs lg:text-sm text-stone-600 leading-relaxed">
-              "{currentTheme.tagline}"
-            </p>
-          </motion.div>
-        </motion.div>
-
-        {/* RIGHT COLUMN: CASE FILE / DOSSIER FORM CONFIGURATION */}
-        <motion.div
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
-          className="flex-1 w-full max-w-[560px] flex flex-col justify-center"
-        >
-          {/* Dossier Card Container */}
-          <div
-            className={cn(
-              "rounded-xl border p-6 lg:p-8 shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-700 relative overflow-hidden bg-[#FCFAF5]",
-              currentTheme.cardBorder
-            )}
-          >
-            {/* Header / Case Title */}
-            <div className="mb-5 shrink-0 flex items-start justify-between border-b border-[#E5E0D5] pb-4">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[9px] font-mono tracking-widest text-[#8C503C] uppercase font-bold">
-                    PROJECT REGISTRATION
-                  </span>
-                  <span className="text-stone-300">•</span>
-                  <span className="text-[9px] font-mono tracking-wider text-stone-500 uppercase">
-                    ARCHIVE INITIATION
-                  </span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-2xl lg:text-3xl font-serif font-bold text-[#4A3225] tracking-tight">
-                    New Manuscript
-                  </h1>
-                  <button
-                    type="button"
-                    onClick={() => setIsHelpOpen(true)}
-                    className="w-5 h-5 rounded-full bg-[#8C503C]/10 hover:bg-[#8C503C]/20 border border-[#8C503C]/30 text-[#8C503C] flex items-center justify-center transition-all hover:scale-110"
-                    title="View Setup Guide & AI Architect Prompt"
-                    aria-label="View Setup Guide & AI Architect Prompt"
-                  >
-                    <HelpCircle className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <Tag>New Book</Tag>
+                <h1 className="mt-4 text-[40px] sm:text-[48px] font-extrabold leading-[0.98] tracking-[-0.02em]">
+                  Start a new
+                  <br />
+                  <span className="text-[#E8561F]">Story.</span>
+                </h1>
               </div>
-
-              <div className="w-10 h-10 rounded-lg bg-[#F4F1EA] border border-[#E5E0D5] flex items-center justify-center text-[#8C503C] shrink-0 shadow-xs">
-                <Feather className="w-5 h-5" />
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsHelpOpen(true)}
+                className="shrink-0 mt-1 h-10 px-4 rounded-full bg-white border border-[#E4DAC8] hover:border-[#E8561F] text-[12px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+                title="Manuscript Setup Guide & AI Prompt"
+              >
+                <IconQuill className="w-4 h-4 text-[#E8561F]" />
+                <span className="hidden sm:inline">Guide & AI prompt</span>
+              </button>
             </div>
+            <p className="mt-3 text-[15px] text-[#0E1D26]/60">
+              A few details now — you can change all of them later in the Story Bible.
+            </p>
 
-            {/* Form Fields Stack */}
-            <div className="space-y-4">
-              {/* 1. Title Input */}
+            <div className="mt-8 space-y-6">
               <div>
-                <label className="text-[9px] font-bold tracking-[0.2em] uppercase text-stone-600 mb-1.5 flex items-center justify-between">
-                  <span>Manuscript Title</span>
-                  <span className="text-[8px] font-mono text-stone-400 lowercase">required</span>
-                </label>
+                <label className={labelCls}>Manuscript title</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Whispers of the Astral Spire..."
-                  className="w-full bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-1 focus:ring-[#8C503C] rounded-md outline-none px-3.5 py-2.5 text-lg font-serif text-[#4A3225] placeholder:text-stone-400 transition-all shadow-xs"
+                  placeholder="e.g. Whispers of the Astral Spire"
+                  className={cn(inputCls, "h-[58px] text-[18px] font-semibold")}
                   autoFocus
                 />
               </div>
 
-              {/* 2. Row: Author & Word Count Goal */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[9px] font-bold tracking-[0.2em] uppercase text-stone-600 mb-1.5 block">
-                    Author / Pen Name
-                  </label>
+                  <label className={labelCls}>Author / pen name</label>
                   <input
                     type="text"
                     value={author}
                     onChange={(e) => setAuthor(e.target.value)}
-                    placeholder="Your writer name..."
-                    className="w-full bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-1 focus:ring-[#8C503C] rounded-md outline-none px-3.5 py-2 text-sm font-serif text-[#4A3225] placeholder:text-stone-400 transition-all shadow-xs"
+                    placeholder="Your writer name"
+                    className={inputCls}
                   />
                 </div>
-
                 <div>
-                  <label className="text-[9px] font-bold tracking-[0.2em] uppercase text-stone-600 mb-1.5 block">
-                    Word Count Target
-                  </label>
-                  <div className="flex items-center gap-2 bg-white border border-[#DCD5C9] focus-within:border-[#8C503C] focus-within:ring-1 focus-within:ring-[#8C503C] rounded-md px-3.5 py-2 transition-all shadow-xs">
+                  <label className={labelCls}>Word count target</label>
+                  <div className="relative">
                     <input
                       type="number"
                       value={wordCount}
-                      onChange={(e) =>
-                        setWordCount(e.target.value ? Number(e.target.value) : "")
-                      }
+                      onChange={(e) => setWordCount(e.target.value ? Number(e.target.value) : "")}
                       step={5000}
-                      className="w-full bg-transparent outline-none text-sm font-mono text-[#8C503C] font-semibold text-left"
+                      className={cn(inputCls, "pr-20 font-semibold tabular-nums")}
                     />
-                    <span className="text-[10px] text-stone-500 font-mono shrink-0">words</span>
+                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[12px] text-[#0E1D26]/45">words</span>
                   </div>
                 </div>
               </div>
 
-              {/* 3. Logline / Premise */}
               <div>
-                <label className="text-[9px] font-bold tracking-[0.2em] uppercase text-stone-600 mb-1.5 block">
-                  Logline / Central Premise
-                </label>
+                <label className={labelCls}>Logline / central premise</label>
                 <textarea
                   value={logline}
                   onChange={(e) => setLogline(e.target.value)}
-                  placeholder="In one or two sentences, what is the core conflict and mystery of your story?..."
-                  rows={2}
-                  className="w-full bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-1 focus:ring-[#8C503C] rounded-md outline-none p-3 text-xs font-serif text-[#4A3225] placeholder:text-stone-400 transition-all resize-none shadow-xs leading-relaxed"
+                  placeholder="In one or two sentences — the core conflict and the mystery of your story."
+                  rows={3}
+                  className="w-full px-5 py-4 bg-white border border-[#E4DAC8] rounded-[26px] text-[14px] leading-relaxed placeholder:text-[#0E1D26]/35 outline-none resize-none transition focus:border-[#E8561F] focus:ring-4 focus:ring-[#E8561F]/12"
                 />
               </div>
 
-              {/* 4. Primary Genre Selector (Interactive Dynamic Mood Trigger) */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[9px] font-bold tracking-[0.2em] uppercase text-stone-600">
-                    Primary Genre (Sets Atmosphere & Mood)
-                  </label>
-                  <span className="text-[9px] font-mono text-[#8C503C] font-bold">
-                    {genre}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {GENRES.map((g) => {
-                    const isSelected = genre === g;
-
-                    return (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() => handleGenreChange(g)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-md text-[10px] font-bold tracking-wider uppercase transition-all duration-300 border text-center cursor-pointer",
-                          isSelected
-                            ? "bg-[#8C503C] text-white border-[#8C503C] shadow-sm scale-102"
-                            : "bg-[#F4F1EA] text-stone-700 border-[#E5E0D5] hover:bg-stone-200/70 hover:text-stone-900"
-                        )}
-                      >
-                        {g}
-                      </button>
-                    );
-                  })}
+                <label className={labelCls}>Primary genre</label>
+                <div className="flex flex-wrap gap-2">
+                  {GENRES.map((g) => (
+                    <button key={g} type="button" onClick={() => handleGenreChange(g)} className={pill(genre === g)}>
+                      {g}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* 5. Audience & Cover Binding Palette */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start pt-1">
-                <div>
-                  <label className="text-[9px] font-bold tracking-[0.2em] uppercase text-stone-600 mb-2 block">
-                    Target Audience
-                  </label>
-                  <div className="flex flex-wrap gap-1">
-                    {AUDIENCES.map((a) => (
-                      <button
-                        key={a}
-                        type="button"
-                        onClick={() => setAudience(a)}
-                        className={cn(
-                          "px-2 py-1 rounded text-[9px] font-medium tracking-wide transition-all border cursor-pointer",
-                          audience === a
-                            ? "bg-[#4A3225] text-[#FAF7F2] border-[#4A3225] shadow-xs font-semibold"
-                            : "bg-[#F4F1EA] text-stone-700 border-[#E5E0D5] hover:bg-stone-200/70"
-                        )}
-                      >
-                        {a}
-                      </button>
-                    ))}
-                  </div>
+              <div>
+                <label className={labelCls}>Target audience</label>
+                <div className="flex flex-wrap gap-2">
+                  {AUDIENCES.map((a) => (
+                    <button key={a} type="button" onClick={() => setAudience(a)} className={pill(audience === a)}>
+                      {a}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-[9px] font-bold tracking-[0.2em] uppercase text-stone-600 mb-2 block">
-                    Cover Binding
+                  <label className={labelCls}>
+                    Cover colour · <span className="text-[#E8561F]">{COVER_PALETTES[palette].name}</span>
                   </label>
-                  <div className="flex items-center gap-2">
-                    {COLORS.map((c) => (
+                  <div className="flex items-center gap-2.5">
+                    {COVER_PALETTES.map((p, i) => (
                       <button
-                        key={c.name}
+                        key={p.name}
                         type="button"
+                        title={p.name}
                         onClick={() => {
-                          userChangedBindingRef.current = true;
-                          setColorStyle(c);
+                          userChangedCoverRef.current = true;
+                          setPalette(i);
                         }}
-                        title={c.name}
                         className={cn(
-                          "w-7 h-7 rounded-full border-2 transition-all duration-300 flex items-center justify-center p-0.5 cursor-pointer",
-                          colorStyle.name === c.name
-                            ? "border-[#8C503C] scale-110 shadow-sm"
-                            : "border-transparent hover:scale-105 opacity-80 hover:opacity-100"
+                          "relative w-9 h-9 rounded-full overflow-hidden transition-transform cursor-pointer",
+                          palette === i ? "ring-2 ring-[#E8561F] ring-offset-2 ring-offset-[#F6F1E7] scale-110" : "hover:scale-105 ring-1 ring-[#0E1D26]/15"
                         )}
+                        style={{ background: p.bg }}
                       >
-                        <div className={cn("w-full h-full rounded-full shadow-inner", c.bg)} />
+                        <span className="absolute -right-1 -bottom-1 w-5 h-5 rounded-full" style={{ background: p.a }} />
+                        <span className="absolute left-1.5 top-1.5 w-2.5 h-2.5 rounded-full" style={{ background: p.b }} />
                       </button>
                     ))}
-                    <span className="text-[9px] font-mono text-stone-600 ml-1 font-medium">
-                      {colorStyle.name}
-                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelCls}>
+                    Cover art · <span className="text-[#E8561F]">{COVER_ARTWORKS[artwork]}</span>
+                  </label>
+                  <div className="flex items-center gap-2.5">
+                    {COVER_ARTWORKS.map((name, i) => (
+                      <button
+                        key={name}
+                        type="button"
+                        title={name}
+                        onClick={() => {
+                          userChangedCoverRef.current = true;
+                          setArtwork(i);
+                        }}
+                        className={cn(
+                          "rounded-[5px] transition-transform cursor-pointer",
+                          artwork === i ? "ring-2 ring-[#E8561F] ring-offset-2 ring-offset-[#F6F1E7] scale-105" : "hover:scale-105 opacity-80 hover:opacity-100"
+                        )}
+                      >
+                        <BookCover title="" seed="thumb" theme={coverTheme(palette, i)} className="w-9 h-12" />
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* 6. Submit Action Button */}
               <div className="pt-2">
                 <button
                   type="button"
                   onClick={handleCreate}
                   disabled={isSubmitting || !title.trim()}
-                  className={cn(
-                    "w-full py-3.5 rounded-lg text-xs font-bold uppercase tracking-[0.2em] shadow-md transition-all flex items-center justify-center gap-2.5",
-                    "bg-[#8C503C] hover:bg-[#723E2E] text-white font-serif font-bold",
-                    "disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer hover:shadow-lg active:scale-[0.99]"
-                  )}
+                  className="group w-full h-[58px] pl-7 pr-2 bg-[#E8561F] hover:bg-[#D44B17] text-white rounded-full text-[16px] font-bold flex items-center justify-between shadow-[0_14px_30px_-14px_rgba(232,86,31,0.9)] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <Feather className="w-4 h-4" />
-                  <span>{isSubmitting ? "Inscribing Manuscript..." : "Open Studio & Begin Writing"}</span>
+                  <span>{isSubmitting ? "Creating your book…" : "Create & Start Writing"}</span>
+                  <span className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center transition-transform group-hover:translate-x-0.5">
+                    <IconArrow className="w-5 h-5" />
+                  </span>
                 </button>
+                <p className="mt-3 text-center text-[12px] text-[#0E1D26]/50">
+                  {!title.trim()
+                    ? "Add a title to create your book."
+                    : atQuota
+                      ? `Your plan allows ${maxProjects} books — upgrade to add more.`
+                      : "Opens the Writing Studio with Chapter 1 ready."}
+                </p>
               </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </main>
       </div>
 
-      {/* Guide & AI Prompt Modal */}
+      {/* ================= GUIDE & AI PROMPT MODAL ================= */}
       <AnimatePresence>
         {isHelpOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-            {/* Backdrop */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 font-['Outfit']">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsHelpOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+              className="fixed inset-0 bg-[#0E1D26]/70 backdrop-blur-sm"
             />
-
-            {/* Modal Dialog */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="relative w-full max-w-2xl bg-[#FCFAF5] border border-[#E5E0D5] rounded-xl shadow-2xl overflow-hidden z-10 my-8 flex flex-col max-h-[90vh]"
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="relative w-full max-w-2xl max-h-[90vh] bg-[#F6F1E7] rounded-[28px] shadow-2xl overflow-hidden flex flex-col text-[#0E1D26]"
             >
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-[#E5E0D5] flex items-center justify-between bg-[#F4F1EA]">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#8C503C]/10 border border-[#8C503C]/20 flex items-center justify-center text-[#8C503C]">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-serif font-bold text-[#4A3225] flex items-center gap-2">
-                      New Manuscript Setup Guide
-                    </h2>
-                    <p className="text-[11px] text-stone-500 font-sans">
-                      Form requirements, best practices, and AI setup assistance
-                    </p>
-                  </div>
+              <div className="relative overflow-hidden bg-[#0E1D26] text-[#F6F1E7] px-7 py-6">
+                <div className="absolute -right-10 -top-16 w-40 h-40 rounded-full bg-[#E8561F]" aria-hidden="true" />
+                <div className="relative">
+                  <Tag tone="light">Setup Guide</Tag>
+                  <h2 className="mt-3 text-[28px] font-extrabold leading-none tracking-[-0.02em]">
+                    Set up your <span className="text-[#E8561F]">book.</span>
+                  </h2>
+                  <p className="mt-2 text-[13px] text-[#F6F1E7]/60">What each field means, plus a prompt to fill them in with AI.</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsHelpOpen(false)}
-                  className="w-8 h-8 rounded-lg bg-stone-200/50 hover:bg-stone-300 text-stone-600 hover:text-stone-900 flex items-center justify-center transition-colors cursor-pointer"
+                  className="absolute right-5 top-5 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
                 >
-                  <X className="w-4 h-4" />
+                  <IconClose className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Body */}
-              <div className="p-6 overflow-y-auto space-y-6 text-sm text-stone-700">
-                {/* Section 1: Form field descriptions */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-[#8C503C] flex items-center gap-2">
-                    <BookOpen className="w-3.5 h-3.5" />
-                    What to fill out on this page?
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-lg bg-white border border-[#E5E0D5] space-y-1 shadow-2xs">
-                      <span className="font-bold text-[#4A3225]">1. Manuscript Title</span>
-                      <p className="text-stone-600 leading-relaxed">
-                        A memorable, evocative working title (2–7 words). Displayed prominently across your book cover, spines, and studio.
+              <div className="p-7 overflow-y-auto custom-scrollbar space-y-7">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    ["Manuscript title", "A memorable working title (2–7 words), shown on your cover, spine and studio."],
+                    ["Author / pen name", "The byline on your cover and title page — your real name or a pen name."],
+                    ["Genre & audience", "The primary sub-genre and reading age (Middle Grade, YA, New Adult, Adult)."],
+                    ["Logline & word target", "A 1–2 sentence premise hook (35–70 words) and your total word-count goal."],
+                  ].map(([h, d], i) => (
+                    <div key={h} className="p-4 rounded-2xl bg-white border border-[#E4DAC8]">
+                      <p className="text-[14px] font-bold">
+                        <span className="text-[#E8561F]">{i + 1}.</span> {h}
                       </p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-[#0E1D26]/60">{d}</p>
                     </div>
-                    <div className="p-3 rounded-lg bg-white border border-[#E5E0D5] space-y-1 shadow-2xs">
-                      <span className="font-bold text-[#4A3225]">2. Author / Pen Name</span>
-                      <p className="text-stone-600 leading-relaxed">
-                        Author byline stamped on the book cover and title page (can be your real name or pen name).
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-white border border-[#E5E0D5] space-y-1 shadow-2xs">
-                      <span className="font-bold text-[#4A3225]">3. Genre & Audience</span>
-                      <p className="text-stone-600 leading-relaxed">
-                        Select the primary genre (Fantasy, Sci-Fi, Romance, Thriller, etc.) and reading maturity target (Middle Grade, YA, Adult).
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-white border border-[#E5E0D5] space-y-1 shadow-2xs">
-                      <span className="font-bold text-[#4A3225]">4. Central Logline & Word Target</span>
-                      <p className="text-stone-600 leading-relaxed">
-                        A concise 1–2 sentence premise hook (35–70 words) and your overall target word count milestone.
-                      </p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Section 2: AI setup prompt suggestion */}
-                <div className="space-y-3 pt-2 border-t border-[#E5E0D5]">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                      <h3 className="text-xs font-bold uppercase tracking-widest text-[#8C503C] flex items-center gap-2">
-                        <Feather className="w-3.5 h-3.5" />
-                        Unsure what to write? Copy this AI Architect Prompt
-                      </h3>
-                      <p className="text-[11px] text-stone-500 mt-0.5">
-                        Send this prompt to ChatGPT, Claude, or Gemini along with your raw idea to generate a calibrated setup configuration:
+                      <p className="text-[16px] font-bold">Not sure what to write?</p>
+                      <p className="mt-0.5 text-[13px] text-[#0E1D26]/60">
+                        Send this prompt to ChatGPT, Claude or Gemini with your raw idea.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={handleCopyArchitectPrompt}
                       className={cn(
-                        "px-3.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all shadow-xs cursor-pointer",
-                        isPromptCopied
-                          ? "bg-emerald-700 text-white shadow-emerald-500/20"
-                          : "bg-[#8C503C] hover:bg-[#723E2E] text-white font-semibold"
+                        "h-10 px-4 rounded-full text-[13px] font-bold flex items-center gap-2 transition-colors cursor-pointer",
+                        isPromptCopied ? "bg-[#0E1D26] text-[#F0B54B]" : "bg-[#E8561F] hover:bg-[#D44B17] text-white"
                       )}
                     >
-                      {isPromptCopied ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Prompt Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy Prompt to Clipboard</span>
-                        </>
-                      )}
+                      {isPromptCopied ? <IconTick className="w-4 h-4" /> : <IconQuill className="w-4 h-4" />}
+                      {isPromptCopied ? "Prompt copied" : "Copy prompt"}
                     </button>
                   </div>
-
-                  {/* Prompt Code Block Preview */}
-                  <div className="relative">
-                    <pre className="p-4 rounded-lg bg-[#2C1D16] text-[#FAF7F2] border border-[#3E291F] text-[11px] font-mono leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap select-all selection:bg-[#8C503C]/40">
-{NEW_MANUSCRIPT_ARCHITECT_PROMPT}
-                    </pre>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-[#FAF8F5] border border-[#E5E0D5] text-xs text-stone-700 flex items-start gap-2">
-                    <Info className="w-4 h-4 text-[#8C503C] shrink-0 mt-0.5" />
-                    <p className="leading-relaxed">
-                      <strong>Tip:</strong> Once the AI responds with your details, copy and paste the generated title, logline, genre, and word count target into the form below, then click <em>"Open Studio & Begin Writing"</em> to start composing immediately.
-                    </p>
-                  </div>
+                  <pre className="mt-4 p-5 rounded-2xl bg-[#0E1D26] text-[#F6F1E7]/85 text-[12px] font-mono leading-relaxed max-h-64 overflow-y-auto custom-scrollbar whitespace-pre-wrap select-all">
+                    {NEW_MANUSCRIPT_ARCHITECT_PROMPT}
+                  </pre>
+                  <p className="mt-3 text-[13px] leading-relaxed text-[#0E1D26]/60">
+                    <strong className="text-[#0E1D26]">Tip:</strong> paste the AI's title, logline, genre and word target into the form, then press{" "}
+                    <em>Create & Start Writing</em>.
+                  </p>
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="px-6 py-3 border-t border-[#E5E0D5] bg-[#F4F1EA] flex items-center justify-between">
-                <span className="text-[11px] text-stone-500 font-serif">
-                  Ocean Novel • Project Setup Architect
-                </span>
+              <div className="px-7 py-4 border-t border-[#E4DAC8] flex justify-end">
                 <button
                   type="button"
                   onClick={() => setIsHelpOpen(false)}
-                  className="px-4 py-1.5 rounded-lg bg-white border border-[#DCD5C9] hover:bg-stone-50 text-xs text-stone-800 font-medium transition-colors cursor-pointer"
+                  className="h-10 px-5 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[13px] font-bold cursor-pointer"
                 >
-                  Got it, return to form
+                  Back to the form
                 </button>
               </div>
             </motion.div>
@@ -1044,7 +601,6 @@ export default function CreateProject() {
         )}
       </AnimatePresence>
 
-      {/* FE Quota Exceeded Upgrade Modal */}
       <UpgradeModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
