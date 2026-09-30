@@ -1861,34 +1861,53 @@ ${backstoryText}`;
                           <img src={char.imageUrl} alt={char.name} className="w-full aspect-square object-cover" />
                         </button>
                         <div className="min-w-0">
-                          <h3 className="text-[17px] font-bold leading-tight truncate">{char.name}</h3>
-                          <p className="mt-1 text-[12px] text-[#0E1D26]/50 truncate">
-                            <span className="capitalize">{(char.role || "").toLowerCase()}</span>
-                            {char.age ? ` · ${char.age}` : ""}
-                          </p>
+                          <h3 className="text-[19px] font-extrabold leading-[1.1] tracking-[-0.01em] line-clamp-2 break-words" title={char.name}>
+                            {char.name}
+                          </h3>
+                          {char.role && (
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] leading-snug text-[#E8561F] line-clamp-2">{char.role}</p>
+                          )}
                           {char.group && char.group !== "none" && (
-                            <span className="mt-1.5 inline-block px-2 py-0.5 rounded-full bg-[#F1ECE2] text-[11px] text-[#0E1D26]/60">{char.group}</span>
+                            <span className="mt-1.5 inline-block px-2 py-0.5 bg-[#F1ECE2] text-[10px] font-bold uppercase tracking-[0.1em] text-[#0E1D26]/65 truncate max-w-full">
+                              {char.group}
+                            </span>
+                          )}
+                          {char.age && <p className="mt-1 text-[12px] text-[#0E1D26]/50">Age: {char.age}</p>}
+                        </div>
+                      </div>
+
+                      {/* Backstory on ruled paper */}
+                      <div className="mt-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40">Backstory</p>
+                        <p
+                          className="mt-1 text-[13px] leading-[22px] text-[#0E1D26]/70 line-clamp-4"
+                          style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 21px, rgba(14,29,38,0.08) 21px 22px)" }}
+                        >
+                          {char.backstory || char.description || char.shortBio || "No backstory recorded."}
+                        </p>
+                      </div>
+
+                      {/* Traits */}
+                      <div className="mt-4 pt-3 border-t border-[#0E1D26]/[0.07]">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40">Traits</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {traits.length > 0 ? (
+                            traits.map((trait, i) => (
+                              <span
+                                key={`${char.id}-${trait}-${i}`}
+                                className="px-2 py-0.5 bg-[#F1ECE2] text-[10px] font-bold uppercase tracking-[0.08em] text-[#0E1D26]/70 shadow-[0_1px_1px_rgba(14,29,38,0.08)]"
+                                style={{ transform: `rotate(${i % 2 ? 1 : -1}deg)` }}
+                              >
+                                {trait}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[12px] text-[#0E1D26]/40">No traits added</span>
                           )}
                         </div>
                       </div>
 
-                      {/* Ruled-paper notes */}
-                      <p
-                        className="mt-4 text-[13px] leading-[22px] text-[#0E1D26]/65 line-clamp-3"
-                        style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 21px, rgba(14,29,38,0.08) 21px 22px)" }}
-                      >
-                        {char.backstory || char.description || char.shortBio || "No backstory yet."}
-                      </p>
-
-                      <div className="mt-auto pt-4 flex items-end justify-between gap-2">
-                        <div className="flex flex-wrap gap-1 min-w-0">
-                          {traits.slice(0, 3).map((trait, i) => (
-                            <span key={`${char.id}-${trait}-${i}`} className="px-2 py-0.5 bg-[#F1ECE2] text-[11px] text-[#0E1D26]/65 shadow-[0_1px_1px_rgba(14,29,38,0.08)]" style={{ transform: `rotate(${i % 2 ? 1 : -1}deg)` }}>
-                              {trait}
-                            </span>
-                          ))}
-                          {traits.length > 3 && <span className="px-1 text-[11px] text-[#0E1D26]/40">+{traits.length - 3}</span>}
-                        </div>
+                      <div className="mt-auto pt-3 flex items-center justify-end">
                         <div className="flex items-center shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                           <button onClick={(e) => { e.stopPropagation(); handleOpenEditorEdit(char); }} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/40 hover:text-[#0E1D26] hover:bg-[#F1ECE2] cursor-pointer" title="Edit">
                             <IconEdit className="w-4 h-4" />
