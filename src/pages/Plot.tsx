@@ -22,6 +22,7 @@ type StoryEvent = {
   parentId: string | null;
   x: number;
   y: number;
+  completed?: boolean;
 };
 
 const DEFAULT_ARCS: PlotArc[] = [
@@ -87,7 +88,7 @@ export default function Plot() {
     const data = storage.getProjectData(projId);
     const loadedArcs = (data?.plotArcs && data.plotArcs.length > 0) ? data.plotArcs : DEFAULT_ARCS;
     
-    let loadedEvents: StoryEvent[] = DEFAULT_EVENTS;
+    let loadedEvents: StoryEvent[] = [];
     if (data?.plotEvents && data.plotEvents.length > 0) {
       loadedEvents = data.plotEvents.map((e: any) => ({
         ...e,
@@ -95,18 +96,6 @@ export default function Plot() {
         y: e.y || 100,
         parentId: e.parentId || null
       }));
-    } else if (data?.characters && data.characters.length > 0) {
-      const c1 = data.characters[0]?.id || "1";
-      const c2 = data.characters[1]?.id || c1;
-      const c3 = data.characters[2]?.id || c1;
-      const l1 = data.locations?.[0]?.id || null;
-      const l2 = data.locations?.[1]?.id || l1;
-      const l3 = data.locations?.[2]?.id || l1;
-      loadedEvents = [
-        { ...DEFAULT_EVENTS[0], characters: [c1, c3], locationId: l1 },
-        { ...DEFAULT_EVENTS[1], characters: [c1, c2], locationId: l2 },
-        { ...DEFAULT_EVENTS[2], characters: [c2, c3], locationId: l3 },
-      ];
     }
     return { arcs: loadedArcs, events: loadedEvents };
   };
@@ -129,7 +118,7 @@ export default function Plot() {
   }, [arcs, id]);
 
   useEffect(() => {
-    if (id && currentProjectIdRef.current === id && events.length > 0) {
+    if (id && currentProjectIdRef.current === id) {
       storage.saveProjectData(id, { plotEvents: events });
     }
   }, [events, id]);
@@ -193,9 +182,21 @@ export default function Plot() {
   };
 
   const deleteEvent = (id: string) => {
-    setEvents(prev => prev.filter(e => e.id !== id && e.parentId !== id)); 
-    setEvents(prev => prev.map(e => e.parentId === id ? {...e, parentId: null} : e).filter(e => e.id !== id));
+    const target = events.find(e => e.id === id);
+    if (!target) {
+      setIsEditorOpen(false);
+      return;
+    }
+    if (!window.confirm(`Delete "${target.title || "this event"}"? Its branches will move up one level.`)) return;
+    setEvents(prev => prev
+      .filter(e => e.id !== id)
+      .map(e => e.parentId === id ? { ...e, parentId: target.parentId } : e));
     setIsEditorOpen(false);
+  };
+
+  // 5. Mark an event as reached in the draft (drives Plot coverage on the Overview)
+  const toggleCompleted = (id: string) => {
+    setEvents(prev => prev.map(e => e.id === id ? { ...e, completed: !e.completed } : e));
   };
 
   // Tree Canvas Logic
@@ -257,43 +258,93 @@ export default function Plot() {
     2: events.filter(e => e.act === 2),
     3: events.filter(e => e.act === 3),
   };
+  const ACTS = [
+    { n: 1, roman: "I", label: "Setup & inciting incident" },
+    { n: 2, roman: "II", label: "Rising action & midpoint" },
+    { n: 3, roman: "III", label: "Climax & resolution" },
+  ];
+  const doneCount = events.filter(e => e.completed).length;
+  const charName = (cid: string) => (projectData?.characters || []).find((c: any) => c.id === cid);
+  const locName = (lid: string | null) => (lid ? (projectData?.locations || []).find((l: any) => l.id === lid)?.name : undefined);
+
+  const inputCls =
+    "w-full h-11 px-4 bg-white border border-[#E9E2D4] rounded-2xl text-[14px] text-[#0E1D26] placeholder:text-[#0E1D26]/30 outline-none focus:border-[#0E1D26]/35";
+  const labelCls = "flex items-center gap-1.5 pl-1 mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/45";
+
+  const ArcTag = ({ arcId }: { arcId: string }) => (
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0E1D26]/60">
+      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getArcColor(arcId) }} />
+      {getArcName(arcId)}
+    </span>
+  );
+
+  const Cast = ({ ids, max = 4 }: { ids: string[]; max?: number }) => {
+    const people = ids.map(charName).filter(Boolean) as any[];
+    if (people.length === 0) return null;
+    return (
+      <span className="flex -space-x-1.5">
+        {people.slice(0, max).map((c, i) =>
+          c.imageUrl ? (
+            <img key={`${c.id}-${i}`} src={c.imageUrl} alt={c.name} title={c.name} className="w-6 h-6 rounded-full object-cover ring-2 ring-white" />
+          ) : (
+            <span key={`${c.id}-${i}`} title={c.name} className="w-6 h-6 rounded-full ring-2 ring-white bg-[#EFE9DE] flex items-center justify-center text-[10px] font-bold">
+              {c.name.charAt(0)}
+            </span>
+          )
+        )}
+        {people.length > max && (
+          <span className="w-6 h-6 rounded-full ring-2 ring-white bg-[#EFE9DE] flex items-center justify-center text-[10px] font-bold">+{people.length - max}</span>
+        )}
+      </span>
+    );
+  };
+
+  const DoneToggle = ({ event }: { event: StoryEvent }) => (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleCompleted(event.id);
+      }}
+      title={event.completed ? "Reached in the draft — click to undo" : "Mark as reached in the draft"}
+      className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+        event.completed ? "bg-[#E8561F] text-white" : "border-2 border-[#0E1D26]/20 hover:border-[#E8561F] text-transparent hover:text-[#E8561F]"
+      }`}
+    >
+      <CheckCircle2 className="w-3.5 h-3.5" />
+    </button>
+  );
+
+  const seg = (active: boolean) =>
+    `h-8 px-4 rounded-full text-[13px] font-semibold transition-colors cursor-pointer ${
+      active ? "bg-white text-[#0E1D26] shadow-[0_1px_2px_rgba(14,29,38,0.08)]" : "text-[#0E1D26]/55 hover:text-[#0E1D26]"
+    }`;
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[#F4F1EA]">
+    <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[#F8F5EE] text-[#0E1D26] font-['Outfit']">
       {/* Header */}
-      <div className="p-6 lg:px-12 lg:py-8 shrink-0 relative z-20 border-b border-[#E5E0D5] bg-white/40 backdrop-blur-md">
-        <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div className="shrink-0 relative z-20 border-b border-[#E9E2D4]">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-10 pt-8 pb-5 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-serif font-bold text-[#4A3225]">Plot & Timeline</h1>
-            <p className="text-sm font-serif italic text-stone-500 mt-1">Map your narrative arcs, acts, and chronological events.</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Structure</p>
+            <h1 className="mt-2 text-[34px] lg:text-[40px] font-extrabold leading-none tracking-[-0.02em]">Plot & Timeline</h1>
+            <p className="mt-2 text-[14px] text-[#0E1D26]/55">
+              {events.length} {events.length === 1 ? "event" : "events"} · {doneCount} reached in the draft
+            </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center bg-white border border-[#E5E0D5] rounded-sm p-1 shadow-sm">
-              <button 
-                className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-sm transition-colors ${view === "list" ? "bg-[#E5E0D5] text-[#4A3225]" : "text-stone-500 hover:bg-stone-50"}`}
-                onClick={() => setView("list")}
-              >
-                Act View
-              </button>
-              <button 
-                className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-sm transition-colors ${view === "board" ? "bg-[#E5E0D5] text-[#4A3225]" : "text-stone-500 hover:bg-stone-50"}`}
-                onClick={() => setView("board")}
-              >
-                Arc Board
-              </button>
-              <button 
-                className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-sm transition-colors ${view === "tree" ? "bg-[#E5E0D5] text-[#4A3225]" : "text-stone-500 hover:bg-stone-50"}`}
-                onClick={() => setView("tree")}
-              >
-                Branch Tree
-              </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-0.5 p-1 rounded-full bg-[#EFE9DE]">
+              <button className={seg(view === "list")} onClick={() => setView("list")}>Acts</button>
+              <button className={seg(view === "board")} onClick={() => setView("board")}>Arcs</button>
+              <button className={seg(view === "tree")} onClick={() => setView("tree")}>Branch tree</button>
             </div>
-            <button 
+            <button
               onClick={handleAddNew}
-              className="px-6 py-2 bg-[#8C503C] hover:bg-[#6E3F2D] text-white text-[10px] font-bold tracking-widest uppercase rounded-sm shadow-md transition-all flex items-center gap-2"
+              className="h-10 pl-4 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[13px] font-bold flex items-center gap-2 transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
               Add Event
+              <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                <Plus className="w-4 h-4" />
+              </span>
             </button>
           </div>
         </div>
@@ -301,314 +352,250 @@ export default function Plot() {
 
       {/* Main Content */}
       <div className="flex-1 relative z-0">
-        {view === "list" && (
-          <div className="absolute inset-0 overflow-auto p-6 lg:p-12">
-            <div className="max-w-[1400px] mx-auto">
-              <div className="max-w-4xl mx-auto space-y-12">
-                {[1, 2, 3].map(act => (
-                  <div key={act} className="relative">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="h-px bg-[#D49A89] flex-1 opacity-50" />
-                      <h2 className="font-serif text-2xl font-bold text-[#4A3225]">
-                        Act {act === 1 ? "I" : act === 2 ? "II" : "III"}
-                      </h2>
-                      <span className="text-[10px] font-bold tracking-widest uppercase text-[#8C503C]">
-                        {act === 1 ? "Setup & Inciting Incident" : act === 2 ? "Rising Action & Midpoint" : "Climax & Resolution"}
-                      </span>
-                      <div className="h-px bg-[#D49A89] flex-1 opacity-50" />
+        {events.length === 0 && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center p-6 pointer-events-none">
+            <div className="max-w-sm text-center pointer-events-auto">
+              <span className="mx-auto w-12 h-12 rounded-full bg-white border border-[#E9E2D4] flex items-center justify-center text-[#0E1D26]/40">
+                <GitBranch className="w-5 h-5" />
+              </span>
+              <p className="mt-4 text-[18px] font-bold">No plot events yet</p>
+              <p className="mt-1 text-[14px] text-[#0E1D26]/55">Add the first turning point of your story. You can place it in an act, an arc and a branch later.</p>
+              <button
+                onClick={handleAddNew}
+                className="mt-5 h-10 px-5 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[13px] font-bold inline-flex items-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Add first event
+              </button>
+            </div>
+          </div>
+        )}
+
+        {view === "list" && events.length > 0 && (
+          <div className="absolute inset-0 overflow-auto custom-scrollbar">
+            <div className="max-w-3xl mx-auto px-6 lg:px-10 py-10 space-y-12">
+              {ACTS.map(({ n, roman, label }) => {
+                const list = eventsByAct[n as 1 | 2 | 3];
+                return (
+                  <section key={n}>
+                    <div className="flex items-baseline gap-3">
+                      <h2 className="text-[26px] font-extrabold tracking-[-0.02em]">Act {roman}</h2>
+                      <span className="text-[13px] text-[#0E1D26]/45">{label}</span>
+                      <span className="ml-auto text-[12px] text-[#0E1D26]/40">{list.length}</span>
                     </div>
 
-                    <div className="space-y-4 relative">
-                      <div className="absolute left-[27px] top-4 bottom-4 w-px bg-[#E5E0D5] -z-10" />
-
-                      {eventsByAct[act as keyof typeof eventsByAct].length === 0 ? (
-                        <div className="text-center py-8 text-stone-400 text-sm font-serif italic border-2 border-dashed border-[#E5E0D5] rounded-sm bg-white/30">
-                          No events plotted for this act yet.
-                        </div>
+                    <div className="mt-4 relative pl-8">
+                      <div className="absolute left-[11px] top-2 bottom-2 w-px bg-[#E4DAC8]" />
+                      {list.length === 0 ? (
+                        <p className="py-6 text-[14px] text-[#0E1D26]/40">No events in this act yet.</p>
                       ) : (
-                        eventsByAct[act as keyof typeof eventsByAct].map((event, idx) => (
-                          <div key={event.id} className="flex gap-6 group">
-                            <div className="flex flex-col items-center mt-2 shrink-0">
-                              <div 
-                                className="w-[14px] h-[14px] rounded-full border-2 border-white shadow-sm transition-transform group-hover:scale-125" 
+                        <div className="space-y-3">
+                          {list.map((event) => (
+                            <div key={event.id} className="relative group">
+                              <span
+                                className="absolute -left-[26px] top-5 w-3 h-3 rounded-full ring-4 ring-[#F8F5EE]"
                                 style={{ backgroundColor: getArcColor(event.arcId) }}
                               />
-                            </div>
-
-                            <div 
-                              className="flex-1 bg-[#FCFAF5] border border-[#E5E0D5] rounded-sm p-5 shadow-sm hover:shadow-md hover:border-[#D49A89] transition-all cursor-pointer relative"
-                              onClick={() => handleEdit(event)}
-                            >
-                              <div className="absolute top-5 right-5 text-stone-300 group-hover:text-[#8C503C] transition-colors">
-                                <Edit3 className="w-4 h-4" />
-                              </div>
-
-                              <div className="flex flex-wrap items-center gap-3 mb-2">
-                                <span 
-                                  className="px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded-sm border"
-                                  style={{ color: getArcColor(event.arcId), borderColor: getArcColor(event.arcId) + '40', backgroundColor: getArcColor(event.arcId) + '10' }}
-                                >
-                                  {getArcName(event.arcId)}
-                                </span>
-                                {event.date && (
-                                  <span className="flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-stone-500">
-                                    <Calendar className="w-3 h-3" />
-                                    {event.date}
-                                  </span>
-                                )}
-                              </div>
-
-                              <h3 className="font-serif text-xl font-bold text-[#4A3225] mb-2">{event.title}</h3>
-                              <p className="text-sm text-stone-600 font-serif leading-relaxed mb-4">{event.description}</p>
-
-                              <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-[#E5E0D5]">
-                                {event.locationId && (
-                                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#8C503C]">
-                                    <MapPin className="w-3.5 h-3.5" />
-                                    {(projectData?.locations || []).find(l => l.id === event.locationId)?.name || 'Unknown Location'}
-                                  </div>
-                                )}
-                                
-                                {event.characters.length > 0 && (
-                                  <div className="flex items-center gap-2">
-                                    <Users className="w-3.5 h-3.5 text-stone-400" />
-                                    <div className="flex -space-x-1.5">
-                                      {event.characters.map((charId, cIdx) => {
-                                        const char = (projectData?.characters || []).find(c => c.id === charId);
-                                        if (!char) return null;
-                                        return (
-                                          <div key={`ev-char-${event.id}-${charId}-${cIdx}`} className="w-5 h-5 rounded-full bg-[#E5E0D5] border border-white flex items-center justify-center text-[8px] font-bold text-stone-600 shadow-sm" title={char.name}>
-                                            {char.name.charAt(0)}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                ))}
-                
-                <button 
-                  onClick={handleAddNew}
-                  className="w-full py-4 border-2 border-dashed border-[#E5E0D5] rounded-sm text-stone-500 font-bold uppercase tracking-widest text-[10px] hover:border-[#D49A89] hover:text-[#4A3225] hover:bg-white/50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Plot New Event
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {view === "board" && (
-          <div className="absolute inset-0 overflow-auto p-6 lg:p-12">
-            <div className="max-w-[1400px] mx-auto">
-              <div className="bg-[#FCFAF5] border border-[#E5E0D5] rounded-sm shadow-sm overflow-x-auto p-6 min-h-[600px]">
-                <div className="min-w-max space-y-8">
-                  {arcs.map(arc => {
-                    const arcEvents = events.filter(e => e.arcId === arc.id).sort((a, b) => a.act - b.act);
-                    
-                    return (
-                      <div key={arc.id} className="relative">
-                        <div className="flex items-center gap-3 w-48 shrink-0 mb-4 sticky left-0 z-10 bg-[#FCFAF5] py-2">
-                          <div className="w-3 h-3 rounded-full shadow-inner" style={{ backgroundColor: arc.color }} />
-                          <h3 className="font-serif font-bold text-[#4A3225]">{arc.name}</h3>
-                        </div>
-                        
-                        <div className="relative h-[220px] bg-stone-50/50 border border-[#E5E0D5] rounded-sm p-4 flex items-center gap-6">
-                          <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 opacity-20" style={{ backgroundColor: arc.color }} />
-                          
-                          {arcEvents.length === 0 ? (
-                            <div className="w-full text-center text-stone-400 text-xs italic font-serif z-10">No events on this arc yet.</div>
-                          ) : (
-                            arcEvents.map(event => (
-                              <div 
-                                key={event.id}
+                              <div
                                 onClick={() => handleEdit(event)}
-                                className="w-72 shrink-0 bg-white border border-[#E5E0D5] shadow-md rounded-sm p-4 relative z-10 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer group"
+                                className={`rounded-3xl bg-white border border-[#E9E2D4] hover:border-[#0E1D26]/25 p-5 transition-colors cursor-pointer ${event.completed ? "opacity-70" : ""}`}
                               >
-                                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-sm opacity-80" style={{ backgroundColor: arc.color }} />
-                                
-                                <div className="flex justify-between items-start mb-2 mt-1">
-                                  <span className="text-[9px] font-bold tracking-widest uppercase text-stone-500">Act {event.act}</span>
-                                  <span className="text-[9px] text-stone-400 italic truncate max-w-[100px]">{event.date}</span>
-                                </div>
-                                <h4 className="font-serif font-bold text-[#4A3225] text-sm leading-tight mb-2 group-hover:text-[#8C503C] transition-colors line-clamp-2">{event.title}</h4>
-                                <p className="text-xs text-stone-500 line-clamp-3 mb-3">{event.description}</p>
-                                
-                                <div className="flex justify-between items-center mt-auto pt-2 border-t border-stone-100">
-                                  {event.locationId ? (
-                                    <span className="text-[10px] text-stone-400 flex items-center gap-1 truncate max-w-[120px]">
-                                      <MapPin className="w-3 h-3" />
-                                      {(projectData?.locations || []).find(l => l.id === event.locationId)?.name}
-                                    </span>
-                                  ) : <span />}
-                                  
-                                  {event.characters.length > 0 && (
-                                    <div className="flex -space-x-1">
-                                      {event.characters.slice(0, 3).map((charId, cIdx) => (
-                                        <div key={`arc-char-${event.id}-${charId}-${cIdx}`} className="w-4 h-4 rounded-full bg-[#E5E0D5] border border-white flex items-center justify-center text-[7px] font-bold text-stone-600 shadow-sm">
-                                          {(projectData?.characters || []).find(c => c.id === charId)?.name.charAt(0)}
-                                        </div>
-                                      ))}
-                                      {event.characters.length > 3 && (
-                                        <div className="w-4 h-4 rounded-full bg-stone-200 border border-white flex items-center justify-center text-[7px] font-bold text-stone-600 shadow-sm">
-                                          +{event.characters.length - 3}
-                                        </div>
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                      <ArcTag arcId={event.arcId} />
+                                      {event.date && (
+                                        <span className="flex items-center gap-1 text-[12px] text-[#0E1D26]/45">
+                                          <Calendar className="w-3 h-3" /> {event.date}
+                                        </span>
                                       )}
                                     </div>
-                                  )}
+                                    <h3 className={`mt-1.5 text-[18px] font-bold leading-snug ${event.completed ? "line-through decoration-[#0E1D26]/30" : ""}`}>
+                                      {event.title || "Untitled event"}
+                                    </h3>
+                                  </div>
+                                  <DoneToggle event={event} />
                                 </div>
+                                {event.description && <p className="mt-2 text-[14px] leading-relaxed text-[#0E1D26]/65">{event.description}</p>}
+                                {(event.locationId || event.characters.length > 0) && (
+                                  <div className="mt-4 pt-3 border-t border-[#F1ECE2] flex items-center justify-between gap-3">
+                                    {locName(event.locationId) ? (
+                                      <span className="flex items-center gap-1.5 text-[12px] text-[#0E1D26]/55 truncate">
+                                        <MapPin className="w-3.5 h-3.5" /> {locName(event.locationId)}
+                                      </span>
+                                    ) : (
+                                      <span />
+                                    )}
+                                    <Cast ids={event.characters} />
+                                  </div>
+                                )}
                               </div>
-                            ))
-                          )}
-                          
-                          <button 
-                            onClick={() => {
-                              setEditingEvent({
-                                id: Date.now().toString(),
-                                title: "",
-                                date: "",
-                                description: "",
-                                characters: [],
-                                locationId: null,
-                                arcId: arc.id,
-                                act: 1,
-                                parentId: null,
-                                x: 500,
-                                y: 100
-                              });
-                              setIsEditorOpen(true);
-                            }}
-                            className="w-12 h-12 shrink-0 rounded-full bg-white border-2 border-dashed border-[#E5E0D5] flex items-center justify-center text-stone-400 hover:text-[#8C503C] hover:border-[#D49A89] transition-all z-10 hover:scale-110 shadow-sm"
-                          >
-                            <Plus className="w-5 h-5" />
-                          </button>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {view === "tree" && (
-          <div 
-            className="absolute inset-0 bg-[#E5E0D5]/10 overflow-hidden cursor-grab active:cursor-grabbing"
+        {view === "board" && events.length > 0 && (
+          <div className="absolute inset-0 overflow-auto custom-scrollbar">
+            <div className="max-w-[1400px] mx-auto px-6 lg:px-10 py-8 space-y-6 min-w-max">
+              {arcs.map((arc) => {
+                const arcEvents = events.filter((e) => e.arcId === arc.id).sort((a, b) => a.act - b.act);
+                return (
+                  <section key={arc.id} className="rounded-3xl bg-white border border-[#E9E2D4] p-5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: arc.color }} />
+                      <h3 className="text-[16px] font-bold">{arc.name}</h3>
+                      <span className="text-[12px] text-[#0E1D26]/40">{arcEvents.length}</span>
+                    </div>
+                    <div className="mt-4 relative flex items-stretch gap-4">
+                      <div className="absolute left-0 right-0 top-1/2 h-px opacity-30" style={{ backgroundColor: arc.color }} />
+                      {arcEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          onClick={() => handleEdit(event)}
+                          className={`relative z-10 w-64 shrink-0 rounded-2xl bg-[#FBF9F5] border border-[#E9E2D4] hover:border-[#0E1D26]/25 p-4 cursor-pointer transition-colors flex flex-col ${event.completed ? "opacity-70" : ""}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0E1D26]/45">Act {["I", "II", "III"][event.act - 1] || event.act}</span>
+                            <DoneToggle event={event} />
+                          </div>
+                          <h4 className="mt-1 text-[15px] font-bold leading-snug line-clamp-2">{event.title || "Untitled event"}</h4>
+                          {event.description && <p className="mt-1.5 text-[12px] text-[#0E1D26]/55 line-clamp-3">{event.description}</p>}
+                          <div className="mt-auto pt-3 flex items-center justify-between gap-2">
+                            <span className="text-[11px] text-[#0E1D26]/45 truncate">{event.date || locName(event.locationId) || ""}</span>
+                            <Cast ids={event.characters} max={3} />
+                          </div>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => {
+                          setEditingEvent({
+                            id: Date.now().toString(),
+                            title: "",
+                            date: "",
+                            description: "",
+                            characters: [],
+                            locationId: null,
+                            arcId: arc.id,
+                            act: 1,
+                            parentId: null,
+                            x: 500,
+                            y: 100,
+                          });
+                          setIsEditorOpen(true);
+                        }}
+                        className="relative z-10 w-12 h-12 self-center shrink-0 rounded-full bg-white border-2 border-dashed border-[#0E1D26]/20 hover:border-[#0E1D26]/40 text-[#0E1D26]/45 hover:text-[#0E1D26] flex items-center justify-center cursor-pointer"
+                        title={`Add event to ${arc.name}`}
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {view === "tree" && events.length > 0 && (
+          <div
+            className="absolute inset-0 overflow-hidden cursor-grab active:cursor-grabbing"
+            style={{
+              backgroundColor: "#FBF9F5",
+              backgroundImage: "radial-gradient(rgba(14,29,38,0.09) 1px, transparent 1px)",
+              backgroundSize: `${28 * scale}px ${28 * scale}px`,
+              backgroundPosition: `${pan.x}px ${pan.y}px`,
+            }}
             onPointerDown={handleCanvasPointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
             onWheel={(e) => {
-              e.preventDefault();
               const delta = e.deltaY * -0.001;
               setScale(Math.min(Math.max(0.2, scale + delta), 2));
             }}
           >
-            <div
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-                transformOrigin: "0 0",
-              }}
-              className="absolute inset-0 pointer-events-none"
-            >
-              {/* Background Grid */}
-              <div className="absolute inset-0" style={{ 
-                backgroundImage: 'radial-gradient(#E5E0D5 1px, transparent 1px)', 
-                backgroundSize: '40px 40px',
-                width: '10000px',
-                height: '10000px',
-                left: '-5000px',
-                top: '-5000px'
-              }} />
-
-              {/* SVG Lines */}
-              <svg className="absolute inset-0 overflow-visible z-0" style={{ width: '10000px', height: '10000px', left: '-5000px', top: '-5000px' }}>
+            <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transformOrigin: "0 0" }} className="absolute inset-0 pointer-events-none">
+              <svg className="absolute inset-0 overflow-visible z-0" style={{ width: "10000px", height: "10000px", left: "-5000px", top: "-5000px" }}>
                 <g transform="translate(5000, 5000)">
-                  {events.map(event => {
+                  {events.map((event) => {
                     if (!event.parentId) return null;
-                    const parent = events.find(e => e.id === event.parentId);
+                    const parent = events.find((e) => e.id === event.parentId);
                     if (!parent) return null;
-                    
                     const sx = parent.x + 160;
                     const sy = parent.y + 100;
                     const tx = event.x + 160;
                     const ty = event.y + 20;
-
                     return (
                       <path
                         key={`line-${event.id}`}
                         d={`M ${sx} ${sy} C ${sx} ${sy + 100}, ${tx} ${ty - 100}, ${tx} ${ty}`}
                         fill="none"
                         stroke={getArcColor(event.arcId)}
-                        strokeWidth="3"
+                        strokeWidth="2.5"
                         strokeLinecap="round"
-                        className="opacity-40"
+                        opacity="0.5"
                       />
-                    )
+                    );
                   })}
                 </g>
               </svg>
 
-              {/* Nodes */}
-              <div className="absolute inset-0 z-10" style={{ width: '10000px', height: '10000px', left: '-5000px', top: '-5000px' }}>
+              <div className="absolute inset-0 z-10" style={{ width: "10000px", height: "10000px", left: "-5000px", top: "-5000px" }}>
                 <div className="absolute inset-0 transform translate-x-[5000px] translate-y-[5000px]">
-                  {events.map(event => (
+                  {events.map((event) => (
                     <div
                       key={event.id}
                       className="absolute pointer-events-auto cursor-grab active:cursor-grabbing group"
-                      style={{
-                        left: event.x,
-                        top: event.y,
-                        width: 320,
-                        touchAction: "none"
-                      }}
+                      style={{ left: event.x, top: event.y, width: 320, touchAction: "none" }}
                       onPointerDown={(e) => handleNodePointerDown(e, event.id)}
+                      onDoubleClick={() => handleEdit(event)}
                     >
-                      <div 
-                        className="bg-[#FCFAF5] border border-[#E5E0D5] rounded-sm p-5 shadow-sm hover:shadow-xl hover:border-[#D49A89] transition-all relative"
-                      >
-                        <div className="absolute top-0 left-0 right-0 h-1 rounded-t-sm opacity-80" style={{ backgroundColor: getArcColor(event.arcId) }} />
-                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: getArcColor(event.arcId) }} />
-
-                        <div className="absolute top-4 right-4 flex items-center gap-2">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleEdit(event); }}
-                            className="text-stone-300 hover:text-[#8C503C] transition-colors"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
+                      <div className={`relative rounded-3xl bg-white border border-[#E9E2D4] group-hover:border-[#0E1D26]/25 p-5 shadow-[0_10px_24px_-18px_rgba(14,29,38,0.5)] transition-colors ${event.completed ? "opacity-75" : ""}`}>
+                        <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full ring-4 ring-[#FBF9F5]" style={{ backgroundColor: getArcColor(event.arcId) }} />
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                              <ArcTag arcId={event.arcId} />
+                              {event.date && <span className="text-[11px] text-[#0E1D26]/40">{event.date}</span>}
+                            </div>
+                            <h3 className="mt-1.5 text-[16px] font-bold leading-snug">{event.title || "Untitled event"}</h3>
+                          </div>
+                          <div className="flex items-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(event);
+                              }}
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-[#0E1D26]/35 hover:text-[#0E1D26] hover:bg-[#F1ECE2] cursor-pointer"
+                              title="Edit"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <DoneToggle event={event} />
+                          </div>
                         </div>
+                        {event.description && <p className="mt-2 text-[13px] leading-relaxed text-[#0E1D26]/60 line-clamp-3">{event.description}</p>}
+                        {event.characters.length > 0 && (
+                          <div className="mt-3">
+                            <Cast ids={event.characters} />
+                          </div>
+                        )}
 
-                        <div className="flex items-center gap-2 mb-2 mt-1">
-                          <span 
-                            className="px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded-sm border"
-                            style={{ color: getArcColor(event.arcId), borderColor: getArcColor(event.arcId) + '40', backgroundColor: getArcColor(event.arcId) + '10' }}
-                          >
-                            {getArcName(event.arcId)}
-                          </span>
-                          {event.date && (
-                            <span className="text-[9px] text-stone-400 italic">
-                              {event.date}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <h3 className="font-serif text-lg font-bold text-[#4A3225] mb-2 pr-6 leading-tight">{event.title}</h3>
-                        <p className="text-xs text-stone-600 font-serif leading-relaxed line-clamp-3 mb-3">{event.description}</p>
-                        
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleAddChild(event.id); }}
-                          className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white border border-[#E5E0D5] shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 hover:border-[#D49A89] hover:text-[#8C503C] text-stone-400 z-20"
-                          title="Add child event"
+                        <button
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddChild(event.id);
+                          }}
+                          className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white border border-[#E9E2D4] shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:border-[#E8561F] hover:text-[#E8561F] text-[#0E1D26]/45 z-20 cursor-pointer"
+                          title="Branch a new event from here"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -618,192 +605,215 @@ export default function Plot() {
                 </div>
               </div>
             </div>
-            
-            {/* Zoom Controls */}
-            <div className="absolute bottom-8 left-8 flex items-center gap-2 bg-white/80 backdrop-blur-md border border-[#E5E0D5] p-2 rounded-xl shadow-sm z-50">
-              <button onClick={() => setScale(s => Math.max(0.2, s - 0.2))} className="p-2 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-lg transition-colors">
+
+            {/* Zoom */}
+            <div className="absolute bottom-5 left-5 flex items-center gap-1 p-1 rounded-full bg-white border border-[#E9E2D4] shadow-[0_8px_20px_-12px_rgba(14,29,38,0.4)] z-50">
+              <button onClick={() => setScale((s) => Math.max(0.2, s - 0.2))} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/60 hover:bg-[#F8F5EE] cursor-pointer" title="Zoom out">
                 <ZoomOut className="w-4 h-4" />
               </button>
-              <span className="text-xs font-bold text-stone-500 w-12 text-center">{Math.round(scale * 100)}%</span>
-              <button onClick={() => setScale(s => Math.min(2, s + 0.2))} className="p-2 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-lg transition-colors">
+              <button onClick={resetView} className="h-8 px-2 rounded-full text-[12px] font-semibold tabular-nums text-[#0E1D26]/55 hover:bg-[#F8F5EE] cursor-pointer" title="Reset view">
+                {Math.round(scale * 100)}%
+              </button>
+              <button onClick={() => setScale((s) => Math.min(2, s + 0.2))} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/60 hover:bg-[#F8F5EE] cursor-pointer" title="Zoom in">
                 <ZoomIn className="w-4 h-4" />
               </button>
-              <div className="w-px h-4 bg-stone-200 mx-1" />
-              <button onClick={resetView} className="p-2 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-lg transition-colors" title="Reset View">
-                <Maximize2 className="w-4 h-4" />
-              </button>
             </div>
+            <p className="absolute bottom-6 right-6 text-[12px] text-[#0E1D26]/40 pointer-events-none">Drag cards to arrange · double-click to edit · + to branch</p>
           </div>
         )}
       </div>
 
-      {/* Slide-out Editor Panel */}
-      <div className={`fixed inset-y-0 right-0 w-full max-w-md bg-[#FCFAF5] shadow-[0_0_40px_rgba(0,0,0,0.2)] border-l border-[#E5E0D5] z-[60] transform transition-transform duration-300 ease-in-out flex flex-col ${isEditorOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      {/* Slide-out editor */}
+      <div
+        className={`fixed inset-y-0 right-0 w-full max-w-md bg-[#F8F5EE] shadow-[0_0_48px_rgba(14,29,38,0.25)] z-[60] transform transition-transform duration-300 ease-in-out flex flex-col font-['Outfit'] text-[#0E1D26] ${
+          isEditorOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
         {isEditorOpen && editingEvent && (
           <>
-            <div className="p-6 border-b border-[#E5E0D5] bg-white flex justify-between items-center shrink-0">
-              <h2 className="font-serif text-xl font-bold text-[#4A3225]">
-                {editingEvent.title ? 'Edit Event' : 'New Plot Event'}
-              </h2>
-              <button onClick={() => setIsEditorOpen(false)} className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-sm transition-colors">
-                <X className="w-5 h-5" />
+            <div className="px-6 pt-6 pb-4 flex justify-between items-start shrink-0">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Plot event</p>
+                <h2 className="mt-1.5 text-[24px] font-extrabold tracking-[-0.02em]">{events.some((e) => e.id === editingEvent.id) ? "Edit event" : "New event"}</h2>
+              </div>
+              <button onClick={() => setIsEditorOpen(false)} aria-label="Close" className="w-9 h-9 rounded-full flex items-center justify-center text-[#0E1D26]/45 hover:text-[#0E1D26] hover:bg-[#EFE9DE] cursor-pointer">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto p-6 space-y-6">
-              {/* Title & Date */}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Event Title</label>
-                  <input 
-                    type="text"
-                    value={editingEvent.title}
-                    onChange={e => setEditingEvent({...editingEvent, title: e.target.value})}
-                    placeholder="e.g. The King's Assassination"
-                    className="w-full mt-1 bg-white border border-[#E5E0D5] rounded-sm px-3 py-2 text-sm font-bold text-[#4A3225] focus:outline-none focus:border-[#D49A89] shadow-inner"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">In-Universe Date</label>
-                  <input 
-                    type="text"
-                    value={editingEvent.date}
-                    onChange={e => setEditingEvent({...editingEvent, date: e.target.value})}
-                    placeholder="e.g. 14 Moonfall – Year 302"
-                    className="w-full mt-1 bg-white border border-[#E5E0D5] rounded-sm px-3 py-2 text-sm text-[#4A3225] focus:outline-none focus:border-[#D49A89] shadow-inner"
-                  />
-                </div>
-              </div>
-
-              {/* Arc & Act Classification */}
-              <div className="grid grid-cols-2 gap-4 p-4 bg-white border border-[#E5E0D5] rounded-sm shadow-sm">
-                <div>
-                  <label className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1.5 mb-2"><Spline className="w-3 h-3" /> Plot Arc</label>
-                  <select 
-                    value={editingEvent.arcId}
-                    onChange={e => setEditingEvent({...editingEvent, arcId: e.target.value})}
-                    className="w-full bg-[#FCFAF5] border border-[#E5E0D5] rounded-sm px-2 py-1.5 text-xs text-[#4A3225] focus:outline-none focus:border-[#D49A89]"
-                  >
-                    {arcs.map(arc => <option key={arc.id} value={arc.id}>{arc.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1.5 mb-2"><Columns className="w-3 h-3" /> Story Act</label>
-                  <select 
-                    value={editingEvent.act}
-                    onChange={e => setEditingEvent({...editingEvent, act: Number(e.target.value)})}
-                    className="w-full bg-[#FCFAF5] border border-[#E5E0D5] rounded-sm px-2 py-1.5 text-xs text-[#4A3225] focus:outline-none focus:border-[#D49A89]"
-                  >
-                    <option value={1}>Act I (Setup)</option>
-                    <option value={2}>Act II (Rising Action)</option>
-                    <option value={3}>Act III (Resolution)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Parent Branch */}
+            <div className="flex-1 overflow-auto custom-scrollbar px-6 pb-6 space-y-5">
               <div>
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1.5 mb-2"><GitBranch className="w-3 h-3" /> Parent Event (Branch)</label>
-                <select 
-                  value={editingEvent.parentId || ""}
-                  onChange={e => setEditingEvent({...editingEvent, parentId: e.target.value || null})}
-                  className="w-full bg-white border border-[#E5E0D5] rounded-sm px-3 py-2 text-sm text-[#4A3225] focus:outline-none focus:border-[#D49A89] shadow-inner"
-                >
-                  <option value="">-- Main Trunk (No Parent) --</option>
-                  {events.filter(e => e.id !== editingEvent.id).map(e => (
-                    <option key={e.id} value={e.id}>{e.title}</option>
-                  ))}
-                </select>
+                <label className={labelCls}>Title</label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={editingEvent.title}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })}
+                  placeholder="e.g. The King's Assassination"
+                  className={`${inputCls} font-semibold`}
+                />
               </div>
-
-              {/* Description */}
               <div>
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Description</label>
-                <textarea 
-                  value={editingEvent.description}
-                  onChange={e => setEditingEvent({...editingEvent, description: e.target.value})}
-                  rows={5}
-                  placeholder="What happens in this event?"
-                  className="w-full mt-1 bg-white border border-[#E5E0D5] rounded-sm px-3 py-2 text-sm text-[#4A3225] focus:outline-none focus:border-[#D49A89] shadow-inner resize-none font-serif"
+                <label className={labelCls}>In-world date</label>
+                <input
+                  type="text"
+                  value={editingEvent.date}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, date: e.target.value })}
+                  placeholder="e.g. 14 Moonfall – Year 302"
+                  className={inputCls}
                 />
               </div>
 
-              {/* Location Selection */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>
+                    <Spline className="w-3 h-3" /> Arc
+                  </label>
+                  <select value={editingEvent.arcId} onChange={(e) => setEditingEvent({ ...editingEvent, arcId: e.target.value })} className={`${inputCls} cursor-pointer`}>
+                    {arcs.map((arc) => (
+                      <option key={arc.id} value={arc.id}>
+                        {arc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>
+                    <Columns className="w-3 h-3" /> Act
+                  </label>
+                  <select value={editingEvent.act} onChange={(e) => setEditingEvent({ ...editingEvent, act: Number(e.target.value) })} className={`${inputCls} cursor-pointer`}>
+                    <option value={1}>Act I · Setup</option>
+                    <option value={2}>Act II · Rising action</option>
+                    <option value={3}>Act III · Resolution</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1.5 mb-2"><MapPin className="w-3 h-3" /> Location</label>
-                <select 
-                  value={editingEvent.locationId || ""}
-                  onChange={e => setEditingEvent({...editingEvent, locationId: e.target.value || null})}
-                  className="w-full bg-white border border-[#E5E0D5] rounded-sm px-3 py-2 text-sm text-[#4A3225] focus:outline-none focus:border-[#D49A89] shadow-inner"
+                <label className={labelCls}>
+                  <GitBranch className="w-3 h-3" /> Branches from
+                </label>
+                <select
+                  value={editingEvent.parentId || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, parentId: e.target.value || null })}
+                  className={`${inputCls} cursor-pointer`}
                 >
-                  <option value="">-- No specific location --</option>
-                  {(projectData?.locations || []).map(loc => (
-                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  <option value="">Main trunk (no parent)</option>
+                  {events
+                    .filter((e) => e.id !== editingEvent.id)
+                    .map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.title || "Untitled event"}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>What happens</label>
+                <textarea
+                  value={editingEvent.description}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, description: e.target.value })}
+                  rows={5}
+                  placeholder="What happens in this event, and why does it matter?"
+                  className="w-full px-4 py-3 bg-white border border-[#E9E2D4] rounded-2xl text-[14px] leading-relaxed placeholder:text-[#0E1D26]/30 outline-none focus:border-[#0E1D26]/35 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>
+                  <MapPin className="w-3 h-3" /> Location
+                </label>
+                <select
+                  value={editingEvent.locationId || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, locationId: e.target.value || null })}
+                  className={`${inputCls} cursor-pointer`}
+                >
+                  <option value="">No specific location</option>
+                  {(projectData?.locations || []).map((loc: any) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </option>
                   ))}
                 </select>
               </div>
 
-              {/* Character Selection */}
               <div>
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1.5 mb-2"><Users className="w-3 h-3" /> Involved Characters</label>
-                <div className="bg-white border border-[#E5E0D5] rounded-sm shadow-inner p-2 flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
-                  {(projectData?.characters || []).map(char => {
-                    const isSelected = editingEvent.characters.includes(char.id);
-                    return (
-                      <button
-                        key={char.id}
-                        onClick={() => {
-                          setEditingEvent(prev => ({
-                            ...prev!,
-                            characters: isSelected 
-                              ? prev!.characters.filter(id => id !== char.id)
-                              : [...prev!.characters, char.id]
-                          }))
-                        }}
-                        className={`px-2 py-1 rounded-sm text-xs font-bold transition-colors border ${isSelected ? 'bg-[#E5E0D5] text-[#4A3225] border-[#D49A89]' : 'bg-transparent text-stone-500 border-transparent hover:bg-stone-50'}`}
-                      >
-                        {char.name}
-                      </button>
-                    )
-                  })}
-                </div>
+                <label className={labelCls}>
+                  <Users className="w-3 h-3" /> Characters involved
+                </label>
+                {(projectData?.characters || []).length === 0 ? (
+                  <p className="pl-1 text-[13px] text-[#0E1D26]/45">No characters in this book yet.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(projectData?.characters || []).map((char: any) => {
+                      const isSelected = editingEvent.characters.includes(char.id);
+                      return (
+                        <button
+                          key={char.id}
+                          onClick={() => {
+                            setEditingEvent((prev) => ({
+                              ...prev!,
+                              characters: isSelected ? prev!.characters.filter((cid) => cid !== char.id) : [...prev!.characters, char.id],
+                            }));
+                          }}
+                          className={`h-8 pl-1 pr-3 rounded-full text-[12px] font-semibold flex items-center gap-1.5 border transition-colors cursor-pointer ${
+                            isSelected ? "bg-[#0E1D26] border-[#0E1D26] text-[#F6F1E7]" : "bg-white border-[#E9E2D4] text-[#0E1D26]/65 hover:border-[#0E1D26]/30"
+                          }`}
+                        >
+                          {char.imageUrl ? (
+                            <img src={char.imageUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+                          ) : (
+                            <span className="w-6 h-6 rounded-full bg-[#EFE9DE] text-[#0E1D26] flex items-center justify-center text-[10px] font-bold">{char.name.charAt(0)}</span>
+                          )}
+                          {char.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+
+              <label className="flex items-center gap-2.5 pl-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={!!editingEvent.completed}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, completed: e.target.checked })}
+                  className="w-4 h-4 accent-[#E8561F] cursor-pointer"
+                />
+                <span className="text-[14px]">Reached in the draft</span>
+              </label>
             </div>
 
-            <div className="p-4 border-t border-[#E5E0D5] bg-white flex justify-between shrink-0">
-              <button 
-                onClick={() => deleteEvent(editingEvent.id)}
-                className="px-4 py-2 text-rose-600 hover:bg-rose-50 text-[10px] font-bold tracking-widest uppercase rounded-sm transition-colors flex items-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Delete
-              </button>
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => setIsEditorOpen(false)}
-                  className="px-6 py-2 text-[#8C503C] text-[10px] font-bold tracking-widest uppercase hover:bg-stone-50 rounded-sm transition-colors"
+            <div className="px-6 py-4 border-t border-[#E9E2D4] flex justify-between items-center shrink-0">
+              {events.some((e) => e.id === editingEvent.id) ? (
+                <button
+                  onClick={() => deleteEvent(editingEvent.id)}
+                  className="h-10 px-4 rounded-full text-[13px] font-semibold text-[#C2410C] hover:bg-[#C2410C]/[0.06] flex items-center gap-1.5 cursor-pointer"
                 >
+                  <Trash2 className="w-4 h-4" /> Delete
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => setIsEditorOpen(false)} className="h-10 px-5 rounded-full border border-[#E9E2D4] bg-white text-[13px] font-semibold cursor-pointer">
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={saveEvent}
                   disabled={!editingEvent.title.trim()}
-                  className={`px-6 py-2 text-white text-[10px] font-bold tracking-widest uppercase rounded-sm shadow-md transition-all ${!editingEvent.title.trim() ? 'bg-stone-300' : 'bg-[#8C503C] hover:bg-[#6E3F2D]'}`}
+                  className="h-10 px-5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-bold cursor-pointer"
                 >
-                  Save Event
+                  Save event
                 </button>
               </div>
             </div>
           </>
         )}
       </div>
-      
-      {/* Backdrop for Editor */}
-      {isEditorOpen && (
-        <div 
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[50] transition-opacity"
-          onClick={() => setIsEditorOpen(false)}
-        />
-      )}
+
+      {isEditorOpen && <div className="fixed inset-0 bg-[#0E1D26]/20 backdrop-blur-sm z-[50]" onClick={() => setIsEditorOpen(false)} />}
     </div>
   );
 }
