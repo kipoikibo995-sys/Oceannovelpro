@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -22,7 +22,9 @@ export function AppLayout() {
   return (
     <div className="h-screen w-screen bg-[#F4F1EA] text-stone-800 font-sans flex flex-col overflow-hidden">
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <Outlet />
+        <Suspense fallback={<div className="flex-1 bg-[#F8F5EE]" />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );
@@ -180,7 +182,9 @@ export function ProjectLayout() {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[#F8F5EE]">
-        <Outlet />
+        <Suspense fallback={<div className="flex-1 bg-[#F8F5EE]" />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

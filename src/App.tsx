@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -18,19 +18,46 @@ import { auth } from "./lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { ShieldAlert } from "lucide-react";
 import WaveLoader from "./components/brand/WaveLoader";
-import Dashboard from "./pages/Dashboard";
-import CreateProject from "./pages/CreateProject";
-import ProjectOverview from "./pages/ProjectOverview";
-import StoryBible from "./pages/StoryBible";
-import Characters from "./pages/Characters";
-import Locations from "./pages/Locations";
-import Plot from "./pages/Plot";
-import WritingStudio from "./pages/WritingStudio";
-import Settings from "./pages/Settings";
-import GlobalSearchPage from "./pages/GlobalSearchPage";
-import ConsistencyCheckerPage from "./pages/ConsistencyCheckerPage";
 import Login from "./pages/Login";
-import AdminDashboard from "./pages/AdminDashboard";
+
+// Each page is its own chunk, so the login screen loads without the whole studio.
+const pageLoaders = {
+  Dashboard: () => import("./pages/Dashboard"),
+  CreateProject: () => import("./pages/CreateProject"),
+  ProjectOverview: () => import("./pages/ProjectOverview"),
+  StoryBible: () => import("./pages/StoryBible"),
+  Characters: () => import("./pages/Characters"),
+  Locations: () => import("./pages/Locations"),
+  Plot: () => import("./pages/Plot"),
+  WritingStudio: () => import("./pages/WritingStudio"),
+  Settings: () => import("./pages/Settings"),
+  GlobalSearchPage: () => import("./pages/GlobalSearchPage"),
+  ConsistencyCheckerPage: () => import("./pages/ConsistencyCheckerPage"),
+  AdminDashboard: () => import("./pages/AdminDashboard"),
+};
+const Dashboard = lazy(pageLoaders.Dashboard);
+const CreateProject = lazy(pageLoaders.CreateProject);
+const ProjectOverview = lazy(pageLoaders.ProjectOverview);
+const StoryBible = lazy(pageLoaders.StoryBible);
+const Characters = lazy(pageLoaders.Characters);
+const Locations = lazy(pageLoaders.Locations);
+const Plot = lazy(pageLoaders.Plot);
+const WritingStudio = lazy(pageLoaders.WritingStudio);
+const Settings = lazy(pageLoaders.Settings);
+const GlobalSearchPage = lazy(pageLoaders.GlobalSearchPage);
+const ConsistencyCheckerPage = lazy(pageLoaders.ConsistencyCheckerPage);
+const AdminDashboard = lazy(pageLoaders.AdminDashboard);
+
+// Once signed in, fetch the other pages in the background so moving around stays instant
+let pagesPrefetched = false;
+function prefetchPages() {
+  if (pagesPrefetched) return;
+  pagesPrefetched = true;
+  const run = () => Object.values(pageLoaders).forEach((load) => load().catch(() => {}));
+  const idle = (window as any).requestIdleCallback as ((cb: () => void) => void) | undefined;
+  if (idle) idle(run);
+  else setTimeout(run, 1500);
+}
 import { adminService } from "./lib/adminService";
 
 function ProtectedRoute() {
@@ -53,6 +80,7 @@ function ProtectedRoute() {
         }
       }
       setLoading(false);
+      if (currentUser && !currentUser.isAnonymous) prefetchPages();
     });
     return () => unsub();
   }, []);
@@ -99,6 +127,7 @@ function ProtectedRoute() {
 function AnimatedRoutes() {
   const location = useLocation();
   return (
+    <Suspense fallback={<WaveLoader />}>
     <Routes location={location}>
       {/* Public Authentication Gate */}
       <Route path="/login" element={<Login />} />
@@ -140,6 +169,7 @@ function AnimatedRoutes() {
 
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </Suspense>
   );
 }
 
