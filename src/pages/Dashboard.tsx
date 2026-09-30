@@ -873,7 +873,7 @@ export default function Dashboard() {
                   const spineWidth = Math.min(60, [38, 52, 42, 60, 46, 56, 40, 58, 48, 50][seed % 10] + Math.floor(ratio * 3));
                   const baseHeight = [220, 238, 228, 214, 244][index % 5];
                   const bookHeight = isSelected ? baseHeight + 14 : baseHeight;
-                  const coverWidth = Math.round(bookHeight * 0.72);
+                  const coverWidth = 206;
                   const variant = seed % 4;
                   const accent = isComplete ? "#F0B54B" : palette.a;
                   const titleLen = Math.max(1, (proj.title || "").length);
@@ -967,95 +967,65 @@ export default function Dashboard() {
                         {isRecent && <div className="absolute top-0 right-1.5 w-2.5 h-8 bg-[#E8561F] rounded-b-sm shadow-sm" />}
                       </div>
 
-                      {/* Front cover, revealed when the book is pulled from the shelf */}
+                      {/* Opened book: a simple title plate inside the cover */}
                       <AnimatePresence>
                         {isSelected && (
                           <motion.div
-                            initial={{ opacity: 0, x: -24 }}
-                            animate={{ opacity: 1, x: 0, transition: { delay: 0.12, duration: 0.35, ease: "easeOut" } }}
-                            exit={{ opacity: 0, x: -24, transition: { duration: 0.15 } }}
-                            className="absolute inset-y-0 right-0"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1, transition: { delay: 0.15, duration: 0.25 } }}
+                            exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                            className="absolute inset-y-0 right-0 p-2.5"
                             style={{ left: spineWidth }}
                           >
-                            <BookCover
-                              title={proj.title}
-                              genre={proj.genre}
-                              seed={proj.id}
-                              subtitle={proj.genre || "Fiction"}
-                              className="absolute inset-0 !rounded-l-none"
-                              titleClassName={proj.title.length > 20 ? "text-[17px]" : "text-[22px]"}
-                            />
-                            {/* hinge groove between spine and board */}
-                            <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/35 to-transparent" />
+                            <div className="relative h-full rounded-[4px] bg-[#FBF8F2] px-4 py-3.5 flex flex-col text-[#0E1D26] shadow-[inset_0_0_0_1px_rgba(14,29,38,0.06),0_2px_8px_rgba(0,0,0,0.25)]">
 
-                            {/* soft gloss across the board */}
-                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/15 via-transparent to-black/15" />
+                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E8561F]">
+                                Book · {String(index + 1).padStart(2, "0")}
+                              </p>
+                              <p className="mt-2 text-[18px] font-extrabold leading-[1.1] line-clamp-2 break-words">{proj.title}</p>
+                              <p className="mt-1 text-[12px] italic text-[#0E1D26]/55 truncate">{proj.genre || "Fiction"}</p>
+
+                              <div className="mt-auto pt-3 border-t border-[#E4DAC8]">
+                                <div className="flex items-baseline justify-between">
+                                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/45">Words</span>
+                                  <span className="text-[13px] font-bold">{(proj.currentWords || 0).toLocaleString()}</span>
+                                </div>
+                                <div className="mt-1.5 h-[3px] rounded-full bg-[#E4DAC8] overflow-hidden">
+                                  <div
+                                    className={cn("h-full rounded-full", isComplete ? "bg-[#F0B54B]" : "bg-[#E8561F]")}
+                                    style={{ width: `${Math.max(4, pct)}%` }}
+                                  />
+                                </div>
+
+                                <div className="mt-3 flex items-center justify-between">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setProjectToDelete(proj);
+                                    }}
+                                    title={`Delete "${proj.title}"`}
+                                    className="p-1 text-[#0E1D26]/35 hover:text-[#C2410C] transition-colors cursor-pointer"
+                                  >
+                                    <IconTrash className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/project/${proj.id}`);
+                                    }}
+                                    className="h-8 px-4 rounded-full bg-[#0E1D26] hover:bg-[#E8561F] text-[#F6F1E7] text-[11px] font-bold uppercase tracking-[0.08em] transition-colors cursor-pointer"
+                                  >
+                                    Open Book
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
                     </motion.div>
-
-                    {/* Book card standing beside the pulled-out book */}
-                    <AnimatePresence initial={false}>
-                      {isSelected && (
-                        <motion.div
-                          key={`card-${proj.id}`}
-                          initial={{ opacity: 0, width: 0 }}
-                          animate={{ opacity: 1, width: 216, transition: { type: "spring", stiffness: 220, damping: 26 } }}
-                          exit={{ opacity: 0, width: 0, transition: { duration: 0.2 } }}
-                          className="shrink-0 self-end overflow-hidden"
-                        >
-                          <div className="ml-3 mr-2 w-[200px] rounded-2xl bg-white border border-[#E4DAC8] p-4 text-[#0E1D26] shadow-[0_14px_28px_-16px_rgba(14,29,38,0.5)]">
-                            <div className="flex items-center justify-between">
-                              <span className="px-2 py-0.5 border border-[#0E1D26]/40 text-[9px] font-bold uppercase tracking-[0.18em]">
-                                Book {String(index + 1).padStart(2, "0")}
-                              </span>
-                              {isComplete && (
-                                <span className="px-2 py-0.5 rounded-full bg-[#F0B54B] text-[9px] font-bold uppercase tracking-wider">Done</span>
-                              )}
-                            </div>
-                            <p className="mt-3 text-[17px] font-extrabold leading-[1.1] line-clamp-2 break-words">{proj.title}</p>
-                            <p className="mt-1 text-[12px] text-[#0E1D26]/55 truncate">{proj.genre || "Fiction"}</p>
-
-                            <div className="mt-4 flex items-baseline justify-between text-[11px]">
-                              <span className="text-[#0E1D26]/55">Words</span>
-                              <span className="font-bold">
-                                {(proj.currentWords || 0).toLocaleString()} · {pct}%
-                              </span>
-                            </div>
-                            <div className="mt-1.5 h-1.5 rounded-full bg-[#E4DAC8] overflow-hidden">
-                              <motion.div
-                                className={cn("h-full rounded-full", isComplete ? "bg-[#F0B54B]" : "bg-[#E8561F]")}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.max(4, pct)}%` }}
-                                transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-                              />
-                            </div>
-
-                            <div className="mt-4 flex items-center justify-between gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setProjectToDelete(proj)}
-                                title={`Delete "${proj.title}"`}
-                                className="w-9 h-9 rounded-full border border-[#E4DAC8] text-[#0E1D26]/50 hover:text-[#C2410C] hover:border-[#C2410C]/40 flex items-center justify-center transition-colors cursor-pointer"
-                              >
-                                <IconTrash className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/project/${proj.id}`)}
-                                className="h-9 pl-4 pr-1 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[12px] font-bold flex items-center gap-2 cursor-pointer"
-                              >
-                                Open Book
-                                <span className="w-7 h-7 rounded-full bg-[#E8561F] flex items-center justify-center">
-                                  <IconArrow className="w-3.5 h-3.5" />
-                                </span>
-                              </button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                     </Fragment>
                   );
                 })}
