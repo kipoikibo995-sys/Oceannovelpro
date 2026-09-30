@@ -240,6 +240,10 @@ Atmosphere / Mood:
 Region / Parent:
 ...`;
 
+// Paper grain for the atlas desk and map
+const ATLAS_GRAIN =
+  'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")';
+
 export default function Locations() {
   const { id } = useParams<{ id: string }>();
 
@@ -314,10 +318,16 @@ export default function Locations() {
     return Array.from(set);
   }, [locations]);
 
+  const [atlasQuery, setAtlasQuery] = useState("");
+
   const displayLocations = React.useMemo(() => {
-    if (!selectedRegion) return locations;
-    return locations.filter(l => (l as any).region === selectedRegion);
-  }, [locations, selectedRegion]);
+    const q = atlasQuery.trim().toLowerCase();
+    return locations.filter((l: any) => {
+      if (selectedRegion && l.region !== selectedRegion) return false;
+      if (!q) return true;
+      return [l.name, l.type, l.region, l.description].some((v) => typeof v === "string" && v.toLowerCase().includes(q));
+    });
+  }, [locations, selectedRegion, atlasQuery]);
 
   // Synchronize when active project ID changes
   React.useEffect(() => {
@@ -586,219 +596,222 @@ export default function Locations() {
     setIsModalOpen(false);
   };
 
-  return (
-    <div className="flex-1 flex flex-col w-full h-full overflow-hidden relative bg-[#3d261d]">
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-40" 
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236e4b3b' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-        }}
-      />
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-[#8c503c] rounded-full mix-blend-color-dodge blur-[150px] opacity-20" />
-        <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-[#d49a89] rounded-full mix-blend-overlay blur-[120px] opacity-10" />
-      </div>
+  const tiltOf = (seed: string, range = 2) => ((String(seed).split("").reduce((s, c) => s + c.charCodeAt(0), 0) % (range * 2 + 1)) - range) * 0.5;
+  const REGION_INK = ["#E8561F", "#0E1D26", "#C8912B", "#5B7A5A", "#8A4F7D", "#3D6A8A"];
+  const regionInk = (region?: string) => (region ? REGION_INK[availableRegions.indexOf(region) % REGION_INK.length] || "#0E1D26" : "#0E1D26");
+  const pillBtn = (active: boolean) =>
+    `h-8 px-4 rounded-full text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+      active ? "bg-[#0E1D26] text-[#F6F1E7]" : "text-[#0E1D26]/55 hover:text-[#0E1D26]"
+    }`;
 
-      <div className="p-4 lg:p-6 border-b border-[#5d3f32] bg-[#2a1a14]/80 backdrop-blur-md flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
+  return (
+    <div className="flex-1 flex flex-col w-full h-full overflow-hidden relative text-[#0E1D26] font-['Outfit']" style={{ backgroundColor: "#ECE5D8" }}>
+      <div className="absolute inset-0 pointer-events-none mix-blend-multiply opacity-30" style={{ backgroundImage: ATLAS_GRAIN }} />
+
+      {/* Header */}
+      <div className="relative z-10 px-6 lg:px-8 pt-6 pb-4 flex flex-col lg:flex-row lg:items-end justify-between gap-4 shrink-0 border-b border-[#0E1D26]/10">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="font-serif text-3xl text-[#e5e0d5] font-bold">World Atlas</h1>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Cartography</p>
+          <div className="mt-2 flex items-center gap-2.5">
+            <h1 className="text-[34px] lg:text-[40px] font-extrabold leading-none tracking-[-0.02em]">World Atlas</h1>
             <button
               type="button"
               onClick={() => setShowLocationGuideModal(true)}
-              className="w-7 h-7 rounded-full bg-[#5d3f32]/50 hover:bg-[#5d3f32]/80 border border-[#8c503c]/50 hover:border-[#8c503c]/90 text-[#d49a89] hover:text-[#fcfaf5] flex items-center justify-center transition-all shadow-sm group hover:scale-105"
-              title="World Atlas & Location Guide & AI Prompt"
-              aria-label="Location Guide & AI Prompt"
+              className="w-9 h-9 rounded-full bg-[#FDFBF6] text-[#0E1D26]/55 hover:text-[#0E1D26] flex items-center justify-center shadow-sm cursor-pointer"
+              title="Atlas guide & AI prompt"
+              aria-label="Atlas guide & AI prompt"
             >
-              <HelpCircle className="w-4 h-4 transition-transform group-hover:rotate-12" />
+              <HelpCircle className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-[#a66850] text-[11px] font-bold uppercase tracking-widest mt-1">Chart the regions and landmarks</p>
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#a66850]" />
-            <input 
-              type="text" 
-              placeholder="Search atlas..." 
-              className="w-full pl-9 pr-4 py-2 bg-[#1a0f0a]/60 border border-[#5d3f32] rounded-sm text-[#e5e0d5] text-sm font-serif italic placeholder:text-[#8a5b46] focus:outline-none focus:border-[#a66850] transition-colors shadow-inner"
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-60">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0E1D26]/35" />
+            <input
+              type="text"
+              value={atlasQuery}
+              onChange={(e) => setAtlasQuery(e.target.value)}
+              placeholder="Search places"
+              className="w-full h-10 pl-10 pr-4 bg-[#FDFBF6] border border-[#DDD3C2] rounded-full text-[14px] placeholder:text-[#0E1D26]/35 outline-none focus:border-[#0E1D26]/35"
             />
           </div>
 
-          {/* View Switcher */}
-          <div className="flex bg-[#2a1a14]/60 p-1 rounded-full border border-[#5d3f32] backdrop-blur-sm shadow-inner shrink-0 mr-4">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`px-4 py-1.5 flex items-center gap-2 text-[10px] font-bold tracking-widest rounded-full uppercase transition-all shadow-sm ${viewMode === "grid" ? "bg-[#b8785e] text-white" : "text-white/50 hover:text-white/80"}`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              Grid
+          <div className="flex items-center gap-0.5 p-1 rounded-full bg-[#FDFBF6]/70">
+            <button onClick={() => setViewMode("grid")} className={pillBtn(viewMode === "grid")}>
+              <LayoutGrid className="w-3.5 h-3.5" /> Cards
             </button>
-            <button
-              onClick={() => setViewMode("map")}
-              className={`px-4 py-1.5 flex items-center gap-2 text-[10px] font-bold tracking-widest rounded-full uppercase transition-all shadow-sm ${viewMode === "map" ? "bg-[#b8785e] text-white" : "text-white/50 hover:text-white/80"}`}
-            >
-              <Route className="w-3.5 h-3.5" />
-              Map
+            <button onClick={() => setViewMode("map")} className={pillBtn(viewMode === "map")}>
+              <Route className="w-3.5 h-3.5" /> Map
             </button>
           </div>
 
-          <button 
+          <button
             onClick={handleOpenCreate}
-            className={`px-5 py-2 text-white text-[11px] font-bold tracking-widest uppercase rounded-sm shadow-md transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-              isLocationLimitReached
-                ? "bg-[#8c503c] hover:bg-[#723e2e]"
-                : "bg-[#b8785e] hover:bg-[#a66850]"
-            }`}
+            className="h-10 pl-4 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[13px] font-bold flex items-center gap-2 transition-colors cursor-pointer"
           >
-            {isLocationLimitReached ? <Lock className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-            <span>Add Location</span>
-            <span className="ml-1 text-[9px] font-mono px-1.5 py-0.2 bg-black/30 rounded-xs">
+            Add Location
+            <span className="h-7 px-2 rounded-full bg-white/20 flex items-center gap-1 text-[11px]">
+              {isLocationLimitReached ? <Lock className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
               {locations.length}/{maxLocations === Infinity ? "∞" : maxLocations}
             </span>
           </button>
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className="w-64 shrink-0 bg-[#2a1a14]/60 backdrop-blur-md border-r border-[#5d3f32] flex flex-col hidden md:flex">
-          <div className="p-4 border-b border-[#5d3f32]">
-            <h3 className="text-[10px] font-bold text-[#a66850] tracking-[0.2em] uppercase">Regions</h3>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-1">
-            <button 
+      <div className="relative flex-1 flex overflow-hidden">
+        {/* Region index */}
+        <div className="w-60 shrink-0 hidden md:flex flex-col border-r border-[#0E1D26]/10 bg-[#F3EEE4]/80">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-1">
+            <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#0E1D26]/40">Regions</p>
+            <button
               onClick={() => setSelectedRegion(null)}
-              className={`w-full text-left px-3 py-2 text-sm font-serif rounded-sm transition-colors flex items-center justify-between group ${
-                selectedRegion === null 
-                  ? 'bg-[#b8785e] text-white' 
-                  : 'text-stone-400 hover:text-[#e5e0d5] hover:bg-[#3d261d]/50'
+              className={`w-full text-left px-3 py-2 rounded-xl text-[14px] flex items-center justify-between transition-colors cursor-pointer ${
+                selectedRegion === null ? "bg-[#FDFBF6] font-semibold shadow-[0_1px_2px_rgba(14,29,38,0.08)]" : "text-[#0E1D26]/60 hover:text-[#0E1D26] hover:bg-[#FDFBF6]/60"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Compass className="w-4 h-4" />
-                All Regions
-              </div>
-              <span className="text-[10px] font-bold opacity-75">{locations.length}</span>
+              <span className="flex items-center gap-2.5">
+                <Compass className="w-4 h-4" /> All regions
+              </span>
+              <span className="text-[12px] text-[#0E1D26]/40">{locations.length}</span>
             </button>
 
-            {availableRegions.map(region => (
-              <button 
+            {availableRegions.map((region) => (
+              <button
                 key={region}
                 onClick={() => setSelectedRegion(region === selectedRegion ? null : region)}
-                className={`w-full text-left px-3 py-2 text-sm font-serif rounded-sm transition-colors flex items-center justify-between group ${
-                  selectedRegion === region 
-                    ? 'bg-[#b8785e] text-white' 
-                    : 'text-stone-400 hover:text-[#e5e0d5] hover:bg-[#3d261d]/50'
+                className={`w-full text-left px-3 py-2 rounded-xl text-[14px] flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                  selectedRegion === region ? "bg-[#FDFBF6] font-semibold shadow-[0_1px_2px_rgba(14,29,38,0.08)]" : "text-[#0E1D26]/60 hover:text-[#0E1D26] hover:bg-[#FDFBF6]/60"
                 }`}
               >
-                <div className="flex items-center gap-3 truncate">
-                  <Castle className="w-4 h-4 shrink-0 text-stone-500 group-hover:text-[#d49a89] transition-colors" />
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: regionInk(region) }} />
                   <span className="truncate">{region}</span>
-                </div>
-                <span className="text-[10px] font-bold opacity-75 shrink-0">
-                  {locations.filter(l => (l as any).region === region).length}
                 </span>
+                <span className="text-[12px] text-[#0E1D26]/40 shrink-0">{locations.filter((l) => (l as any).region === region).length}</span>
               </button>
             ))}
 
-            {availableRegions.length === 0 && (
-              <p className="px-3 py-2 text-xs italic text-stone-500">No regions categorized yet.</p>
-            )}
+            {availableRegions.length === 0 && <p className="px-3 py-2 text-[13px] text-[#0E1D26]/45">No regions yet.</p>}
 
-            <div className="pt-4 mt-4 border-t border-[#5d3f32]/50">
-              <h4 className="text-[9px] font-bold text-[#8a5b46] tracking-[0.2em] uppercase px-3 mb-2">Unmapped Lands</h4>
+            {/* Unmapped lands — a sticky note */}
+            <div className="relative mt-6 mx-1 bg-[#F7E3A6] p-4 -rotate-1 shadow-[0_10px_18px_-12px_rgba(14,29,38,0.55)]">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-14 h-4 bg-white/60 rotate-2" />
+              <p className="font-['Caveat'] text-[22px] font-bold leading-none">Unmapped lands</p>
               {unmappedLocations.length === 0 ? (
-                <p className="px-3 text-xs italic text-stone-500">All lands mapped.</p>
+                <p className="mt-2 text-[12px] text-[#0E1D26]/60">Every place is on the map.</p>
               ) : (
-                unmappedLocations.map(u => (
-                  <button 
-                    key={u.id}
-                    onClick={() => handleMapLocation(u)}
-                    className="w-full text-left px-3 py-2 text-sm font-serif text-stone-400 hover:text-[#e5e0d5] hover:bg-[#3d261d]/50 rounded-sm transition-colors flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-3">
-                      {u.icon === 'TreePine' && <TreePine className="w-4 h-4 text-stone-500 group-hover:text-[#d49a89] transition-colors" />}
-                      {u.icon === 'Mountain' && <Mountain className="w-4 h-4 text-stone-500 group-hover:text-[#d49a89] transition-colors" />}
-                      {u.name}
-                    </div>
-                    <div className="text-[9px] uppercase tracking-widest text-stone-600 group-hover:text-[#d49a89] opacity-0 group-hover:opacity-100 transition-opacity">
-                      Add to Map
-                    </div>
-                  </button>
-                ))
+                <div className="mt-2 space-y-0.5">
+                  {unmappedLocations.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => handleMapLocation(u)}
+                      className="group w-full text-left py-1 text-[13px] flex items-center justify-between gap-2 cursor-pointer"
+                      title="Pin to the map"
+                    >
+                      <span className="truncate">{u.name}</span>
+                      <span className="text-[11px] font-semibold text-[#E8561F] opacity-0 group-hover:opacity-100">+ map</span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           </div>
         </div>
 
         {viewMode === "grid" ? (
-          <div className="flex-1 overflow-y-auto p-6 lg:p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Add Location Card */}
-              <div 
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-6 lg:px-8 py-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-7 gap-y-9">
+              {/* New location — blank postcard */}
+              <button
                 onClick={handleOpenCreate}
-                className="relative group cursor-pointer min-h-[320px] rounded-sm bg-[#5d3f32]/20 backdrop-blur-sm border-2 border-dashed border-[#8c503c]/40 transition-all flex flex-col items-center justify-center hover:bg-[#5d3f32]/40 hover:border-[#8c503c]/70 hover:-translate-y-1"
+                className="group relative min-h-[320px] rounded-[3px] border-2 border-dashed border-[#0E1D26]/20 hover:border-[#0E1D26]/40 flex flex-col items-center justify-center text-center transition-colors cursor-pointer"
               >
-                <div className="w-14 h-14 rounded-full border-2 border-dashed border-[#d49a89]/40 flex items-center justify-center mb-3 text-[#d49a89]/60 group-hover:text-[#d49a89] group-hover:border-[#d49a89]/60 transition-all duration-300">
-                  <Plus className="w-6 h-6 stroke-[1.5]" />
-                </div>
-                <span className="text-[10px] tracking-widest uppercase font-bold text-[#d49a89]/60 group-hover:text-[#d49a89] transition-colors">
-                  Add Location
+                <span className="w-12 h-12 rounded-full border-2 border-dashed border-[#0E1D26]/25 flex items-center justify-center text-[#0E1D26]/50 group-hover:text-[#0E1D26]">
+                  {isLocationLimitReached ? <Lock className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                 </span>
-              </div>
+                <span className="mt-3 font-['Caveat'] text-[26px] font-bold leading-none">Chart a new place</span>
+                <span className="mt-2 text-[12px] text-[#0E1D26]/50">
+                  {locations.length} / {maxLocations === Infinity ? "∞" : maxLocations} locations
+                </span>
+              </button>
 
-              {displayLocations.map((loc, idx) => (
-                <div 
-                  key={`loc-card-${loc.id || idx}`} 
-                  className="relative group bg-[#F6F0E7] border border-[#d49a89]/40 rounded-sm shadow-[0_4px_12px_rgba(25,10,5,0.15)] hover:shadow-[0_8px_20px_rgba(25,10,5,0.2)] hover:-translate-y-[2px] hover:border-[#b8785e] transition-all duration-300 cursor-pointer flex flex-col overflow-hidden"
+              {displayLocations.length === 0 && (
+                <p className="self-center text-[14px] text-[#0E1D26]/50">No places match{atlasQuery ? ` “${atlasQuery}”` : ""}.</p>
+              )}
+
+              {displayLocations.map((loc: any, idx) => (
+                <div
+                  key={`loc-card-${loc.id || idx}`}
                   onClick={() => handleOpenEdit(loc)}
+                  style={{ transform: `rotate(${tiltOf(loc.id || loc.name)}deg)` }}
+                  className="group relative bg-[#FDFBF6] p-3 rounded-[3px] shadow-[0_16px_26px_-18px_rgba(14,29,38,0.6),0_1px_2px_rgba(14,29,38,0.15)] transition-transform duration-300 hover:!rotate-0 hover:-translate-y-1 cursor-pointer flex flex-col"
                 >
-                  <div className="h-1 w-full bg-[#a66850] opacity-80" />
-                  
-                  {(loc as any).imageUrl && (
-                    <div className="h-40 w-full overflow-hidden shrink-0 border-b border-[#d49a89]/40 relative bg-black/10">
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#F6F0E7] via-[#F6F0E7]/20 to-transparent z-10" />
-                      <img src={(loc as any).imageUrl} alt={loc.name} className="w-full h-full object-cover mix-blend-multiply group-hover:scale-105 transition-transform duration-700" />
+                  {/* tape */}
+                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-16 h-5 bg-white/60 shadow-[0_1px_2px_rgba(14,29,38,0.12)] rotate-[-3deg] z-10" />
+
+                  {loc.imageUrl ? (
+                    <div className="relative h-44 w-full overflow-hidden bg-[#EFE9DE]">
+                      <img src={loc.imageUrl} alt={loc.name} className="w-full h-full object-cover" />
+                      {/* photo corner mounts */}
+                      {["top-0 left-0", "top-0 right-0 rotate-90", "bottom-0 right-0 rotate-180", "bottom-0 left-0 -rotate-90"].map((pos) => (
+                        <span key={pos} className={`absolute ${pos} w-4 h-4 bg-[#0E1D26]/70`} style={{ clipPath: "polygon(0 0, 100% 0, 0 100%)" }} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      className="h-28 w-full flex items-center justify-center bg-[#F1ECE2] text-[#0E1D26]/35"
+                      style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(14,29,38,0.04) 0 8px, transparent 8px 16px)" }}
+                    >
+                      {getTypeIcon(loc.type)}
                     </div>
                   )}
-                  
-                  <div className="p-6 flex flex-col h-full gap-4 relative">
-                    <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleOpenEdit(loc); }}
-                        className="p-1.5 text-stone-500 hover:text-[#8a5b46] transition-colors rounded-sm hover:bg-[#e5e0d5]/60"
+
+                  <div className="relative px-2 pt-4 pb-2 flex-1 flex flex-col">
+                    {/* region stamp */}
+                    <div
+                      className="absolute -top-7 right-3 w-[70px] h-[70px] rounded-full border-2 border-dashed flex items-center justify-center text-center rotate-12 bg-[#FDFBF6]/85"
+                      style={{ borderColor: regionInk(loc.region), color: regionInk(loc.region) }}
+                    >
+                      <span className="px-1.5 text-[8.5px] font-bold uppercase tracking-[0.08em] leading-tight line-clamp-3">{loc.region || "Unassigned"}</span>
+                    </div>
+
+                    <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#0E1D26]/45 pr-20">
+                      {getTypeIcon(loc.type)}
+                      <span className="truncate">{loc.type || "Unknown type"}</span>
+                    </p>
+                    <h3 className="mt-1.5 text-[21px] font-extrabold leading-tight tracking-[-0.01em] pr-16" title={loc.name}>
+                      {loc.name}
+                    </h3>
+                    <p
+                      className="mt-3 text-[13px] leading-[22px] text-[#0E1D26]/70 line-clamp-4"
+                      style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 21px, rgba(14,29,38,0.08) 21px 22px)" }}
+                    >
+                      {loc.description || "No description yet."}
+                    </p>
+
+                    <div className="mt-auto pt-3 flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEdit(loc);
+                        }}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/45 hover:text-[#0E1D26] hover:bg-[#F1ECE2] cursor-pointer"
                         title="Edit"
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDelete(loc.id); }}
-                        className="p-1.5 text-stone-500 hover:text-rose-600 transition-colors rounded-sm hover:bg-rose-50"
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(loc.id);
+                        }}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/45 hover:text-[#C2410C] hover:bg-[#C2410C]/[0.06] cursor-pointer"
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                    </div>
-
-                    <div className="pr-16">
-                      <h3 className="font-serif text-[22px] font-bold text-[#3d261d] leading-tight mb-2" title={loc.name}>
-                        {loc.name}
-                      </h3>
-                      <div className="flex items-center gap-1.5 text-[#8a5b46] text-[10px] font-bold tracking-[0.2em] uppercase">
-                        {getTypeIcon(loc.type)}
-                        <span className="truncate">{loc.type || 'Unknown Type'}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex-1">
-                      <p className="font-serif text-[15px] text-[#4a3225]/90 leading-relaxed line-clamp-4">
-                        {loc.description || "No description provided."}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-[#8c503c] text-[10px] font-bold mt-2">
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span className="uppercase tracking-widest truncate">{loc.region || 'Unassigned'}</span>
                     </div>
                   </div>
                 </div>
@@ -806,164 +819,181 @@ export default function Locations() {
             </div>
           </div>
         ) : (
-        <>
-<div 
-            ref={canvasRef}
-            className="flex-1 relative overflow-hidden bg-[#3d261d] cursor-grab active:cursor-grabbing"
-            onPointerDown={handleCanvasPointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            onWheel={(e) => {
-              const zoomFactor = 0.1;
-              if (e.deltaY < 0) {
-                setScale(s => Math.min(s + zoomFactor, 2));
-              } else {
-                setScale(s => Math.max(s - zoomFactor, 0.3));
-              }
-            }}
-          >
+          <>
             <div
-              className="absolute inset-0 origin-top-left"
+              ref={canvasRef}
+              className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
               style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+                backgroundColor: "#E7DAC0",
+                backgroundImage: "linear-gradient(rgba(110,80,40,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(110,80,40,0.10) 1px, transparent 1px)",
+                backgroundSize: `${80 * scale}px ${80 * scale}px`,
+                backgroundPosition: `${pan.x}px ${pan.y}px`,
+              }}
+              onPointerDown={handleCanvasPointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              onWheel={(e) => {
+                const zoomFactor = 0.1;
+                if (e.deltaY < 0) {
+                  setScale((s) => Math.min(s + zoomFactor, 2));
+                } else {
+                  setScale((s) => Math.max(s - zoomFactor, 0.3));
+                }
               }}
             >
-              <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
-                {edges.map(edge => {
-                  const sourceLoc = locations.find(l => l.id === edge.source);
-                  const targetLoc = locations.find(l => l.id === edge.target);
-                  // SAFEGUARD: Both locations must exist in the active project to prevent orphan/ghost connection lines
-                  if (!sourceLoc || !targetLoc) return null;
+              {/* Aged-paper grain, vignette and compass rose */}
+              <div className="absolute inset-0 pointer-events-none mix-blend-multiply opacity-50" style={{ backgroundImage: ATLAS_GRAIN }} />
+              <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 0 140px rgba(110,70,25,0.35)" }} />
+              <svg className="absolute left-6 bottom-6 w-28 h-28 pointer-events-none text-[#6E4E2A] opacity-50" viewBox="0 0 100 100" aria-hidden="true">
+                <circle cx="50" cy="50" r="30" fill="none" stroke="currentColor" strokeWidth="1" />
+                <circle cx="50" cy="50" r="22" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="2 2" />
+                <path d="M50 8 L56 50 L50 92 L44 50 Z" fill="currentColor" opacity="0.8" />
+                <path d="M8 50 L50 44 L92 50 L50 56 Z" fill="currentColor" opacity="0.45" />
+                <text x="50" y="6" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor">N</text>
+              </svg>
 
-                  const sourceNode = nodes.find(n => n.id === edge.source);
-                  const targetNode = nodes.find(n => n.id === edge.target);
-                  if (!sourceNode || !targetNode) return null;
-                  
-                  const sHasImg = !!sourceLoc.imageUrl;
-                  const tHasImg = !!targetLoc.imageUrl;
-                  const x1 = sourceNode.x + 90;
-                  const y1 = sourceNode.y + (sHasImg ? 70 : 40);
-                  const x2 = targetNode.x + 90;
-                  const y2 = targetNode.y + (tHasImg ? 70 : 40);
+              {nodes.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-[#F7E3A6] px-6 py-5 -rotate-2 shadow-[0_14px_24px_-16px_rgba(14,29,38,0.6)] max-w-[280px] text-center">
+                    <p className="font-['Caveat'] text-[24px] font-bold leading-snug">Pin places from “Unmapped lands”, then draw roads between them.</p>
+                  </div>
+                </div>
+              )}
 
-                  const midX = (x1 + x2) / 2;
-                  const midY = (y1 + y2) / 2;
-                  const pillWidth = Math.max(edge.label.length * 7 + 28, 76);
-                  
+              <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}>
+                <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+                  {edges.map((edge) => {
+                    const sourceLoc = locations.find((l) => l.id === edge.source);
+                    const targetLoc = locations.find((l) => l.id === edge.target);
+                    // SAFEGUARD: Both locations must exist in the active project to prevent orphan/ghost connection lines
+                    if (!sourceLoc || !targetLoc) return null;
+
+                    const sourceNode = nodes.find((n) => n.id === edge.source);
+                    const targetNode = nodes.find((n) => n.id === edge.target);
+                    if (!sourceNode || !targetNode) return null;
+
+                    const sHasImg = !!sourceLoc.imageUrl;
+                    const tHasImg = !!targetLoc.imageUrl;
+                    const x1 = sourceNode.x + 90;
+                    const y1 = sourceNode.y + (sHasImg ? 70 : 40);
+                    const x2 = targetNode.x + 90;
+                    const y2 = targetNode.y + (tHasImg ? 70 : 40);
+
+                    const midX = (x1 + x2) / 2;
+                    const midY = (y1 + y2) / 2;
+                    const pillWidth = Math.max(edge.label.length * 6.5 + 24, 70);
+
+                    return (
+                      <g key={edge.id} className="pointer-events-auto group/edge cursor-pointer" onClick={() => setEdgeToDelete(edge.id)}>
+                        {/* ink road */}
+                        <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#6E4E2A" strokeWidth="2.2" strokeDasharray="8 6" strokeLinecap="round" opacity="0.8" className="group-hover/edge:stroke-[#E8561F] transition-colors" />
+                        <rect x={midX - pillWidth / 2 + 1.5} y={midY - 10} width={pillWidth} height="22" fill="rgba(110,70,25,0.2)" />
+                        <rect x={midX - pillWidth / 2} y={midY - 11.5} width={pillWidth} height="22" fill="#FDFBF6" stroke="#D8C8A8" className="group-hover/edge:stroke-[#E8561F] transition-colors" />
+                        <text x={midX} y={midY + 3} fontSize="9.5" fill="#0E1D26" fontWeight="700" textAnchor="middle" letterSpacing="0.06em" fontFamily="Outfit, sans-serif" className="select-none pointer-events-none">
+                          {edge.label.toUpperCase()}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {drawingEdge &&
+                    (() => {
+                      const sourceNode = nodes.find((n) => n.id === drawingEdge.source);
+                      if (!sourceNode) return null;
+                      const sourceHasImg = !!locations.find((l) => l.id === sourceNode.id)?.imageUrl;
+                      return (
+                        <line
+                          x1={sourceNode.x + 90}
+                          y1={sourceNode.y + (sourceHasImg ? 70 : 30)}
+                          x2={drawingEdge.currentX}
+                          y2={drawingEdge.currentY}
+                          stroke="#E8561F"
+                          strokeWidth="2.5"
+                          strokeDasharray="8 6"
+                          strokeLinecap="round"
+                        />
+                      );
+                    })()}
+                </svg>
+
+                {nodes.map((node) => {
+                  const loc = locations.find((l) => l.id === node.id);
+                  if (!loc) return null;
+                  const ink = regionInk((loc as any).region);
+
                   return (
-                    <g 
-                      key={edge.id} 
-                      className="pointer-events-auto group/edge cursor-pointer" 
-                      onClick={() => setEdgeToDelete(edge.id)}
+                    <div
+                      key={node.id}
+                      data-node-id={node.id}
+                      className="group absolute select-none w-[180px] cursor-pointer overflow-visible"
+                      style={{ transform: `translate(${node.x}px, ${node.y}px)` }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        setDraggingNode(node.id);
+                        try {
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                        } catch (err) {}
+                      }}
+                      onPointerUp={(e) => {
+                        e.stopPropagation();
+                        setDraggingNode(null);
+                        try {
+                          e.currentTarget.releasePointerCapture(e.pointerId);
+                        } catch (err) {}
+                      }}
+                      onDoubleClick={() => handleOpenEdit(loc)}
+                      title="Drag to move · double-click to edit"
                     >
-                      <line 
-                        x1={x1} y1={y1} 
-                        x2={x2} y2={y2} 
-                        stroke="#a66850" strokeWidth="2.5" strokeDasharray="6 6" opacity="0.75"
-                        className="group-hover/edge:stroke-[#e28868] group-hover/edge:stroke-[3.5] transition-all"
-                      />
-                      <rect 
-                        x={midX - pillWidth / 2} 
-                        y={midY - 13} 
-                        width={pillWidth} 
-                        height="26" 
-                        fill="#fcfaf5" 
-                        rx="5" 
-                        stroke="#d49a89" 
-                        className="group-hover/edge:stroke-[#8c503c] group-hover/edge:fill-[#fff5ee] transition-all shadow-md"
-                      />
-                      <text 
-                        x={midX} 
-                        y={midY + 4} 
-                        fontSize="9.5" 
-                        fill="#8a5b46" 
-                        fontWeight="bold" 
-                        textAnchor="middle" 
-                        letterSpacing="0.08em"
-                        className="select-none pointer-events-none group-hover/edge:fill-[#4a3225]"
+                      <div
+                        className="relative bg-[#FDFBF6] p-1.5 shadow-[0_14px_22px_-12px_rgba(60,40,15,0.65),0_1px_2px_rgba(60,40,15,0.2)] group-hover:shadow-[0_18px_28px_-12px_rgba(60,40,15,0.7)] transition-shadow"
+                        style={{ transform: `rotate(${tiltOf(node.id, 2)}deg)` }}
                       >
-                        {edge.label.toUpperCase()}
-                      </text>
-                    </g>
+                        {/* push pin in the region's ink */}
+                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 z-10 w-3.5 h-3.5 rounded-full shadow-[1px_2px_3px_rgba(0,0,0,0.35)]" style={{ background: ink }} />
+                        {(loc as any).imageUrl && (
+                          <div className="h-24 w-full overflow-hidden bg-[#EFE9DE]">
+                            <img src={(loc as any).imageUrl} alt={loc.name} className="w-full h-full object-cover pointer-events-none" draggable={false} />
+                          </div>
+                        )}
+                        <div className="px-2 py-2 text-center pointer-events-none">
+                          <div className="flex justify-center text-[#0E1D26]/45">{getTypeIcon(loc.type)}</div>
+                          <h4 className="mt-0.5 font-['Caveat'] text-[20px] font-bold leading-none">{loc.name}</h4>
+                        </div>
+                      </div>
+                      {/* road handle */}
+                      <div
+                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-7 h-7 bg-white border border-[#D8C8A8] rounded-full flex items-center justify-center text-[#0E1D26]/55 opacity-0 group-hover:opacity-100 transition cursor-crosshair hover:bg-[#0E1D26] hover:text-white shadow-sm z-30"
+                        onPointerDown={(e) => handleStartDrawEdge(e, node.id)}
+                        title="Draw a road to another place"
+                      >
+                        <Link2 className="w-3.5 h-3.5 pointer-events-none" />
+                      </div>
+                    </div>
                   );
                 })}
-              
-                {drawingEdge && (() => {
-                  const sourceNode = nodes.find(n => n.id === drawingEdge.source);
-                  if (!sourceNode) return null;
-                  const sourceHasImg = !!locations.find(l => l.id === sourceNode.id)?.imageUrl;
-                  return (
-                    <line 
-                      x1={sourceNode.x + 90} y1={sourceNode.y + (sourceHasImg ? 70 : 30)} 
-                      x2={drawingEdge.currentX} y2={drawingEdge.currentY} 
-                      stroke="#b8785e" strokeWidth="3" strokeDasharray="6 6" opacity="0.8"
-                    />
-                  );
-                })()}
-</svg>
+              </div>
 
-              {nodes.map(node => {
-                const loc = locations.find(l => l.id === node.id);
-                if (!loc) return null;
-                
-                return (
-                  <div 
-                    key={node.id}
-                    data-node-id={node.id}
-                    className="group absolute select-none bg-[#F6F0E7] border border-[#d49a89] rounded-sm shadow-[0_8px_20px_rgba(25,10,5,0.3)] w-[180px] cursor-pointer hover:border-[#b8785e] hover:shadow-[0_12px_24px_rgba(25,10,5,0.4)] transition-colors overflow-visible"
-                    style={{ transform: `translate(${node.x}px, ${node.y}px)` }}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      setDraggingNode(node.id);
-                      try { e.currentTarget.setPointerCapture(e.pointerId); } catch(err) {}
-                    }}
-                    onPointerUp={(e) => {
-                      e.stopPropagation();
-                      setDraggingNode(null);
-                      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch(err) {}
-                    }}
-                    onDoubleClick={() => handleOpenEdit(loc)}
-                  >
-                    <div className="h-1 w-full bg-[#a66850]" />
-                    {(loc as any).imageUrl && (
-                      <div className="h-24 w-full overflow-hidden border-b border-[#d49a89]/40 bg-black/10">
-                        <img src={(loc as any).imageUrl} alt={loc.name} className="w-full h-full object-cover mix-blend-multiply pointer-events-none" draggable={false} />
-                      </div>
-                    )}
-                    <div className="p-3 text-center pointer-events-none">
-                      <div className="flex justify-center mb-1 text-[#8a5b46]">
-                        {getTypeIcon(loc.type)}
-                      </div>
-                      <h4 className="font-serif font-bold text-[#3d261d] leading-tight text-sm">
-                        {loc.name}
-                      </h4>
-                    </div>
-                    {/* Link Anchor (shows on hover) */}
-                    <div 
-                      className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-[#fcfaf5] border border-[#d49a89] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-crosshair hover:bg-[#8c503c] hover:text-white shadow-sm z-30"
-                      onPointerDown={(e) => handleStartDrawEdge(e, node.id)}
-                    >
-                      <Link2 className="w-3 h-3 pointer-events-none" />
-                    </div>
-                  </div>
-                );
-              })}
+              {/* Zoom */}
+              <div className="absolute bottom-5 right-5 flex items-center gap-1 p-1 rounded-full bg-[#FDFBF6] shadow-[0_8px_20px_-12px_rgba(14,29,38,0.5)]">
+                <button onClick={() => setScale((s) => Math.max(s - 0.2, 0.2))} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/60 hover:bg-[#F1ECE2] cursor-pointer" title="Zoom out">
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setScale(1);
+                    setPan({ x: 0, y: 0 });
+                  }}
+                  className="h-8 px-2 rounded-full text-[12px] font-semibold tabular-nums text-[#0E1D26]/60 hover:bg-[#F1ECE2] cursor-pointer"
+                  title="Reset view"
+                >
+                  {Math.round(scale * 100)}%
+                </button>
+                <button onClick={() => setScale((s) => Math.min(s + 0.2, 3))} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/60 hover:bg-[#F1ECE2] cursor-pointer" title="Zoom in">
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            
-            {/* Zoom Controls */}
-            <div className="absolute bottom-6 right-6 flex flex-col gap-2 bg-white/10 backdrop-blur-md p-2 rounded-lg border border-white/20 shadow-lg">
-              <button onClick={() => setScale(s => Math.min(s + 0.2, 3))} className="p-2 text-white/80 hover:text-white hover:bg-white/20 rounded-md transition-colors" title="Zoom In">
-                <ZoomIn className="w-5 h-5" />
-              </button>
-              <button onClick={() => { setScale(1); setPan({x:0, y:0}); }} className="p-2 text-white/80 hover:text-white hover:bg-white/20 rounded-md transition-colors" title="Reset View">
-                <Maximize2 className="w-5 h-5" />
-              </button>
-              <button onClick={() => setScale(s => Math.max(s - 0.2, 0.2))} className="p-2 text-white/80 hover:text-white hover:bg-white/20 rounded-md transition-colors" title="Zoom Out">
-                <ZoomOut className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
           </>
         )}
       </div>
