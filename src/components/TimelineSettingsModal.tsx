@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Flame, Clock, Type, RotateCcw, Check, Calendar, BookOpen } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { IconClock, IconClose, IconFlame, IconQuill, IconRefresh, IconTick, Tag } from "@/components/brand/ocean-ui";
 import { storage, ProjectMeta, AuthorTimelineSettings } from "@/lib/storage";
 
 interface TimelineSettingsModalProps {
@@ -75,294 +76,209 @@ export function TimelineSettingsModal({
 
   if (!isOpen) return null;
 
+  const plural = (n: number) => (n === 1 ? "Day" : "Days");
+  const previewStreak = streakMode === "custom" ? customStreakDays : autoStreak;
+  const previewTime = timeMode === "custom" ? `${customHours}h ${customMinutes}m` : `${autoHours}h ${autoMinutes}m`;
+
+  const segBtn = (active: boolean) =>
+    cn(
+      "px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-colors cursor-pointer",
+      active ? "bg-[#0E1D26] text-[#F6F1E7]" : "text-[#0E1D26]/55 hover:text-[#0E1D26]"
+    );
+  const numInput =
+    "h-11 px-4 bg-white border border-[#E4DAC8] rounded-full text-[15px] font-bold tabular-nums text-[#0E1D26] outline-none transition focus:border-[#E8561F] focus:ring-4 focus:ring-[#E8561F]/12";
+
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 font-['Outfit'] text-[#0E1D26]">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+          className="absolute inset-0 bg-[#0E1D26]/70 backdrop-blur-sm"
         />
 
-        {/* Modal Card */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="relative z-10 w-full max-w-lg bg-[#FCFAF5] rounded-xl shadow-2xl border border-[#E5E0D5] overflow-hidden text-stone-800"
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="relative z-10 w-full max-w-[520px] max-h-[92vh] bg-[#F6F1E7] rounded-[28px] shadow-2xl overflow-hidden flex flex-col"
         >
-          {/* Top Dossier Ribbon */}
-          <div className="bg-[#4A3225] text-[#F4F1EA] px-6 py-4 flex items-center justify-between border-b border-[#38261C]">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300">
-                <Calendar className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-serif font-bold text-base tracking-wide leading-tight text-amber-100">
-                  Author Timeline & Stats Configuration
-                </h3>
-                <p className="text-[10px] uppercase tracking-widest text-amber-200/70">
-                  Configure Writing Milestones & Metrics
-                </p>
-              </div>
+          {/* Header */}
+          <div className="relative overflow-hidden bg-[#0E1D26] text-[#F6F1E7] px-7 pt-6 pb-7 shrink-0">
+            <div className="absolute -right-12 -top-16 w-44 h-44 rounded-full bg-[#E8561F]" aria-hidden="true" />
+            <div className="absolute right-24 -bottom-10 w-20 h-20 rounded-t-full bg-[#F0B54B]" aria-hidden="true" />
+            <div className="relative">
+              <Tag tone="light">Writing Stats</Tag>
+              <h3 className="mt-3 text-[28px] font-extrabold leading-none tracking-[-0.02em]">
+                Configure <span className="text-[#E8561F]">stats.</span>
+              </h3>
+              <p className="mt-2 text-[13px] text-[#F6F1E7]/60">Choose how your streak and writing time are counted.</p>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-amber-200/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              aria-label="Close"
+              className="absolute right-5 top-5 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <IconClose className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="p-6 flex flex-col gap-6 max-h-[80vh] overflow-y-auto">
-            {/* Live Preview Strip */}
-            <div className="bg-[#F4EFE6] border border-[#E0D7C7] rounded-xl p-3.5 flex flex-col gap-1.5">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">
-                Live Preview // Displayed on Author Header
-              </span>
-              <div className="flex items-center gap-3 sm:gap-6 bg-white/70 px-4 py-2 rounded-lg border border-stone-300/60 shadow-xs w-full justify-around">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                    <Flame className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-bold uppercase tracking-widest text-stone-500">Streak</p>
-                    <p className="text-xs font-bold text-stone-800">
-                      {streakMode === 'custom' ? `${customStreakDays} Days` : `${autoStreak} Days`}
-                    </p>
-                  </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-7 py-6 flex flex-col gap-6">
+            {/* Live preview */}
+            <div className="grid grid-cols-3 gap-2.5">
+              {[
+                { icon: <IconFlame className="w-4 h-4" />, tone: "bg-[#E8561F] text-white", v: `${previewStreak} ${plural(Number(previewStreak))}`, l: "Streak" },
+                { icon: <IconQuill className="w-4 h-4" />, tone: "bg-[#0E1D26] text-[#F0B54B]", v: totalWords.toLocaleString(), l: "Words" },
+                { icon: <IconClock className="w-4 h-4" />, tone: "bg-[#F0B54B] text-[#0E1D26]", v: previewTime, l: "Time" },
+              ].map((s) => (
+                <div key={s.l} className="rounded-2xl bg-white border border-[#E4DAC8] p-3.5">
+                  <span className={cn("w-8 h-8 rounded-full flex items-center justify-center", s.tone)}>{s.icon}</span>
+                  <p className="mt-2.5 text-[17px] font-extrabold leading-none truncate">{s.v}</p>
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/45">{s.l}</p>
                 </div>
-
-                <div className="w-px h-5 bg-stone-300/60" />
-
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                    <Type className="w-3 h-3" />
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-bold uppercase tracking-widest text-stone-500">Total Words</p>
-                    <p className="text-xs font-bold text-stone-800">{totalWords.toLocaleString()} W</p>
-                  </div>
-                </div>
-
-                <div className="w-px h-5 bg-stone-300/60" />
-
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-[#f4efe6] border border-[#e5e0d5] flex items-center justify-center text-[#8c503c]">
-                    <Clock className="w-3 h-3" />
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-bold uppercase tracking-widest text-stone-500">Writing Time</p>
-                    <p className="text-xs font-bold text-[#4a3225]">
-                      {timeMode === 'custom'
-                        ? `${customHours}h ${customMinutes}m`
-                        : `${autoHours}h ${autoMinutes}m`}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* STREAK SETTINGS */}
-            <div className="flex flex-col gap-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#4A3225] flex items-center gap-1.5">
-                  <Flame className="w-4 h-4 text-orange-500" />
-                  1. Writing Streak
-                </label>
-                <div className="flex items-center bg-[#EAE4D7] rounded-md p-0.5 text-[10px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setStreakMode('auto')}
-                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                      streakMode === 'auto'
-                        ? 'bg-white text-[#4A3225] shadow-xs'
-                        : 'text-stone-500 hover:text-stone-800'
-                    }`}
-                  >
-                    Auto (Calculated)
+            {/* Streak */}
+            <section>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[15px] font-bold">Writing streak</p>
+                <div className="flex items-center p-1 rounded-full bg-white border border-[#E4DAC8]">
+                  <button type="button" onClick={() => setStreakMode("auto")} className={segBtn(streakMode === "auto")}>
+                    Auto
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setStreakMode('custom')}
-                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                      streakMode === 'custom'
-                        ? 'bg-white text-[#4A3225] shadow-xs'
-                        : 'text-stone-500 hover:text-stone-800'
-                    }`}
-                  >
-                    Custom Value
+                  <button type="button" onClick={() => setStreakMode("custom")} className={segBtn(streakMode === "custom")}>
+                    Custom
                   </button>
                 </div>
               </div>
 
-              {streakMode === 'auto' ? (
-                <div className="p-3 bg-stone-100/80 rounded-lg border border-stone-200 text-xs text-stone-600 flex items-center justify-between">
-                  <span>
-                    Automatically computed from active writing history: <strong>{autoStreak} consecutive days</strong>.
-                  </span>
-                  <span className="text-[10px] font-bold uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                    Active Timeline
-                  </span>
-                </div>
+              {streakMode === "auto" ? (
+                <p className="mt-3 px-4 py-3 rounded-2xl bg-white/70 text-[13px] text-[#0E1D26]/65">
+                  Counted from your writing history: <strong className="text-[#0E1D26]">{autoStreak} consecutive {plural(autoStreak).toLowerCase()}</strong>.
+                </p>
               ) : (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="mt-3 flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
                     <input
                       type="number"
                       min={1}
                       max={999}
                       value={customStreakDays}
                       onChange={(e) => setCustomStreakDays(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-24 px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-sm font-bold text-stone-800 focus:outline-none focus:border-amber-600"
+                      className={cn(numInput, "w-28")}
                     />
-                    <span className="text-xs font-semibold text-stone-600">Consecutive Days</span>
+                    <span className="text-[13px] text-[#0E1D26]/60">consecutive days</span>
                   </div>
-                  {/* Presets */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-bold text-stone-500 uppercase mr-1">Quick Select:</span>
-                    {[1, 2, 3, 5, 7, 14, 30].map((d) => (
+                  <div className="flex flex-wrap gap-1.5">
+                    {[1, 3, 5, 7, 14, 30].map((d) => (
                       <button
                         key={d}
                         type="button"
                         onClick={() => setCustomStreakDays(d)}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                        className={cn(
+                          "h-8 px-3 rounded-full border text-[12px] font-semibold transition-colors cursor-pointer",
                           customStreakDays === d
-                            ? 'bg-amber-100 border-amber-400 text-amber-900 font-extrabold'
-                            : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
-                        }`}
+                            ? "bg-[#E8561F] border-[#E8561F] text-white"
+                            : "bg-white border-[#E4DAC8] text-[#0E1D26]/65 hover:border-[#0E1D26]/40"
+                        )}
                       >
-                        {d} Days
+                        {d}d
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
+            </section>
 
-            {/* WRITING TIME SETTINGS */}
-            <div className="flex flex-col gap-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#4A3225] flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-[#8c503c]" />
-                  2. Total Writing Time
-                </label>
-                <div className="flex items-center bg-[#EAE4D7] rounded-md p-0.5 text-[10px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setTimeMode('auto')}
-                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                      timeMode === 'auto'
-                        ? 'bg-white text-[#4A3225] shadow-xs'
-                        : 'text-stone-500 hover:text-stone-800'
-                    }`}
-                  >
-                    Auto (By Word Count)
+            {/* Writing time */}
+            <section>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[15px] font-bold">Writing time</p>
+                <div className="flex items-center p-1 rounded-full bg-white border border-[#E4DAC8]">
+                  <button type="button" onClick={() => setTimeMode("auto")} className={segBtn(timeMode === "auto")}>
+                    Auto
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeMode('custom')}
-                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                      timeMode === 'custom'
-                        ? 'bg-white text-[#4A3225] shadow-xs'
-                        : 'text-stone-500 hover:text-stone-800'
-                    }`}
-                  >
-                    Custom Value
+                  <button type="button" onClick={() => setTimeMode("custom")} className={segBtn(timeMode === "custom")}>
+                    Custom
                   </button>
                 </div>
               </div>
 
-              {timeMode === 'auto' ? (
-                <div className="p-3 bg-stone-100/80 rounded-lg border border-stone-200 text-xs text-stone-600 flex items-center justify-between">
-                  <span>
-                    Estimated standard author velocity (~900 words/hour): <strong>{autoHours}h {autoMinutes}m</strong>.
-                  </span>
-                  <span className="text-[10px] font-bold uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                    Velocity Standard
-                  </span>
-                </div>
+              {timeMode === "auto" ? (
+                <p className="mt-3 px-4 py-3 rounded-2xl bg-white/70 text-[13px] text-[#0E1D26]/65">
+                  Estimated at ~900 words per hour: <strong className="text-[#0E1D26]">{autoHours}h {autoMinutes}m</strong>.
+                </p>
               ) : (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={0}
-                      max={999}
-                      value={customHours}
-                      onChange={(e) => setCustomHours(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-20 px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-sm font-bold text-stone-800 focus:outline-none focus:border-amber-600"
-                    />
-                    <span className="text-xs font-semibold text-stone-600">Hours</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={0}
-                      max={59}
-                      value={customMinutes}
-                      onChange={(e) => setCustomMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                      className="w-20 px-3 py-1.5 bg-white border border-stone-300 rounded-lg text-sm font-bold text-stone-800 focus:outline-none focus:border-amber-600"
-                    />
-                    <span className="text-xs font-semibold text-stone-600">Minutes</span>
-                  </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={0}
+                    max={999}
+                    value={customHours}
+                    onChange={(e) => setCustomHours(Math.max(0, parseInt(e.target.value) || 0))}
+                    className={cn(numInput, "w-24")}
+                  />
+                  <span className="text-[13px] text-[#0E1D26]/60">h</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={customMinutes}
+                    onChange={(e) => setCustomMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                    className={cn(numInput, "w-24")}
+                  />
+                  <span className="text-[13px] text-[#0E1D26]/60">min</span>
                 </div>
               )}
-            </div>
+            </section>
 
-            {/* PROJECTS WORD COUNT AUDIT */}
-            <div className="border-t border-[#E5E0D5] pt-4 flex flex-col gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 flex items-center gap-1">
-                <BookOpen className="w-3 h-3 text-[#4A3225]" />
-                Archived Manuscripts Overview ({savedProjects.length} projects)
-              </span>
-              <div className="max-h-28 overflow-y-auto flex flex-col gap-1.5 pr-1">
-                {savedProjects.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between text-xs py-1 px-2 rounded bg-[#F8F5EE] border border-stone-200/60"
-                  >
-                    <span className="font-serif font-medium text-stone-800 truncate max-w-[260px]">
-                      {p.title}
-                    </span>
-                    <span className="font-mono text-[11px] font-bold text-[#8c503c]">
-                      {(p.currentWords || 0).toLocaleString()} words
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Books */}
+            {savedProjects.length > 0 && (
+              <section>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0E1D26]/45">
+                  Your books · {savedProjects.length}
+                </p>
+                <div className="mt-2 max-h-32 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 pr-1">
+                  {savedProjects.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-2 rounded-full bg-white border border-[#E4DAC8] text-[13px]">
+                      <span className="font-semibold truncate">{p.title}</span>
+                      <span className="shrink-0 text-[#E8561F] font-bold tabular-nums">{(p.currentWords || 0).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
 
-          {/* Footer Buttons */}
-          <div className="bg-[#F4EFE6] px-6 py-3.5 border-t border-[#E5E0D5] flex items-center justify-between">
+          {/* Footer */}
+          <div className="shrink-0 px-7 py-4 border-t border-[#E4DAC8] flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={handleResetToAuto}
-              className="text-xs font-bold text-stone-600 hover:text-stone-900 flex items-center gap-1.5 py-1.5 px-2.5 rounded hover:bg-stone-200/60 transition-colors cursor-pointer"
+              className="h-10 px-3 rounded-full text-[13px] font-semibold text-[#0E1D26]/60 hover:text-[#0E1D26] flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Reset to Auto
+              <IconRefresh className="w-4 h-4" />
+              Reset to auto
             </button>
-
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="text-xs font-bold text-stone-600 hover:text-stone-800 px-4 py-2 rounded-lg border border-stone-300 hover:bg-white transition-colors cursor-pointer"
+                className="h-10 px-5 rounded-full border border-[#E4DAC8] bg-white text-[13px] font-semibold hover:border-[#0E1D26]/40 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="text-xs font-bold text-[#FCFAF5] bg-[#8c503c] hover:bg-[#a6624c] px-5 py-2 rounded-lg shadow-sm flex items-center gap-1.5 transition-colors border border-[#4a3225] cursor-pointer"
+                className="h-10 px-5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[13px] font-bold flex items-center gap-1.5 shadow-[0_10px_24px_-12px_rgba(232,86,31,0.9)] transition-colors cursor-pointer"
               >
-                <Check className="w-3.5 h-3.5" />
-                Save Settings
+                <IconTick className="w-4 h-4" />
+                Save
               </button>
             </div>
           </div>
