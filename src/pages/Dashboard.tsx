@@ -2,32 +2,29 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Plus,
-  CheckCircle2,
-  Circle,
-  AlertCircle,
-  PenTool,
-  ArrowRight,
-  TrendingUp,
-  Flame,
-  Coffee,
-  Type,
-  Trash2,
-  X,
-  Users,
-  Settings as SettingsIcon,
-  Maximize2,
-  Search,
-  ArrowUpRight,
-  BarChart2,
-  MapPin,
-  RefreshCw,
-  BookOpen,
-  ChevronDown,
-  User as UserIcon,
-  Cloud,
-  ShieldCheck,
-} from "lucide-react";
+  BookCover,
+  BookMockup,
+  IconArrow,
+  IconArrowUpRight,
+  IconBookWave,
+  IconClock,
+  IconClose,
+  IconExpand,
+  IconFlame,
+  IconGear,
+  IconPerson,
+  IconPin,
+  IconPlus,
+  IconQuill,
+  IconRefresh,
+  IconScenes,
+  IconSearch,
+  IconShield,
+  IconSpinner,
+  IconTick,
+  IconTrash,
+  Tag,
+} from "@/components/brand/ocean-ui";
 import { ManuscriptItem } from "@/mockData";
 import { cn } from "@/lib/utils";
 import { storage, ProjectMeta, StudioTask, UserProfile } from "@/lib/storage";
@@ -588,10 +585,10 @@ export default function Dashboard() {
   }, [savedProjects]);
 
   const displayStreak = useMemo(() => {
-    if (timelineSettings.streakMode === 'custom') {
-      return `${timelineSettings.customStreakDays || calculatedAutoStreak} Days`;
-    }
-    return `${calculatedAutoStreak} Days`;
+    const days = timelineSettings.streakMode === 'custom'
+      ? timelineSettings.customStreakDays || calculatedAutoStreak
+      : calculatedAutoStreak;
+    return `${days} ${Number(days) === 1 ? 'Day' : 'Days'}`;
   }, [timelineSettings, calculatedAutoStreak]);
 
   const displayWritingTime = useMemo(() => {
@@ -606,1452 +603,956 @@ export default function Dashboard() {
     return `${Math.max(0, h)}h ${m}m`;
   }, [timelineSettings, totalWordsAcrossAll]);
 
+  const planLabel = versionBadge.label;
+  const quotaLabel = maxAllowedProjects === Infinity ? "∞" : String(maxAllowedProjects);
+  const atQuota = savedProjects.length >= maxAllowedProjects;
+  const authorName = currentUser?.displayName || currentUser?.email?.split("@")[0] || "Author";
+  const activeProgress = activeProject
+    ? Math.min(100, Math.round(((activeProject.currentWords || 0) / (activeProject.wordGoal || 75000)) * 100))
+    : 0;
+  const miniRadarItems = worldRadarStats.sortedMentions.filter((item) => {
+    if (miniRadarType === "characters") return item.entityType === "character";
+    if (miniRadarType === "locations") return item.entityType === "location";
+    return true;
+  });
+  const miniTopCount = Math.max(1, miniRadarItems[0]?.count || 1);
+
+  const openStudio = () => {
+    if (!activeProject) return;
+    const targetScene = activeProjectData?.lastActiveSceneId;
+    navigate(`/project/${activeProject.id}/workspace/studio${targetScene ? `?scene=${targetScene}` : ""}`);
+  };
+
+  const pill = (active: boolean, dark = false) =>
+    cn(
+      "px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap",
+      active
+        ? dark
+          ? "bg-[#E8561F] text-white"
+          : "bg-[#0E1D26] text-[#F6F1E7]"
+        : dark
+          ? "text-[#F6F1E7]/60 hover:text-[#F6F1E7] hover:bg-white/10"
+          : "text-[#0E1D26]/60 hover:text-[#0E1D26] hover:bg-[#0E1D26]/5"
+    );
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.25 }}
-      className="flex-1 min-h-screen lg:h-[100dvh] w-full overflow-y-auto lg:overflow-hidden bg-[#F4F1EA] flex flex-col relative font-sans"
+      className="flex-1 min-h-screen w-full bg-[#F6F1E7] font-['Outfit'] text-[#0E1D26] selection:bg-[#E8561F] selection:text-white"
     >
-      <div className="max-w-7xl mx-auto w-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-6 min-h-full lg:h-full relative z-10 flex flex-col gap-3 lg:gap-4">
-        {/* SECTION 1: THE MANUSCRIPTS */}
-        <section className="shrink-0 flex flex-col gap-2 sm:gap-3 relative z-30">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#fcfaf5] p-3.5 sm:p-4 lg:p-6 rounded-sm shadow-[2px_4px_12px_rgba(0,0,0,0.15)] border border-[#e5e0d5] relative z-30">
-            {/* Archive Folder Tab Decoration */}
-            <div
-              className="absolute -top-3.5 left-4 w-28 sm:w-32 h-4 sm:h-5 bg-[#e5e0d5]"
-              style={{ clipPath: "polygon(0 0, 85% 0, 100% 100%, 0 100%)" }}
-            />
-            <div className="absolute -top-1 left-4 right-4 h-2 bg-[#fcfaf5] rounded-t-sm z-0" />
-            
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4 lg:gap-6 relative z-30">
-              <div className="relative inline-flex items-start">
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-sans font-bold text-[#4a3225] tracking-tight leading-none uppercase pr-0.5">
-                  Archive Projects
-                </h1>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (currentPlan !== 'master') {
-                      setShowUpgradeModal(true);
-                    } else {
-                      navigate("/settings?tab=billing");
-                    }
-                  }}
-                  className={cn(
-                    "relative -top-1.5 sm:-top-2 ml-1.5 px-1.5 sm:px-2 py-0.5 rounded-[3px] text-[8px] sm:text-[9.5px] font-mono font-bold uppercase tracking-wider border leading-none transition-all duration-200 cursor-pointer select-none",
-                    versionBadge.style
-                  )}
-                  title={`${versionBadge.tooltip} • Click to view license status`}
-                >
-                  {versionBadge.label}
-                </button>
-              </div>
+      <div className="max-w-[1320px] mx-auto w-full px-4 sm:px-6 lg:px-10 py-5 lg:py-7 flex flex-col gap-6 lg:gap-8">
+        {/* ================= HEADER ================= */}
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <IconBookWave className="w-8 h-8 text-[#E8561F]" />
+            <span className="text-[20px] font-bold tracking-tight">Ocean Novel</span>
+            <button
+              type="button"
+              onClick={() => (currentPlan !== "master" ? setShowUpgradeModal(true) : navigate("/settings?tab=billing"))}
+              title={`${versionBadge.tooltip} • Click to view license status`}
+              className={cn(
+                "ml-1 px-2.5 py-1 border text-[10px] font-bold uppercase tracking-[0.2em] leading-none transition-colors cursor-pointer",
+                currentPlan === "master"
+                  ? "bg-[#0E1D26] border-[#0E1D26] text-[#F0B54B]"
+                  : currentPlan === "pro"
+                    ? "bg-[#E8561F] border-[#E8561F] text-white"
+                    : "border-[#0E1D26]/60 hover:bg-[#0E1D26] hover:text-[#F6F1E7]"
+              )}
+            >
+              {planLabel}
+            </button>
+          </div>
 
-              {/* COMPACT COLLAPSIBLE AUTHOR STATS */}
-              <div className="relative z-50">
-                <button
-                  type="button"
-                  onClick={() => setIsStatsOpen((prev) => !prev)}
-                  className={cn(
-                    "group flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border transition-all duration-200 cursor-pointer shadow-xs select-none",
-                    isStatsOpen
-                      ? "bg-[#8c503c] text-[#fcfaf5] border-[#4a3225] shadow-inner"
-                      : "bg-white/80 hover:bg-white text-stone-700 hover:text-[#4a3225] border-[#e5e0d5] hover:border-amber-400/80"
-                  )}
-                  title="Click to view full writing stats & timeline"
-                >
-                  <div className={cn(
-                    "w-4 h-4 rounded-full flex items-center justify-center transition-colors shrink-0",
-                    isStatsOpen ? "bg-amber-400/30 text-amber-200" : "bg-orange-100 text-orange-600"
-                  )}>
-                    <Flame className="w-2.5 h-2.5" />
-                  </div>
+          <div className="flex items-center gap-2">
+            {currentUser?.email && isUserAdmin(currentUser.email) && (
+              <button
+                onClick={() => navigate("/admin")}
+                title="Master Admin Dashboard (CRM & WarriorPlus IPN)"
+                className="h-10 px-4 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[13px] font-semibold flex items-center gap-2 hover:bg-[#132631] transition-colors cursor-pointer"
+              >
+                <IconShield className="w-4 h-4 text-[#F0B54B]" />
+                <span className="hidden sm:inline">Admin</span>
+              </button>
+            )}
+            <button
+              onClick={() => navigate("/settings")}
+              title={`Author Settings (${currentUser?.email || "Author"})`}
+              className="h-10 pl-1 pr-4 rounded-full bg-white border border-[#E4DAC8] hover:border-[#0E1D26]/40 text-[13px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <span className="w-8 h-8 rounded-full bg-[#F0B54B] text-[#0E1D26] flex items-center justify-center text-[13px] font-extrabold uppercase">
+                {authorName.charAt(0)}
+              </span>
+              <span className="max-w-[120px] truncate">{authorName}</span>
+              <IconGear className="w-4 h-4 text-[#0E1D26]/40" />
+            </button>
+            <button
+              onClick={handleNewProjectClick}
+              className="group h-10 pl-4 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[13px] font-bold flex items-center gap-2 shadow-[0_10px_24px_-12px_rgba(232,86,31,0.9)] transition-colors cursor-pointer"
+            >
+              <span className="whitespace-nowrap">New Book</span>
+              {atQuota && (
+                <span className="px-1.5 py-0.5 rounded-full bg-black/25 text-[10px] font-bold">
+                  {savedProjects.length}/{quotaLabel}
+                </span>
+              )}
+              <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                <IconPlus className="w-4 h-4" />
+              </span>
+            </button>
+          </div>
+        </header>
 
-                  <span className="text-[10px] sm:text-[11px] font-bold tracking-tight whitespace-nowrap">
-                    {displayStreak}
-                  </span>
+        {/* ================= HERO + STATS ================= */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
+          {/* Resume drafting hero */}
+          <div className="lg:col-span-8 relative overflow-hidden rounded-[28px] bg-[#0E1D26] text-[#F6F1E7] min-h-[300px] p-7 sm:p-9 flex items-center">
+            <div className="absolute -left-16 -bottom-24 w-[220px] h-[260px] rounded-t-full bg-[#F0B54B] rotate-[18deg]" aria-hidden="true" />
+            <div className="absolute right-[28%] -top-10 w-[110px] h-[110px] rounded-full border-[16px] border-[#E8561F]/80 hidden md:block" aria-hidden="true" />
 
-                  <span className={cn("text-[10px] opacity-40", isStatsOpen ? "text-white" : "text-stone-400")}>•</span>
+            <div className="relative z-10 flex-1 min-w-0 pr-0 md:pr-6">
+              {activeProject ? (
+                <>
+                  <Tag tone="light">Resume Drafting</Tag>
+                  <h1 className="mt-4 text-[34px] sm:text-[44px] font-extrabold leading-[0.98] tracking-[-0.02em] line-clamp-2 break-words">
+                    {activeProject.title}
+                    <span className="text-[#E8561F]">.</span>
+                  </h1>
+                  <p className="mt-3 text-[14px] text-[#F6F1E7]/65 truncate">
+                    {activeProject.genre || "Fiction"} · {resumeStats.currentSceneTitle} · Updated {resumeStats.timeAgo}
+                  </p>
 
-                  <span className="text-[10px] sm:text-[11px] font-medium opacity-90 whitespace-nowrap">
-                    {totalWordsAcrossAll > 1000 ? `${(totalWordsAcrossAll / 1000).toFixed(1)}k W` : `${totalWordsAcrossAll} W`}
-                  </span>
-
-                  <ChevronDown className={cn(
-                    "w-3 h-3 transition-transform duration-200 ml-0.5 shrink-0",
-                    isStatsOpen ? "rotate-180 text-[#fcfaf5]" : "text-stone-400 group-hover:text-stone-700"
-                  )} />
-                </button>
-
-                {/* Collapsible Dropdown Details Card */}
-                <AnimatePresence>
-                  {isStatsOpen && (
-                    <>
-                      {/* Backdrop overlay for outside-click dismiss */}
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setIsStatsOpen(false)}
-                      />
-
+                  <div className="mt-6 max-w-[440px]">
+                    <div className="flex items-baseline justify-between text-[12px] text-[#F6F1E7]/70">
+                      <span>
+                        <strong className="text-[#F6F1E7] text-[15px]">{(activeProject.currentWords || 0).toLocaleString()}</strong> /{" "}
+                        {(activeProject.wordGoal || 75000).toLocaleString()} words
+                      </span>
+                      <span className="font-bold text-[#F0B54B]">{activeProgress}%</span>
+                    </div>
+                    <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
                       <motion.div
-                        initial={{ opacity: 0, y: 6, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 4, scale: 0.95 }}
-                        transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="absolute left-0 sm:left-auto top-full mt-2 z-50 bg-[#fcfaf5] border border-[#d8d2c4] rounded-lg shadow-xl p-3.5 w-72 sm:w-84 max-w-[90vw] flex flex-col gap-3"
-                      >
-                        <div className="flex items-center justify-between pb-2 border-b border-[#e5e0d5]">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#4a3225] flex items-center gap-1.5">
-                            <TrendingUp className="w-3.5 h-3.5 text-[#8c503c]" />
-                            Writing Stats & Streak
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsStatsOpen(false);
-                              setIsTimelineModalOpen(true);
-                            }}
-                            className="text-[10px] font-bold uppercase tracking-wider text-[#8c503c] hover:text-[#5a3225] hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            Configure ✎
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          {/* Streak */}
-                          <div className="bg-white/80 border border-[#e5e0d5] rounded-md p-2 flex flex-col items-center text-center shadow-xs">
-                            <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 mb-1">
-                              <Flame className="w-3.5 h-3.5" />
-                            </div>
-                            <p className="text-[7px] font-bold uppercase tracking-wider text-stone-500">Streak</p>
-                            <p className="text-[10px] sm:text-[11px] font-bold text-stone-900 mt-0.5 truncate max-w-full">{displayStreak}</p>
-                          </div>
-
-                          {/* Total Words */}
-                          <div className="bg-white/80 border border-[#e5e0d5] rounded-md p-2 flex flex-col items-center text-center shadow-xs">
-                            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-1">
-                              <Type className="w-3.5 h-3.5" />
-                            </div>
-                            <p className="text-[7px] font-bold uppercase tracking-wider text-stone-500">Total Words</p>
-                            <p className="text-[10px] sm:text-[11px] font-bold text-stone-900 mt-0.5 truncate max-w-full">{totalWordsAcrossAll.toLocaleString()} W</p>
-                          </div>
-
-                          {/* Writing Time */}
-                          <div className="bg-white/80 border border-[#e5e0d5] rounded-md p-2 flex flex-col items-center text-center shadow-xs">
-                            <div className="w-6 h-6 rounded-full bg-[#f4efe6] border border-[#e5e0d5] flex items-center justify-center text-[#8c503c] mb-1">
-                              <Coffee className="w-3.5 h-3.5" />
-                            </div>
-                            <p className="text-[7px] font-bold uppercase tracking-wider text-stone-500">Writing Time</p>
-                            <p className="text-[10px] sm:text-[11px] font-bold text-[#4a3225] mt-0.5 truncate max-w-full">{displayWritingTime}</p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 relative z-10 pt-1 sm:pt-0">
-              {currentUser?.email && isUserAdmin(currentUser.email) && (
-                <button
-                  onClick={() => navigate("/admin")}
-                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-[#2c1b13] text-[#FAF8F5] hover:bg-[#4a3225] border border-[#5a3a29] px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-sm text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-colors shadow-sm cursor-pointer"
-                  title="Master Admin Dashboard (CRM & WarriorPlus IPN)"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#C89D66] shrink-0" />
-                  <span className="whitespace-nowrap">Admin Dashboard</span>
-                </button>
-              )}
-              <button
-                onClick={() => navigate("/settings")}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-[#f4efe6] text-[#4a3225] hover:bg-[#e5e0d5] border border-[#d8d2c4] px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-sm text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-colors shadow-sm cursor-pointer"
-                title={`Author Settings (${currentUser?.email || "Author"})`}
-              >
-                <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                <SettingsIcon className="w-3.5 h-3.5 text-[#8c503c] shrink-0" />
-                <span className="max-w-[85px] sm:max-w-[130px] truncate">{currentUser?.displayName || currentUser?.email?.split('@')[0] || "Settings"}</span>
-              </button>
-              <button
-                onClick={handleNewProjectClick}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 bg-[#8c503c] text-[#fcfaf5] px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-sm text-[10px] sm:text-xs font-bold tracking-widest uppercase hover:bg-[#b8785e] transition-colors shadow-sm hover:shadow-md border border-[#4a3225] cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 shrink-0" />
-                <span className="whitespace-nowrap">New Archive</span>
-                {savedProjects.length >= maxAllowedProjects && (
-                  <span className="ml-1 px-1.5 py-0.2 text-[9px] bg-black/40 text-amber-200 rounded-xs font-mono font-bold">
-                    3/3
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* ARCHIVAL BOOKSHELF */}
-        <div className="relative pt-8 sm:pt-12 pb-0 z-10 w-full overflow-x-auto overflow-y-hidden custom-scrollbar touch-pan-x">
-          {/* Bookshelf container */}
-          <div className="relative flex flex-col shrink-0 min-w-full w-max">
-            
-            {/* Wooden Shelf Base */}
-            <div className="absolute bottom-0 left-0 right-0 h-5 sm:h-6 bg-gradient-to-b from-[#5c371d] to-[#3a2211] rounded-t-[2px] shadow-[0_8px_16px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] z-0" />
-            <div className="absolute -bottom-1 left-0 right-0 h-2 bg-[#26150a] shadow-xl z-0" />
-            
-            <div className="flex items-end h-[260px] sm:h-[280px] gap-[2px] lg:gap-[3px] pb-5 sm:pb-6 relative z-10 px-3 sm:px-4 lg:px-8 justify-start">
-              
-              {/* Left Bookend */}
-              <div className="shrink-0 w-3 h-16 sm:h-20 bg-gradient-to-b from-[#4a2e1b] to-[#2a1a0f] border-r border-[#5c3a21] rounded-t-sm shadow-[4px_0_8px_rgba(0,0,0,0.4)] mr-1 z-20" />
-
-              {savedProjects.length === 0 && (
-                <div className="flex items-center justify-center w-full max-w-md h-[180px] sm:h-[200px] border border-dashed border-[#e5e0d5] rounded-md bg-white/50 mb-4 mx-auto p-4 text-center">
-                  <p className="text-stone-500 text-xs sm:text-sm font-medium">No archives found. Click "+ New Archive" to start your first novel.</p>
-                </div>
-              )}
-              {savedProjects.map((proj, index) => {
-                // Genre-specific spine colors
-                const getGenreTheme = (gStr: string) => {
-                  const g = (gStr || "").toLowerCase();
-                  if (g.includes('fantasy')) return { bg: "bg-[#182330]", spine: "bg-[#0e1620]" }; // Navy
-                  if (g.includes('thriller') || g.includes('horror') || g.includes('mystery')) return { bg: "bg-[#6b1c1c]", spine: "bg-[#3d0f0f]" }; // Crimson Red
-                  if (g.includes('romance')) return { bg: "bg-[#592b45]", spine: "bg-[#331525]" }; // Deep Pink/Plum
-                  if (g.includes('sci-fi') || g.includes('science')) return { bg: "bg-[#17424d]", spine: "bg-[#0a232b]" }; // Teal
-                  if (g.includes('historical')) return { bg: "bg-[#423826]", spine: "bg-[#241e13]" }; // Olive
-                  return { bg: "bg-[#382218]", spine: "bg-[#24140d]" }; // Default Leather Brown
-                };
-                
-                const theme = getGenreTheme(proj.genre || "");
-                const isSelected = selectedProjectId === proj.id;
-                
-                const progressRatio = Math.min(1, Math.max(0, (proj.currentWords || 0) / (proj.wordGoal || 75000)));
-                const progressPercent = Math.round(progressRatio * 100);
-                
-                const titleLength = (proj.title || "").trim().length;
-
-                // Natural random variation in book spine thickness (random thick & slim books):
-                // Uses a deterministic seed from the project ID & index so each book retains its unique physical volume consistently.
-                // Maximum thickness is strictly capped at 60px per user request.
-                const pseudoRandom = (proj.id || "").split("").reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), index * 41);
-                const THICKNESS_VARIATIONS = [36, 52, 40, 60, 44, 56, 38, 58, 46, 50];
-                const baseRandomThickness = THICKNESS_VARIATIONS[Math.abs(pseudoRandom) % THICKNESS_VARIATIONS.length];
-                
-                // Add slight bulk based on manuscript progress (strictly capped at 60px max)
-                const progressBonus = Math.min(3, Math.floor(progressRatio * 3));
-                const spineWidth = Math.min(60, Math.max(36, baseRandomThickness + progressBonus));
-                const spineVariant = index % 4;
-                
-                // Varied but smooth skyline
-                const HEIGHT_MAP = [220, 235, 225, 215, 240];
-                const baseHeight = HEIGHT_MAP[index % HEIGHT_MAP.length];
-                const bookHeight = isSelected ? baseHeight + 18 : baseHeight;
-                
-                const isComplete = progressRatio >= 1 && (proj.wordGoal || 0) > 0;
-                
-                // Dynamic font calculation (font size scaling):
-                // Utilizes the full length of the book spine. Scales font size smoothly so the entire title fits.
-                // Truncates with '...' only if an exceptionally long title still exceeds the full spine length at minimum font size.
-                const getSpineTitleConfig = (title: string, availableHeight: number) => {
-                  const len = Math.max(1, title.length);
-                  // Calculate font size that ensures the title fills the available length gracefully:
-                  // For shorter titles (Dune, Hobbit), keep generous size (12px - 13px) with nice tracking.
-                  // For longer titles, scale down gradually so the entire title fits comfortably.
-                  let idealFontSize = Math.min(13, Math.floor((availableHeight / (len * 0.64)) * 2) / 2);
-                  let fontSize = Math.max(8.5, idealFontSize);
-                  
-                  let letterSpacing = '0.08em';
-                  if (fontSize <= 8.5) letterSpacing = '0.02em';
-                  else if (fontSize <= 9.5) letterSpacing = '0.04em';
-                  else if (fontSize <= 11) letterSpacing = '0.06em';
-                  else if (len < 12) letterSpacing = '0.14em'; // Short titles get spacious tracking
-
-                  return { fontSize, letterSpacing };
-                };
-
-                // Helper to render book spine title spanning the full vertical length of the spine
-                const renderSpineTitle = (availHeight: number, isParchment = false) => {
-                  const { fontSize, letterSpacing } = getSpineTitleConfig(proj.title, availHeight);
-                  return (
-                    <div 
-                      className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10"
-                      style={{ width: `${spineWidth}px`, height: `${bookHeight}px` }}
-                    >
-                      <div 
-                        className="flex items-center justify-center"
-                        style={{
-                          width: `${availHeight}px`,
-                          height: `${spineWidth}px`,
-                          transform: 'rotate(-90deg)',
-                          transformOrigin: 'center center',
-                        }}
-                      >
-                        <span 
-                          className={cn(
-                            "font-serif font-bold uppercase text-center block transition-opacity duration-300 px-1 whitespace-nowrap overflow-hidden text-ellipsis",
-                            isParchment
-                              ? "text-[#2c1b13]"
-                              : isComplete
-                                ? "text-[#e8c678] drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
-                                : "text-[#ebdcd0] drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]",
-                            isSelected ? "opacity-75" : "opacity-100"
-                          )}
-                          style={{
-                            width: `${availHeight}px`,
-                            maxWidth: `${availHeight}px`,
-                            fontSize: `${fontSize}px`,
-                            letterSpacing,
-                            lineHeight: 1,
-                          }}
-                          title={proj.title}
-                        >
-                          {proj.title}
-                        </span>
-                      </div>
+                        className="h-full rounded-full bg-gradient-to-r from-[#E8561F] to-[#F0B54B]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.max(3, activeProgress)}%` }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                      />
                     </div>
-                  );
-                };
-                
-                // Ribbon indicator for most recently updated books
-                const recentProjectIds = [...savedProjects].sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0)).slice(0, 2).map(p => p.id);
-                const isRecent = recentProjectIds.includes(proj.id);
-
-                return (
-                  <div
-                    key={proj.id}
-                    onClick={() => setSelectedProjectId(isSelected ? null : proj.id)}
-                    className={cn(
-                      "group relative shrink-0 overflow-hidden cursor-pointer transition-all duration-500 ease-out select-none",
-                      "rounded-l-[4px] rounded-r-md shadow-[-4px_0_12px_rgba(0,0,0,0.6)] border-y border-r border-black/40",
-                      "hover:-translate-y-2 hover:shadow-[-6px_8px_16px_rgba(0,0,0,0.7)]", 
-                      theme.bg
-                    )}
-                    style={{ width: isSelected ? `${Math.max(260, spineWidth + 195)}px` : `${spineWidth}px`, height: `${bookHeight}px` }}
-                    title={`${proj.title} • ${proj.genre || 'Fantasy Archive'}`}
-                  >
-                    {/* Texture */}
-                    <div
-                      className="absolute inset-0 opacity-[0.25] mix-blend-overlay pointer-events-none z-30"
-                      style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}
-                    />
-
-                    {/* Spine Binding */}
-                    <div 
-                      className={cn(
-                        "absolute left-0 top-0 bottom-0 border-r border-black/80 shadow-[inset_-3px_0_8px_rgba(0,0,0,0.8)] flex items-center justify-center z-20 transition-all duration-500",
-                        theme.spine
-                      )}
-                      style={{ width: `${spineWidth}px` }}
-                    >
-                      <div className="absolute left-[1px] top-0 bottom-0 w-[1.5px] bg-white/10 rounded-full" />
-                      
-                      {isRecent && !isSelected && (
-                        <div className="absolute top-0 right-2 w-2.5 h-7 bg-[#b83b3b] shadow-sm flex items-end justify-center rounded-b-sm pointer-events-none z-40">
-                           <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-b-[5px] border-l-transparent border-r-transparent border-b-black/20 opacity-40" />
-                        </div>
-                      )}
-
-                      {/* Style 0 */}
-                      {spineVariant === 0 && (
-                        <>
-                          <div className={cn("absolute top-[16px] w-full h-[2.5px] border-t shadow-[0_1px_2px_rgba(0,0,0,0.6)]", isComplete ? "bg-[#c49a45] border-[#f4db89]" : "bg-black/60 border-white/15")} />
-                          <div className={cn("absolute top-[22px] w-full h-[2px] border-t", isComplete ? "bg-[#c49a45] border-[#f4db89]" : "bg-black/40 border-white/10")} />
-                          <div className={cn("absolute bottom-[22px] w-full h-[2px] border-t", isComplete ? "bg-[#c49a45] border-[#f4db89]" : "bg-black/40 border-white/10")} />
-                          <div className={cn("absolute bottom-[16px] w-full h-[2.5px] border-t shadow-[0_1px_2px_rgba(0,0,0,0.6)]", isComplete ? "bg-[#c49a45] border-[#f4db89]" : "bg-black/60 border-white/15")} />
-                          {renderSpineTitle(baseHeight - 48)}
-                        </>
-                      )}
-
-                      {/* Style 1 */}
-                      {spineVariant === 1 && (
-                        <>
-                          <div className="absolute top-[16px] bottom-[16px] left-[10%] right-[10%] bg-[#f4ebd8] rounded-[2px] shadow-[inset_0_0_8px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.6)] border border-[#d6c7b0]" />
-                          {isComplete && (
-                             <div className="absolute bottom-[10px] w-full h-[2px] bg-[#c49a45] border-t border-[#f4db89]" />
-                          )}
-                          {renderSpineTitle(baseHeight - 44, true)}
-                        </>
-                      )}
-
-                      {/* Style 2 */}
-                      {spineVariant === 2 && (
-                        <>
-                          <div className="absolute top-0 w-full h-[18px] bg-black/40 border-b border-black/80" />
-                          <div className="absolute bottom-0 w-full h-[18px] bg-black/40 border-t border-black/80" />
-                          <div className={cn("absolute top-[18px] w-full h-[2px] border-t shadow-[0_1px_2px_rgba(0,0,0,0.5)]", isComplete ? "border-[#c49a45]" : "border-white/20")} />
-                          <div className={cn("absolute bottom-[18px] w-full h-[2px] border-t shadow-[0_1px_2px_rgba(0,0,0,0.5)]", isComplete ? "border-[#c49a45]" : "border-white/20")} />
-                          {renderSpineTitle(baseHeight - 46)}
-                        </>
-                      )}
-
-                      {/* Style 3 */}
-                      {spineVariant === 3 && (
-                        <>
-                          <div className={cn("absolute top-[12px] bottom-[12px] left-[10%] right-[10%] border rounded-[2px]", isComplete ? "border-[#c49a45]" : "border-white/30")} />
-                          <div className={cn("absolute top-[16px] bottom-[16px] left-[18%] right-[18%] border", isComplete ? "border-[#c49a45] opacity-60" : "border-white/20")} />
-                          {renderSpineTitle(baseHeight - 34)}
-                        </>
-                      )}
-                    </div>
-
-                    {/* 1. Cover Plate Content (Accordion expanded slideout) */}
-                    <div className={cn(
-                      "absolute top-0 bottom-0 right-0 p-2.5 sm:p-3 transition-opacity duration-500 z-10 flex items-center justify-end overflow-hidden",
-                      isSelected ? "opacity-100 delay-150" : "opacity-0 pointer-events-none"
-                    )} style={{ width: `calc(100% - ${spineWidth}px)` }}>
-                      <div className="w-full h-full bg-[#faf6ed] border border-[#dad1be] shadow-[inset_0_1px_3px_rgba(0,0,0,0.06),_1px_2px_8px_rgba(0,0,0,0.4)] rounded-[3px] p-3 sm:p-3.5 flex flex-col justify-between relative overflow-hidden min-w-[160px]">
-                        
-                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-12 sm:w-14 h-3 bg-white/60 border-t border-b border-black/5 rotate-[-0.5deg] pointer-events-none shadow-[0_1px_2px_rgba(0,0,0,0.06)]" />
-
-                        {isRecent && (
-                          <div className="absolute top-0 right-2 w-2.5 h-6 bg-[#b83b3b] shadow-sm flex items-end justify-center rounded-b-sm pointer-events-none z-40">
-                             <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-b-[5px] border-l-transparent border-r-transparent border-b-black/20 opacity-30" />
-                          </div>
-                        )}
-
-                        <div className="min-w-0">
-                          <div className="flex items-center justify-between border-b border-[#e8ded0] pb-1 mb-1.5 mt-0.5">
-                            <span className="block text-[8px] sm:text-[9px] font-sans font-bold uppercase tracking-[0.15em] text-[#8c503c]">
-                              Case File {index < 9 ? `· 0${index + 1}` : `· ${index + 1}`}
-                            </span>
-                          </div>
-                          <h2 className="text-[14px] sm:text-[16px] font-serif font-bold leading-[1.2] text-[#2c1b13] line-clamp-2 text-left tracking-tight mb-1 break-words">
-                            {proj.title}
-                          </h2>
-                          <div className="w-6 h-[1.5px] bg-[#8c503c]/40 my-1" />
-                          <p className="text-[10px] sm:text-[11px] font-serif italic text-[#745344] line-clamp-2 text-left leading-tight break-words">
-                            {proj.genre || "Fantasy Archive"}
-                          </p>
-                        </div>
-
-                        <div className="mt-auto pt-2 border-t border-[#ebdcd0]">
-                          <div className="flex items-baseline justify-between mb-1 gap-1">
-                            <span className="text-[8px] sm:text-[9px] uppercase font-bold tracking-widest text-[#8c503c]/70 shrink-0">
-                              Words
-                            </span>
-                            <span className="text-[10px] sm:text-[11px] font-serif font-bold text-[#2c1b13] truncate">
-                              {(proj.currentWords || 0).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="w-full bg-[#e7decfa0] h-[3px] rounded-full overflow-hidden">
-                            <div
-                              className={cn("h-full rounded-full transition-all duration-700", isComplete ? "bg-[#c49a45]" : "bg-[#8c503c]")}
-                              style={{ width: `${Math.max(5, progressPercent)}%` }}
-                            />
-                          </div>
-                          
-                          {/* Action Buttons */}
-                          <div className="mt-2.5 sm:mt-3 flex items-center justify-between gap-1">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setProjectToDelete(proj);
-                              }}
-                              className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-sm transition-colors border border-transparent hover:border-rose-200 cursor-pointer shrink-0"
-                              title={`Delete "${proj.title}"`}
-                            >
-                              <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); navigate(`/project/${proj.id}`); }}
-                              className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-white bg-[#2c1b13] hover:bg-[#8c503c] transition-colors px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-sm cursor-pointer whitespace-nowrap"
-                            >
-                              Open Archive
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <p className="mt-2 text-[11px] text-[#F6F1E7]/45">
+                      {resumeStats.chapters} chapters · {resumeStats.scenes} scenes
+                    </p>
                   </div>
-                );
-              })}
 
-              {/* Right Bookend */}
-              {savedProjects.length > 0 && (
-                <div className="shrink-0 w-3 h-16 sm:h-20 bg-gradient-to-b from-[#4a2e1b] to-[#2a1a0f] border-l border-[#2a1a0f] rounded-t-sm shadow-[-4px_0_8px_rgba(0,0,0,0.4)] ml-1 z-20" />
+                  <div className="mt-7 flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={openStudio}
+                      className="group h-12 pl-6 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[14px] font-bold flex items-center gap-3 shadow-[0_14px_30px_-14px_rgba(232,86,31,0.9)] transition-colors cursor-pointer"
+                    >
+                      Continue Writing
+                      <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center transition-transform group-hover:translate-x-0.5">
+                        <IconArrow className="w-4 h-4" />
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => navigate(`/project/${activeProject.id}`)}
+                      className="h-12 px-6 rounded-full border border-[#F6F1E7]/30 hover:border-[#F6F1E7] text-[14px] font-semibold transition-colors cursor-pointer"
+                    >
+                      Book Overview
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Tag tone="light">Start Writing</Tag>
+                  <h1 className="mt-4 text-[38px] sm:text-[48px] font-extrabold leading-[0.98] tracking-[-0.02em]">
+                    Your first book
+                    <br />
+                    <span className="text-[#E8561F]">starts here.</span>
+                  </h1>
+                  <p className="mt-4 text-[15px] text-[#F6F1E7]/70 max-w-[380px]">
+                    Create a book to set up its characters, world and manuscript in one place.
+                  </p>
+                  <button
+                    onClick={handleNewProjectClick}
+                    className="group mt-7 h-12 pl-6 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[14px] font-bold flex items-center gap-3 transition-colors cursor-pointer"
+                  >
+                    Create a Book
+                    <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+                      <IconPlus className="w-4 h-4" />
+                    </span>
+                  </button>
+                </>
               )}
             </div>
+
+            <div className="relative z-10 hidden md:block pr-10">
+              <BookMockup
+                title={activeProject?.title || "Ocean Novel"}
+                genre={activeProject?.genre}
+                seed={activeProject?.id || "ocean-novel"}
+                subtitle={activeProject?.genre || "Story Studio"}
+                className="w-[170px] h-[224px] lg:w-[190px] lg:h-[250px]"
+              />
+            </div>
           </div>
-        </div>
+
+          {/* Writing stats */}
+          <div className="lg:col-span-4 rounded-[28px] bg-white border border-[#E4DAC8] p-6 sm:p-7 flex flex-col">
+            <div className="flex items-center justify-between">
+              <Tag>Writing Stats</Tag>
+              <button
+                onClick={() => setIsTimelineModalOpen(true)}
+                className="text-[12px] font-semibold text-[#E8561F] hover:underline cursor-pointer"
+              >
+                Configure
+              </button>
+            </div>
+
+            <div className="mt-5 flex-1 flex flex-col justify-between gap-4">
+              {[
+                { icon: <IconFlame className="w-5 h-5" />, tone: "bg-[#E8561F] text-white", value: displayStreak, label: "Writing streak" },
+                {
+                  icon: <IconQuill className="w-5 h-5" />,
+                  tone: "bg-[#0E1D26] text-[#F0B54B]",
+                  value: totalWordsAcrossAll.toLocaleString(),
+                  label: "Total words",
+                },
+                { icon: <IconClock className="w-5 h-5" />, tone: "bg-[#F0B54B] text-[#0E1D26]", value: displayWritingTime, label: "Writing time" },
+              ].map((s) => (
+                <div key={s.label} className="flex items-center gap-4">
+                  <span className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0", s.tone)}>{s.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-[26px] font-extrabold leading-none tracking-[-0.02em] truncate">{s.value}</p>
+                    <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/50">{s.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
-        {/* SECTION 2: STUDIO INTELLIGENCE (Bento Grid) */}
-        <section className="flex-1 flex flex-col min-h-fit lg:min-h-0 pb-4 lg:pb-2">
-          <div className="mb-2 shrink-0 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base sm:text-lg lg:text-xl font-sans font-bold text-[#4a3225] tracking-tight uppercase">
-              Investigation Board
-            </h2>
-            {savedProjects.length > 1 && (
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-stone-500 text-[10px] uppercase tracking-wider font-bold">Focus:</span>
-                <select
-                  value={selectedProjectId || ""}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="bg-white text-[#4a3225] text-[10px] sm:text-[11px] font-sans font-bold border border-[#e5e0d5] rounded-sm px-2 py-0.5 focus:outline-none focus:border-[#d49a89] max-w-[160px] sm:max-w-xs truncate"
-                >
-                  {savedProjects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+        {/* ================= LIBRARY ================= */}
+        <section>
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+            <div>
+              <Tag>Library</Tag>
+              <h2 className="mt-3 text-[30px] sm:text-[36px] font-extrabold leading-none tracking-[-0.02em]">
+                Your Books<span className="text-[#E8561F]">.</span>
+              </h2>
+            </div>
+            <span className="text-[13px] text-[#0E1D26]/55">
+              {savedProjects.length} of {quotaLabel} books · click a cover to focus the board
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 flex-1 min-h-fit lg:min-h-0">
-            {/* Task Notes (Left Col) */}
-            <div className="lg:col-span-8 bg-[#fcfaf5] rounded-sm p-3.5 sm:p-4 lg:p-5 border border-[#e5e0d5] shadow-[2px_4px_12px_rgba(0,0,0,0.15)] flex flex-col relative overflow-hidden group min-h-[320px] lg:min-h-0 h-full">
-              {/* Paper texture overlay */}
-              <div 
-                className="absolute inset-0 pointer-events-none opacity-[0.03]" 
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
-                }}
-              />
-
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3 relative z-10 shrink-0 border-b border-[#e5e0d5] pb-2">
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <h3 className="font-sans text-sm sm:text-base lg:text-lg font-bold text-[#4a3225] uppercase tracking-wide">
-                    Task Notes
-                  </h3>
-                  {/* Status filter pills */}
-                  <div className="flex items-center gap-0.5 sm:gap-1 bg-[#ede8dc] p-0.5 rounded-sm">
-                    <button
-                      onClick={() => setTaskFilter("all")}
-                      className={cn(
-                        "px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider rounded-sm transition-colors",
-                        taskFilter === "all" ? "bg-[#8c503c] text-white" : "text-[#5d3f32] hover:text-[#8c503c]"
-                      )}
-                    >
-                      All ({tasks.length})
-                    </button>
-                    <button
-                      onClick={() => setTaskFilter("pending")}
-                      className={cn(
-                        "px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider rounded-sm transition-colors",
-                        taskFilter === "pending" ? "bg-[#8c503c] text-white" : "text-[#5d3f32] hover:text-[#8c503c]"
-                      )}
-                    >
-                      Pending ({tasks.filter((t) => !t.completed).length})
-                    </button>
-                    <button
-                      onClick={() => setTaskFilter("completed")}
-                      className={cn(
-                        "px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider rounded-sm transition-colors",
-                        taskFilter === "completed" ? "bg-[#8c503c] text-white" : "text-[#5d3f32] hover:text-[#8c503c]"
-                      )}
-                    >
-                      Done ({tasks.filter((t) => t.completed).length})
-                    </button>
+          <div className="flex gap-4 sm:gap-5 overflow-x-auto pb-3 -mx-1 px-1 pt-2 snap-x custom-scrollbar">
+            {savedProjects.map((proj, i) => {
+              const isSelected = activeProject?.id === proj.id;
+              const pct = Math.min(100, Math.round(((proj.currentWords || 0) / (proj.wordGoal || 75000)) * 100));
+              return (
+                <motion.div
+                  key={proj.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}
+                  className="group snap-start shrink-0 w-[168px] sm:w-[184px] cursor-pointer"
+                  onClick={() => setSelectedProjectId(proj.id)}
+                  title={`${proj.title} • ${proj.genre || "Fiction"}`}
+                >
+                  <div
+                    className={cn(
+                      "relative aspect-[3/4] rounded-r-md rounded-l-sm transition-all duration-300 group-hover:-translate-y-1.5",
+                      isSelected
+                        ? "ring-[3px] ring-[#E8561F] ring-offset-4 ring-offset-[#F6F1E7] shadow-[0_22px_40px_-18px_rgba(14,29,38,0.7)]"
+                        : "shadow-[0_14px_28px_-16px_rgba(14,29,38,0.55)]"
+                    )}
+                  >
+                    <BookCover
+                      title={proj.title}
+                      genre={proj.genre}
+                      seed={proj.id}
+                      subtitle={proj.genre || "Fiction"}
+                      className="absolute inset-0"
+                      titleClassName="text-[20px] sm:text-[22px]"
+                    />
+                    {/* hover actions */}
+                    <div className="absolute inset-x-2 bottom-2 flex items-center justify-between opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete(proj);
+                        }}
+                        title={`Delete "${proj.title}"`}
+                        className="w-8 h-8 rounded-full bg-white/90 text-[#0E1D26]/60 hover:text-[#C2410C] flex items-center justify-center shadow cursor-pointer"
+                      >
+                        <IconTrash className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/project/${proj.id}`);
+                        }}
+                        className="h-8 pl-3 pr-1 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[11px] font-bold flex items-center gap-1.5 shadow cursor-pointer"
+                      >
+                        Open
+                        <span className="w-6 h-6 rounded-full bg-[#E8561F] flex items-center justify-center">
+                          <IconArrow className="w-3.5 h-3.5" />
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsAddingTask(!isAddingTask)}
-                    className="flex items-center gap-1.5 bg-[#8c503c] text-white px-2.5 py-1 rounded-sm text-[8px] sm:text-[9px] lg:text-[10px] font-bold tracking-widest uppercase hover:bg-[#b8785e] transition-colors shadow-sm cursor-pointer"
-                  >
-                    {isAddingTask ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                    <span>{isAddingTask ? "Cancel" : "Add Task"}</span>
-                  </button>
-                </div>
+                  <div className="mt-3.5 px-0.5">
+                    <p className="text-[15px] font-bold leading-tight truncate">{proj.title}</p>
+                    <div className="mt-2 h-1 rounded-full bg-[#E4DAC8] overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full", pct >= 100 ? "bg-[#F0B54B]" : "bg-[#E8561F]")}
+                        style={{ width: `${Math.max(4, pct)}%` }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-[#0E1D26]/55">
+                      {(proj.currentWords || 0).toLocaleString()} words · {pct}%
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+
+            {/* New book tile */}
+            <button
+              type="button"
+              onClick={handleNewProjectClick}
+              className="group snap-start shrink-0 w-[168px] sm:w-[184px] text-left cursor-pointer"
+            >
+              <div className="aspect-[3/4] rounded-md border-2 border-dashed border-[#0E1D26]/20 group-hover:border-[#E8561F] flex flex-col items-center justify-center gap-3 transition-colors">
+                <span className="w-12 h-12 rounded-full bg-[#E8561F] text-white flex items-center justify-center transition-transform group-hover:scale-110">
+                  <IconPlus className="w-5 h-5" />
+                </span>
+                <span className="text-[13px] font-semibold text-[#0E1D26]/70">New Book</span>
               </div>
+              <p className="mt-3.5 text-[11px] text-[#0E1D26]/45 px-0.5">
+                {atQuota ? `Plan limit reached (${savedProjects.length}/${quotaLabel})` : "Start a new manuscript"}
+              </p>
+            </button>
+          </div>
+        </section>
 
-              {/* Add Task Expandable Form */}
-              <AnimatePresence>
-                {isAddingTask && (
-                  <motion.form
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    onSubmit={handleAddTask}
-                    className="relative z-20 mb-3 bg-[#f4efe6] border border-[#e5e0d5] p-2.5 rounded-sm flex flex-col gap-2 shrink-0"
-                  >
+        {/* ================= BOARD ================= */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 pb-4">
+          {/* Tasks */}
+          <div className="lg:col-span-7 rounded-[28px] bg-white border border-[#E4DAC8] p-6 sm:p-7 flex flex-col min-h-[380px]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <Tag>Task Notes</Tag>
+                <h3 className="mt-3 text-[26px] font-extrabold leading-none tracking-[-0.02em]">
+                  Today's Work<span className="text-[#E8561F]">.</span>
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsAddingTask(!isAddingTask)}
+                className={cn(
+                  "h-10 px-4 rounded-full text-[13px] font-bold flex items-center gap-2 transition-colors cursor-pointer",
+                  isAddingTask ? "bg-[#0E1D26]/5 text-[#0E1D26]" : "bg-[#0E1D26] text-[#F6F1E7] hover:bg-[#132631]"
+                )}
+              >
+                {isAddingTask ? <IconClose className="w-4 h-4" /> : <IconPlus className="w-4 h-4" />}
+                {isAddingTask ? "Cancel" : "Add Task"}
+              </button>
+            </div>
+
+            <div className="mt-4 flex items-center gap-1 p-1 rounded-full bg-[#F6F1E7] self-start">
+              <button onClick={() => setTaskFilter("all")} className={pill(taskFilter === "all")}>
+                All {tasks.length}
+              </button>
+              <button onClick={() => setTaskFilter("pending")} className={pill(taskFilter === "pending")}>
+                Pending {tasks.filter((t) => !t.completed).length}
+              </button>
+              <button onClick={() => setTaskFilter("completed")} className={pill(taskFilter === "completed")}>
+                Done {tasks.filter((t) => t.completed).length}
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {isAddingTask && (
+                <motion.form
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  onSubmit={handleAddTask}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-4 p-4 rounded-2xl bg-[#F6F1E7] flex flex-col gap-3">
                     <input
                       type="text"
                       value={newTaskTitle}
                       onChange={(e) => setNewTaskTitle(e.target.value)}
-                      placeholder="e.g. Write confrontation dialogue in Chapter 2..."
-                      className="w-full bg-white border border-[#d8d2c4] rounded-sm px-2.5 py-1.5 text-xs text-[#4a3225] font-serif placeholder:text-stone-400 focus:outline-none focus:border-[#8c503c]"
+                      placeholder="e.g. Write the confrontation dialogue in Chapter 2…"
+                      className="w-full h-11 px-4 bg-white border border-[#E4DAC8] rounded-full text-[14px] placeholder:text-[#0E1D26]/35 outline-none focus:border-[#E8561F] focus:ring-4 focus:ring-[#E8561F]/10"
                       autoFocus
                     />
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* Type Picker */}
-                        <div className="flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-stone-500">
-                          <span>Type:</span>
-                          {(['writing', 'editing', 'worldbuilding', 'research'] as const).map((t) => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => setNewTaskType(t)}
-                              className={cn(
-                                "px-1.5 py-0.5 rounded-sm border transition-colors cursor-pointer",
-                                newTaskType === t
-                                  ? "bg-[#8c503c] text-white border-[#8c503c]"
-                                  : "bg-white text-stone-600 border-[#d8d2c4] hover:border-stone-400"
-                              )}
-                            >
-                              {t === 'worldbuilding' ? 'world' : t}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Urgency Picker */}
-                        <div className="flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-stone-500">
-                          <span>Urgency:</span>
-                          {(['low', 'medium', 'high'] as const).map((u) => (
-                            <button
-                              key={u}
-                              type="button"
-                              onClick={() => setNewTaskUrgency(u)}
-                              className={cn(
-                                "px-1.5 py-0.5 rounded-sm border transition-colors cursor-pointer",
-                                newTaskUrgency === u
-                                  ? u === 'high'
-                                    ? "bg-red-700 text-white border-red-700"
-                                    : "bg-amber-700 text-white border-amber-700"
-                                  : "bg-white text-stone-600 border-[#d8d2c4] hover:border-stone-400"
-                              )}
-                            >
-                              {u}
-                            </button>
-                          ))}
-                        </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {(["writing", "editing", "worldbuilding", "research"] as const).map((t) => (
+                          <button key={t} type="button" onClick={() => setNewTaskType(t)} className={pill(newTaskType === t)}>
+                            {t === "worldbuilding" ? "world" : t}
+                          </button>
+                        ))}
+                        <span className="w-px h-5 bg-[#E4DAC8] mx-1" />
+                        {(["low", "medium", "high"] as const).map((u) => (
+                          <button
+                            key={u}
+                            type="button"
+                            onClick={() => setNewTaskUrgency(u)}
+                            className={cn(
+                              pill(false),
+                              newTaskUrgency === u && (u === "high" ? "bg-[#E8561F] text-white" : "bg-[#F0B54B] text-[#0E1D26]")
+                            )}
+                          >
+                            {u}
+                          </button>
+                        ))}
                       </div>
-
                       <button
                         type="submit"
                         disabled={!newTaskTitle.trim()}
-                        className="bg-[#4a3225] hover:bg-[#8c503c] disabled:opacity-40 text-white text-[8px] sm:text-[9px] font-bold tracking-widest uppercase px-3 py-1 rounded-sm transition-colors cursor-pointer"
+                        className="h-9 px-5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] disabled:opacity-40 text-white text-[12px] font-bold transition-colors cursor-pointer"
                       >
                         Save Task
                       </button>
                     </div>
-                  </motion.form>
-                )}
-              </AnimatePresence>
-
-              {/* Tasks List */}
-              <div className="flex-1 overflow-y-auto pr-1 lg:pr-2 custom-scrollbar relative z-10 min-h-0">
-                {filteredTasks.length === 0 ? (
-                  <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 sm:p-6 text-stone-400">
-                    <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8 text-stone-300 mb-2 stroke-[1.5]" />
-                    <p className="font-serif text-xs sm:text-sm font-medium text-stone-600">No tasks found</p>
-                    <p className="text-[11px] text-stone-400 mt-0.5">Click "+ Add Task" to set your writing priorities.</p>
                   </div>
-                ) : (
-                  <div className="space-y-1.5 lg:space-y-2">
-                    {filteredTasks.map((task) => (
-                      <div
-                        key={task.id}
+                </motion.form>
+              )}
+            </AnimatePresence>
+
+            <div className="mt-4 flex-1 overflow-y-auto max-h-[360px] -mr-2 pr-2 custom-scrollbar">
+              {filteredTasks.length === 0 ? (
+                <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center">
+                  <span className="w-12 h-12 rounded-full bg-[#F6F1E7] text-[#0E1D26]/30 flex items-center justify-center">
+                    <IconTick className="w-6 h-6" />
+                  </span>
+                  <p className="mt-3 text-[15px] font-semibold">No tasks here</p>
+                  <p className="mt-1 text-[13px] text-[#0E1D26]/50">Add a task to set your writing priorities.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      onClick={() => handleToggleTask(task.id)}
+                      className={cn(
+                        "group flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all cursor-pointer",
+                        task.completed
+                          ? "bg-[#F6F1E7]/60 border-transparent"
+                          : "bg-white border-[#E4DAC8] hover:border-[#0E1D26]/30"
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleTask(task.id);
+                        }}
                         className={cn(
-                          "group flex items-center gap-2 lg:gap-3 p-2 lg:p-2.5 rounded-sm border transition-all cursor-pointer relative",
-                          task.completed
-                            ? "bg-[#f4efe6]/50 border-transparent opacity-60"
-                            : "bg-[#fcfaf5] border-[#e5e0d5] hover:border-[#d49a89] hover:shadow-xs"
+                          "w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors cursor-pointer",
+                          task.completed ? "bg-[#E8561F] text-white" : "border-2 border-[#0E1D26]/20 hover:border-[#E8561F]"
                         )}
-                        onClick={() => handleToggleTask(task.id)}
                       >
-                        {!task.completed && (
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#8c503c] rounded-l-sm opacity-20" />
+                        {task.completed && <IconTick className="w-3.5 h-3.5" />}
+                      </button>
+                      <p
+                        className={cn(
+                          "flex-1 min-w-0 truncate text-[14px]",
+                          task.completed ? "text-[#0E1D26]/40 line-through" : "font-medium"
                         )}
-                        <button
-                          type="button"
-                          className="shrink-0 focus:outline-none ml-1 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleTask(task.id);
-                          }}
-                        >
-                          {task.completed ? (
-                            <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#8c503c]" />
-                          ) : (
-                            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-[#d49a89] hover:border-[#8c503c] transition-colors" />
-                          )}
-                        </button>
+                      >
+                        {task.title}
+                      </p>
+                      {task.urgency === "high" && !task.completed && (
+                        <span className="px-2 py-0.5 rounded-full bg-[#E8561F] text-white text-[10px] font-bold uppercase tracking-wider">
+                          High
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 border border-[#0E1D26]/25 text-[9.5px] font-bold uppercase tracking-[0.14em] shrink-0">
+                        {task.type === "worldbuilding" ? "world" : task.type}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteTask(task.id, e)}
+                        title="Delete task"
+                        className="opacity-60 sm:opacity-0 group-hover:opacity-100 w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/40 hover:text-[#C2410C] hover:bg-[#E8561F]/10 transition cursor-pointer"
+                      >
+                        <IconTrash className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
-                        <div className="flex-1 min-w-0 flex items-center justify-between gap-2 lg:gap-4">
-                          <p
-                            className={cn(
-                              "text-xs lg:text-sm font-serif transition-colors truncate break-words",
-                              task.completed
-                                ? "text-stone-400 line-through"
-                                : "text-[#4a3225] font-medium"
-                            )}
-                          >
-                            {task.title}
-                          </p>
-
-                          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                            {task.urgency === "high" && !task.completed && (
-                              <span className="flex items-center gap-0.5 text-[7px] sm:text-[8px] lg:text-[9px] uppercase tracking-widest font-bold text-red-700 bg-red-50 border border-red-200 px-1 py-0.5 rounded-sm" title="High Priority">
-                                <AlertCircle className="w-2.5 h-2.5" />
-                                High
-                              </span>
-                            )}
-                            <span
-                              className={cn(
-                                "text-[7px] sm:text-[8px] lg:text-[9px] uppercase tracking-widest font-bold px-1 sm:px-1.5 py-0.5 rounded-sm border",
-                                task.type === "writing"
-                                  ? "bg-[#f4efe6] text-[#8c503c] border-[#e5e0d5]"
-                                  : task.type === "editing"
-                                  ? "bg-blue-50 text-blue-800 border-blue-200"
-                                  : task.type === "worldbuilding"
-                                  ? "bg-amber-50 text-amber-800 border-amber-200"
-                                  : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                              )}
-                            >
-                              {task.type === "worldbuilding" ? "world" : task.type}
-                            </span>
-
-                            {/* Delete Task Button */}
-                            <button
-                              type="button"
-                              onClick={(e) => handleDeleteTask(task.id, e)}
-                              className="opacity-60 sm:opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 text-stone-400 hover:text-red-700 rounded-sm transition-all ml-0.5 cursor-pointer"
-                              title="Delete task"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          {/* World radar */}
+          <div
+            className="lg:col-span-5 relative overflow-hidden rounded-[28px] bg-[#0E1D26] text-[#F6F1E7] p-6 sm:p-7 flex flex-col min-h-[380px] cursor-pointer"
+            onClick={() => setIsRadarExpanded(true)}
+            title="Click to expand full World Radar"
+          >
+            <div className="absolute -right-12 -bottom-12 w-40 h-40 rounded-full bg-[#E8561F]/15" aria-hidden="true" />
+            <div className="relative flex items-start justify-between gap-3">
+              <div>
+                <Tag tone="light">World Radar</Tag>
+                <h3 className="mt-3 text-[26px] font-extrabold leading-none tracking-[-0.02em]">
+                  {worldRadarStats.totalMentions}
+                  <span className="text-[#E8561F]"> mentions</span>
+                </h3>
+                <p className="mt-1.5 text-[12px] text-[#F6F1E7]/50 truncate max-w-[220px]">
+                  {activeProject ? `in ${activeProject.title}` : "No book selected"}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleManualScan}
+                  title="Re-scan manuscript text now"
+                  className="w-9 h-9 rounded-full border border-[#F6F1E7]/20 hover:border-[#F6F1E7] flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <IconRefresh className={cn("w-4 h-4", isScanning && "animate-spin")} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsRadarExpanded(true);
+                  }}
+                  title="Expand World Radar"
+                  className="w-9 h-9 rounded-full bg-[#E8561F] hover:bg-[#D44B17] flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <IconExpand className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
-            {/* Right Column (Stacked on small, flex col on large) */}
-            <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-3 lg:gap-4 min-h-fit lg:min-h-0 h-full">
-              {/* Quick Jump (Vintage Journal style) */}
-              {activeProject ? (
-                <div
-                  className="bg-[#2a1a14] text-[#fcfaf5] rounded-sm p-3.5 sm:p-4 lg:p-5 shadow-[4px_8px_16px_rgba(0,0,0,0.3)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-transform shrink-0 flex-1 lg:flex-none border border-[#5d3f32] min-h-[130px]"
-                  onClick={() => {
-                    const targetScene = activeProjectData?.lastActiveSceneId;
-                    navigate(`/project/${activeProject.id}/workspace/studio${targetScene ? `?scene=${targetScene}` : ''}`);
-                  }}
-                >
-                  {/* Journal texture */}
-                  <div 
-                    className="absolute inset-0 opacity-[0.4] mix-blend-overlay pointer-events-none"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
-                    }}
-                  />
-                  {/* Leather binding */}
-                  <div className="absolute left-0 top-0 bottom-0 w-2.5 sm:w-3 bg-black/50 border-r border-[#5d3f32]" />
-                  
-                  <div className="absolute top-0 right-0 p-3 lg:p-4 opacity-20 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-700 text-[#d49a89]">
-                    <PenTool className="w-10 h-10 lg:w-16 lg:h-16" />
-                  </div>
-                  <div className="relative z-10 ml-2">
-                    <p className="text-[7px] lg:text-[9px] uppercase tracking-widest font-bold text-[#d49a89]/70 mb-0.5">
-                      Resume Drafting
-                    </p>
-                    <h3 className="font-serif text-sm lg:text-lg font-bold line-clamp-1 text-[#fcfaf5] break-words">
-                      {activeProject.title}
-                    </h3>
-                    <p className="text-[#fcfaf5]/60 text-[10px] lg:text-xs mt-0.5 font-serif italic truncate">
-                      {activeProject.genre} • {resumeStats.currentSceneTitle} • Updated {resumeStats.timeAgo}
-                    </p>
-                  </div>
-                  <div className="relative z-10 mt-3 lg:mt-4 flex items-center justify-between ml-2">
-                    <div className="flex items-center gap-1 lg:gap-1.5 bg-[#fcfaf5]/10 px-1.5 py-0.5 lg:px-2 lg:py-1 rounded-sm text-[8px] lg:text-[10px] font-bold tracking-widest uppercase border border-[#fcfaf5]/20">
-                      <TrendingUp className="w-2.5 h-2.5 lg:w-3 lg:h-3 text-[#d49a89]" />
-                      {(activeProject.currentWords || 0).toLocaleString()} words
-                    </div>
-                    <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-sm bg-[#8c503c] border border-[#b8785e] flex items-center justify-center group-hover:bg-[#b8785e] transition-colors shadow-sm text-white">
-                      <ArrowRight className="w-3 h-3 lg:w-4 lg:h-4" />
-                    </div>
-                  </div>
+            <div className="relative mt-4 flex items-center gap-1 p-1 rounded-full bg-white/5 self-start" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setMiniRadarType("all")} className={pill(miniRadarType === "all", true)}>
+                All {worldRadarStats.sortedMentions.length}
+              </button>
+              <button onClick={() => setMiniRadarType("characters")} className={pill(miniRadarType === "characters", true)}>
+                Characters {worldRadarStats.characterCount}
+              </button>
+              <button onClick={() => setMiniRadarType("locations")} className={pill(miniRadarType === "locations", true)}>
+                Places {worldRadarStats.locationCount}
+              </button>
+            </div>
+
+            <div className="relative mt-5 flex-1 overflow-y-auto max-h-[300px] -mr-2 pr-2 custom-scrollbar">
+              {miniRadarItems.length === 0 ? (
+                <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center">
+                  <IconPerson className="w-7 h-7 text-[#F6F1E7]/25" />
+                  <p className="mt-2 text-[13px] font-semibold">No entities tracked yet</p>
+                  <p className="mt-1 text-[12px] text-[#F6F1E7]/50 max-w-[240px]">
+                    Mention characters or places in the Writing Studio to see live frequency.
+                  </p>
                 </div>
               ) : (
-                <div
-                  className="bg-[#2a1a14] text-[#fcfaf5] rounded-sm p-3.5 sm:p-4 lg:p-5 shadow-[4px_8px_16px_rgba(0,0,0,0.3)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-transform shrink-0 flex-1 lg:flex-none border border-[#5d3f32] min-h-[130px]"
-                  onClick={() => navigate('/create')}
-                >
-                  <div className="relative z-10">
-                    <p className="text-[7px] lg:text-[9px] uppercase tracking-widest font-bold text-[#d49a89]/70 mb-0.5">
-                      Start Writing
-                    </p>
-                    <h3 className="font-serif text-sm lg:text-lg font-bold line-clamp-1 text-[#fcfaf5]">
-                      Create New Archive
-                    </h3>
-                    <p className="text-[#fcfaf5]/60 text-[10px] lg:text-xs mt-0.5 font-serif italic">
-                      Begin your fantasy novel or story
-                    </p>
-                  </div>
-                  <div className="relative z-10 mt-3 flex items-center justify-end">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-sm bg-[#8c503c] flex items-center justify-center text-white">
-                      <Plus className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* World Radar (Polaroid style mini grid - clickable to expand) */}
-              <div 
-                className="bg-[#fcfaf5] rounded-sm p-3.5 sm:p-4 lg:p-5 border border-[#e5e0d5] shadow-[2px_4px_12px_rgba(0,0,0,0.15)] flex-1 flex flex-col min-h-[180px] lg:min-h-0 relative group/card cursor-pointer hover:border-[#8c503c]/40 hover:shadow-[2px_6px_16px_rgba(0,0,0,0.2)] transition-all"
-                onClick={() => setIsRadarExpanded(true)}
-                title="Click to expand full World Radar"
-              >
-                <div className="flex justify-between items-start mb-2 lg:mb-3 shrink-0 border-b border-[#e5e0d5] pb-2 mt-0.5">
-                  <div className="min-w-0 pr-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-sans text-xs sm:text-sm lg:text-base font-bold text-[#4a3225] uppercase tracking-wide group-hover/card:text-[#8c503c] transition-colors">
-                        World Radar
-                      </h3>
-                      <span className="text-[8px] lg:text-[9px] bg-[#8c503c]/10 text-[#8c503c] font-sans font-bold px-1.5 py-0.5 rounded-sm shrink-0">
-                        {worldRadarStats.totalMentions} Mentions
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleManualScan}
-                      className="p-1 rounded-sm text-[#8c503c] hover:bg-[#e5e0d5] hover:text-[#4a3225] transition-colors cursor-pointer"
-                      title="Re-scan manuscript text now"
-                    >
-                      <RefreshCw className={cn("w-3.5 h-3.5", isScanning && "animate-spin text-[#8c503c]")} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsRadarExpanded(true);
-                      }}
-                      className="px-1.5 py-1 rounded-sm text-[#8c503c] hover:bg-[#e5e0d5] hover:text-[#4a3225] transition-colors flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider cursor-pointer border border-[#8c503c]/30 bg-white/60"
-                      title="Expand World Radar to full screen"
-                    >
-                      <span>Expand</span>
-                      <Maximize2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Quick Entity Type Tabs in Mini Card */}
-                <div 
-                  className="flex items-center gap-1 mb-2 pb-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider border-b border-[#e5e0d5]/60 flex-wrap"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    onClick={() => setMiniRadarType('all')}
-                    className={cn(
-                      "px-1.5 py-0.5 rounded-xs transition-colors cursor-pointer",
-                      miniRadarType === 'all'
-                        ? "bg-[#8c503c] text-white"
-                        : "text-stone-500 hover:text-stone-800 hover:bg-[#e5e0d5]/50"
-                    )}
-                  >
-                    All ({worldRadarStats.sortedMentions.length})
-                  </button>
-                  <button
-                    onClick={() => setMiniRadarType('characters')}
-                    className={cn(
-                      "px-1.5 py-0.5 rounded-xs transition-colors flex items-center gap-0.5 cursor-pointer",
-                      miniRadarType === 'characters'
-                        ? "bg-[#8c503c] text-white"
-                        : "text-stone-500 hover:text-stone-800 hover:bg-[#e5e0d5]/50"
-                    )}
-                  >
-                    <Users className="w-2.5 h-2.5" />
-                    Chars ({worldRadarStats.characterCount})
-                  </button>
-                  <button
-                    onClick={() => setMiniRadarType('locations')}
-                    className={cn(
-                      "px-1.5 py-0.5 rounded-xs transition-colors flex items-center gap-0.5 cursor-pointer",
-                      miniRadarType === 'locations'
-                        ? "bg-[#8c503c] text-white"
-                        : "text-stone-500 hover:text-stone-800 hover:bg-[#e5e0d5]/50"
-                    )}
-                  >
-                    <MapPin className="w-2.5 h-2.5" />
-                    Locs ({worldRadarStats.locationCount})
-                  </button>
-                </div>
-
-                {(() => {
-                  const miniItems = worldRadarStats.sortedMentions.filter(item => {
-                    if (miniRadarType === 'characters') return item.entityType === 'character';
-                    if (miniRadarType === 'locations') return item.entityType === 'location';
-                    return true;
-                  });
-
-                  if (miniItems.length === 0) {
+                <div className="space-y-3.5">
+                  {miniRadarItems.map((item) => {
+                    const pct = item.count > 0 ? Math.max(8, Math.round((item.count / miniTopCount) * 100)) : 0;
                     return (
-                      <div className="flex-1 flex flex-col items-center justify-center text-stone-400 p-2 text-center">
-                        <Users className="w-6 h-6 text-stone-300 mb-1 stroke-[1.5]" />
-                        <p className="text-[8px] lg:text-[9px] font-bold uppercase tracking-widest text-stone-400">
-                          No Entities Tracked
-                        </p>
-                        <p className="text-[9px] text-stone-400 mt-0.5">
-                          Type character or location names in Writing Studio to see live frequency.
-                        </p>
+                      <div key={`radar-mini-${item.id}`} className="group">
+                        <div className="flex items-center justify-between gap-3 text-[13px]">
+                          <span className="flex items-center gap-2 min-w-0">
+                            {item.entityType === "character" ? (
+                              <IconPerson className="w-3.5 h-3.5 text-[#E8561F] shrink-0" />
+                            ) : (
+                              <IconPin className="w-3.5 h-3.5 text-[#F0B54B] shrink-0" />
+                            )}
+                            <span className="font-semibold truncate group-hover:text-[#F0B54B] transition-colors">{item.name}</span>
+                          </span>
+                          <span className="text-[11px] text-[#F6F1E7]/55 shrink-0 tabular-nums">
+                            {item.count} · {item.scenesAppeared.length} sc
+                          </span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all duration-700",
+                              item.entityType === "character" ? "bg-[#E8561F]" : "bg-[#F0B54B]"
+                            )}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
                       </div>
                     );
-                  }
-
-                  const topCount = Math.max(1, miniItems[0]?.count || 1);
-
-                  return (
-                    <div className="flex-1 overflow-y-auto pr-1 lg:pr-2 custom-scrollbar min-h-0">
-                      <div className="flex flex-col justify-start space-y-2 lg:space-y-2.5">
-                        {miniItems.map((item) => {
-                          const percentage = item.count > 0 
-                            ? Math.max(12, Math.round((item.count / topCount) * 100))
-                            : 0;
-
-                          return (
-                            <div
-                              key={`radar-mini-${item.id}`}
-                              className="relative group shrink-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setIsRadarExpanded(true);
-                              }}
-                            >
-                              <div className="flex justify-between items-end mb-1">
-                                <div className="flex items-center gap-1 min-w-0 pr-2">
-                                  {item.entityType === 'character' ? (
-                                    <Users className="w-2.5 h-2.5 text-[#8c503c] shrink-0" />
-                                  ) : (
-                                    <MapPin className="w-2.5 h-2.5 text-amber-700 shrink-0" />
-                                  )}
-                                  <span className="text-[10px] lg:text-xs font-serif font-bold text-[#4a3225] group-hover:text-[#8c503c] transition-colors truncate">
-                                    {item.name}
-                                  </span>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <span className="text-[#8c503c] font-sans text-[8px] lg:text-[9px] font-bold">
-                                    {item.count} {item.count === 1 ? 'mention' : 'mentions'}
-                                  </span>
-                                  {item.scenesAppeared.length > 0 && (
-                                    <span className="text-stone-400 font-serif text-[7px] lg:text-[8px] ml-1">
-                                      ({item.scenesAppeared.length} {item.scenesAppeared.length === 1 ? 'scene' : 'scenes'})
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="h-1 lg:h-1.5 w-full bg-[#e5e0d5] rounded-sm overflow-hidden border border-[#d49a89]/20">
-                                <div
-                                  className={cn(
-                                    "h-full rounded-sm transition-all duration-700 relative",
-                                    item.count > 0
-                                      ? item.entityType === 'character'
-                                        ? "bg-gradient-to-r from-[#d49a89] to-[#8c503c]"
-                                        : "bg-gradient-to-r from-amber-300 to-amber-600"
-                                      : "bg-stone-300"
-                                  )}
-                                  style={{ width: `${Math.max(percentage, item.count > 0 ? 8 : 0)}%` }}
-                                >
-                                  {item.count > 0 && (
-                                    <div className="absolute top-0 right-0 bottom-0 w-4 bg-white/20 blur-[2px]" />
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </section>
+      </div>
 
-        {/* Expanded World Radar Modal Dialog */}
-        <AnimatePresence>
-          {isRadarExpanded && (
+      {/* ================= WORLD RADAR MODAL ================= */}
+      <AnimatePresence>
+        {isRadarExpanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-[#0E1D26]/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 font-['Outfit']"
+            onClick={() => setIsRadarExpanded(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 12 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#F6F1E7] rounded-[28px] shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden text-[#0E1D26]"
+            >
+              {/* Header */}
+              <div className="relative overflow-hidden bg-[#0E1D26] text-[#F6F1E7] px-6 sm:px-8 py-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div className="absolute -right-10 -top-16 w-44 h-44 rounded-full bg-[#E8561F]" aria-hidden="true" />
+                <div className="relative min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Tag tone="light">World Radar</Tag>
+                    {savedProjects.length > 1 ? (
+                      <select
+                        value={selectedProjectId || activeProject?.id || ""}
+                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                        className="h-7 px-3 rounded-full bg-white/10 border border-white/20 text-[12px] font-semibold text-[#F6F1E7] outline-none cursor-pointer"
+                      >
+                        {savedProjects.map((p) => (
+                          <option key={p.id} value={p.id} className="text-[#0E1D26]">
+                            {p.title}
+                          </option>
+                        ))}
+                      </select>
+                    ) : activeProject ? (
+                      <span className="text-[12px] text-[#F6F1E7]/70">{activeProject.title}</span>
+                    ) : null}
+                  </div>
+                  <h2 className="mt-3 text-[28px] sm:text-[34px] font-extrabold leading-none tracking-[-0.02em]">
+                    Narrative <span className="text-[#E8561F]">Frequency.</span>
+                  </h2>
+                  <p className="mt-2 text-[13px] text-[#F6F1E7]/60">
+                    Scanned across {worldRadarStats.scenesScanned} scenes{activeProject ? ` in "${activeProject.title}"` : ""}.
+                  </p>
+                </div>
+
+                <div className="relative flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={handleManualScan}
+                    className="h-10 px-4 rounded-full border border-[#F6F1E7]/30 hover:border-[#F6F1E7] text-[13px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <IconRefresh className={cn("w-4 h-4", isScanning && "animate-spin")} />
+                    {isScanning ? "Scanning…" : "Re-scan"}
+                  </button>
+                  {activeProject && (
+                    <button
+                      onClick={() => {
+                        setIsRadarExpanded(false);
+                        navigate(`/project/${activeProject.id}/characters`);
+                      }}
+                      className="h-10 pl-4 pr-1.5 rounded-full bg-[#F6F1E7] text-[#0E1D26] text-[13px] font-bold flex items-center gap-2 cursor-pointer"
+                    >
+                      Cast Dossier
+                      <span className="w-7 h-7 rounded-full bg-[#E8561F] text-white flex items-center justify-center">
+                        <IconArrowUpRight className="w-3.5 h-3.5" />
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsRadarExpanded(false)}
+                    title="Close (ESC)"
+                    className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <IconClose className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Summary + filters */}
+              <div className="px-6 sm:px-8 py-4 border-b border-[#E4DAC8] flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { icon: <IconArrowUpRight className="w-3.5 h-3.5" />, v: worldRadarStats.totalMentions, l: "mentions" },
+                    { icon: <IconPerson className="w-3.5 h-3.5" />, v: worldRadarStats.characterCount, l: "characters" },
+                    { icon: <IconPin className="w-3.5 h-3.5" />, v: worldRadarStats.locationCount, l: "places" },
+                    { icon: <IconScenes className="w-3.5 h-3.5" />, v: worldRadarStats.scenesScanned, l: "scenes" },
+                  ].map((s) => (
+                    <span key={s.l} className="h-8 px-3 rounded-full bg-white border border-[#E4DAC8] flex items-center gap-1.5 text-[12px]">
+                      <span className="text-[#E8561F]">{s.icon}</span>
+                      <strong>{s.v}</strong>
+                      <span className="text-[#0E1D26]/55">{s.l}</span>
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative w-full sm:w-52">
+                    <IconSearch className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#0E1D26]/40" />
+                    <input
+                      type="text"
+                      placeholder="Search name, role, scene…"
+                      value={radarSearch}
+                      onChange={(e) => setRadarSearch(e.target.value)}
+                      className="w-full h-9 pl-10 pr-8 bg-white border border-[#E4DAC8] rounded-full text-[13px] outline-none focus:border-[#E8561F]"
+                    />
+                    {radarSearch && (
+                      <button
+                        onClick={() => setRadarSearch("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#0E1D26]/40 hover:text-[#0E1D26] cursor-pointer"
+                      >
+                        <IconClose className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-0.5 p-1 rounded-full bg-white border border-[#E4DAC8]">
+                    <button onClick={() => setRadarEntityType("all")} className={pill(radarEntityType === "all")}>All</button>
+                    <button onClick={() => setRadarEntityType("characters")} className={pill(radarEntityType === "characters")}>
+                      Characters {worldRadarStats.characterCount}
+                    </button>
+                    <button onClick={() => setRadarEntityType("locations")} className={pill(radarEntityType === "locations")}>
+                      Places {worldRadarStats.locationCount}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-0.5 p-1 rounded-full bg-white border border-[#E4DAC8]">
+                    <button onClick={() => setRadarFilter("all")} className={pill(radarFilter === "all")}>All</button>
+                    <button onClick={() => setRadarFilter("active")} className={pill(radarFilter === "active")}>
+                      Active {worldRadarStats.sortedMentions.filter((m) => m.count > 0).length}
+                    </button>
+                    <button onClick={() => setRadarFilter("silent")} className={pill(radarFilter === "silent")}>
+                      Silent {worldRadarStats.sortedMentions.filter((m) => m.count === 0).length}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 custom-scrollbar">
+                {filteredRadarMentions.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredRadarMentions.map((item, idx) => {
+                      const topCount = Math.max(1, worldRadarStats.sortedMentions[0]?.count || 1);
+                      const percentage = item.count > 0 ? Math.round((item.count / topCount) * 100) : 0;
+                      const mentionShare =
+                        worldRadarStats.totalMentions > 0 ? Math.round((item.count / worldRadarStats.totalMentions) * 100) : 0;
+                      const isChar = item.entityType === "character";
+
+                      return (
+                        <div
+                          key={`radar-modal-${item.id}-${idx}`}
+                          className="group p-5 rounded-2xl bg-white border border-[#E4DAC8] hover:border-[#0E1D26]/30 transition-colors flex flex-col"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <span
+                                className={cn(
+                                  "w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-extrabold shrink-0",
+                                  idx === 0 && item.count > 0
+                                    ? "bg-[#E8561F] text-white"
+                                    : idx === 1 && item.count > 0
+                                      ? "bg-[#F0B54B] text-[#0E1D26]"
+                                      : "bg-[#F6F1E7] text-[#0E1D26]/60"
+                                )}
+                              >
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="text-[17px] font-bold leading-tight truncate">{item.name}</h4>
+                                  <span className="px-1.5 py-0.5 border border-[#0E1D26]/25 text-[9px] font-bold uppercase tracking-[0.14em]">
+                                    {isChar ? "Character" : "Place"}
+                                  </span>
+                                </div>
+                                <p className="mt-0.5 text-[12px] text-[#0E1D26]/55 truncate">{item.role || (isChar ? "Character" : "Location")}</p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className={cn("text-[18px] font-extrabold leading-none", item.count > 0 ? "text-[#E8561F]" : "text-[#0E1D26]/30")}>
+                                {item.count}
+                              </p>
+                              {worldRadarStats.totalMentions > 0 && (
+                                <p className="mt-1 text-[10px] text-[#0E1D26]/50">{mentionShare}% share</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {item.description && (
+                            <p className="mt-3 text-[13px] text-[#0E1D26]/60 line-clamp-2">{item.description}</p>
+                          )}
+
+                          <div className="mt-4">
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-[#0E1D26]/45 mb-1.5">
+                              <span>Density</span>
+                              <span>{percentage}%</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-[#F6F1E7] overflow-hidden">
+                              <div
+                                className={cn("h-full rounded-full", isChar ? "bg-[#E8561F]" : "bg-[#F0B54B]")}
+                                style={{ width: `${Math.max(percentage, item.count > 0 ? 6 : 0)}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {item.scenesAppeared.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-1.5 max-h-16 overflow-y-auto custom-scrollbar">
+                              {item.scenesAppeared.map((scene, sceneIdx) => (
+                                <span
+                                  key={`scene-badge-${item.id}-${scene.id}-${sceneIdx}`}
+                                  title={`${scene.count} mention(s) in "${scene.title}"`}
+                                  className="h-6 px-2.5 rounded-full bg-[#F6F1E7] text-[11px] flex items-center gap-1"
+                                >
+                                  <span className="truncate max-w-[120px]">{scene.title}</span>
+                                  <strong className="text-[#E8561F]">×{scene.count}</strong>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-auto pt-4 flex items-center justify-between">
+                            <span className="text-[11px] text-[#0E1D26]/45">
+                              {item.count > 0
+                                ? `Found in ${item.scenesAppeared.length} scene${item.scenesAppeared.length === 1 ? "" : "s"}`
+                                : "Not mentioned yet"}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setIsRadarExpanded(false);
+                                if (activeProject) {
+                                  navigate(isChar ? `/project/${activeProject.id}/characters` : `/project/${activeProject.id}/workspace/locations`);
+                                }
+                              }}
+                              className="flex items-center gap-1.5 text-[12px] font-bold text-[#E8561F] hover:underline cursor-pointer"
+                            >
+                              {isChar ? "View Dossier" : "View Place"}
+                              <IconArrowUpRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-14 text-center">
+                    <IconSearch className="w-8 h-8 mx-auto text-[#0E1D26]/25" />
+                    <p className="mt-3 text-[15px] font-semibold">No entities match this filter</p>
+                    <p className="mt-1 text-[13px] text-[#0E1D26]/50">Try another search term or choose "All".</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 sm:px-8 py-4 border-t border-[#E4DAC8] flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#0E1D26]/60">
+                <span>
+                  Tip: in the Writing Studio, type names directly or use <strong className="text-[#E8561F]">@</strong> to tag them.
+                </span>
+                <button
+                  onClick={() => setIsRadarExpanded(false)}
+                  className="h-9 px-5 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[12px] font-bold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <TimelineSettingsModal
+        isOpen={isTimelineModalOpen}
+        onClose={() => setIsTimelineModalOpen(false)}
+        savedProjects={savedProjects}
+        totalWords={totalWordsAcrossAll}
+        onUpdated={() => setTimelineSettings(storage.getTimelineSettings())}
+      />
+
+      {/* ================= DELETE BOOK MODAL ================= */}
+      <AnimatePresence>
+        {projectToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 font-['Outfit']">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
-              onClick={() => setIsRadarExpanded(false)}
+              onClick={() => !isDeletingProject && setProjectToDelete(null)}
+              className="absolute inset-0 bg-[#0E1D26]/70 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative w-full max-w-md bg-[#F6F1E7] rounded-[28px] shadow-2xl p-7 text-[#0E1D26]"
             >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 12 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 12 }}
-                transition={{ duration: 0.2 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-[#FCFAF5] border-2 border-[#5D3F32] rounded-sm shadow-[0_25px_60px_rgba(0,0,0,0.5)] max-w-4xl w-full max-h-[88vh] flex flex-col overflow-hidden relative text-stone-800"
+              <button
+                disabled={isDeletingProject}
+                onClick={() => setProjectToDelete(null)}
+                className="absolute right-4 top-4 w-9 h-9 rounded-full flex items-center justify-center text-[#0E1D26]/50 hover:bg-[#E4DAC8]/60 cursor-pointer"
               >
-                {/* Vintage Leather Trim */}
-                <div className="h-2 w-full bg-[#8C503C] border-b border-[#5D3F32]" />
+                <IconClose className="w-4 h-4" />
+              </button>
 
-                {/* Modal Header */}
-                <div className="p-4 sm:p-6 border-b border-[#E5E0D5] bg-[#F4EFE6] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-[#8C503C] bg-white px-2 py-0.5 rounded-sm border border-[#E5E0D5]">
-                        World Radar • Expanded View
-                      </span>
-                      {savedProjects.length > 1 ? (
-                        <div className="flex items-center gap-1.5 ml-1">
-                          <span className="text-[11px] text-stone-600 font-serif">Book:</span>
-                          <select
-                            value={selectedProjectId || activeProject?.id || ""}
-                            onChange={(e) => setSelectedProjectId(e.target.value)}
-                            className="text-xs font-serif font-bold text-[#4A3225] bg-white border border-[#E5E0D5] rounded-sm px-2 py-0.5 focus:ring-1 focus:ring-[#8C503C]"
-                          >
-                            {savedProjects.map((p) => (
-                              <option key={p.id} value={p.id}>{p.title}</option>
-                            ))}
-                          </select>
-                        </div>
-                      ) : activeProject ? (
-                        <span className="text-[11px] text-stone-600 font-serif">
-                          Book: <strong className="text-[#4A3225]">{activeProject.title}</strong>
-                        </span>
-                      ) : null}
-                    </div>
-                    <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#4A3225]">
-                      Narrative Frequency & World Density
-                    </h2>
-                    <p className="text-xs text-stone-600 font-serif mt-0.5">
-                      Dynamically scanned in real-time across {worldRadarStats.scenesScanned} manuscript scenes in "{activeProject?.title}".
-                    </p>
-                  </div>
+              <Tag>Delete Book</Tag>
+              <h3 className="mt-3 text-[28px] font-extrabold leading-none tracking-[-0.02em]">
+                Are you <span className="text-[#E8561F]">sure?</span>
+              </h3>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={handleManualScan}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-wider bg-white border border-[#E5E0D5] text-[#4A3225] hover:border-[#8C503C] hover:text-[#8C503C] transition-colors shadow-2xs"
-                      title="Re-scan manuscript content"
-                    >
-                      <RefreshCw className={cn("w-3.5 h-3.5", isScanning && "animate-spin text-[#8C503C]")} />
-                      <span>{isScanning ? "Scanning..." : "Re-scan"}</span>
-                    </button>
-                    {activeProject && (
-                      <button
-                        onClick={() => {
-                          setIsRadarExpanded(false);
-                          navigate(`/project/${activeProject.id}/characters`);
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-wider bg-[#8C503C] hover:bg-[#723F2F] text-white transition-colors shadow-sm"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                        <span>Cast Dossier</span>
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setIsRadarExpanded(false)}
-                      className="p-1.5 rounded-sm text-stone-500 hover:text-[#4A3225] hover:bg-[#E5E0D5] transition-colors"
-                      title="Close (ESC)"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Stats Summary & Search / Filter Controls */}
-                <div className="px-4 sm:px-6 py-3 bg-[#FCFAF5] border-b border-[#E5E0D5] flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center flex-wrap gap-2 sm:gap-2.5 text-xs">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#E5E0D5] rounded-sm shadow-2xs">
-                      <BarChart2 className="w-3.5 h-3.5 text-[#8C503C]" />
-                      <span className="font-bold text-[#4A3225]">{worldRadarStats.totalMentions}</span>
-                      <span className="text-stone-500">Total Mentions</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#E5E0D5] rounded-sm shadow-2xs">
-                      <Users className="w-3.5 h-3.5 text-[#8C503C]" />
-                      <span className="font-bold text-[#4A3225]">{worldRadarStats.characterCount}</span>
-                      <span className="text-stone-500">Characters</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#E5E0D5] rounded-sm shadow-2xs">
-                      <MapPin className="w-3.5 h-3.5 text-amber-700" />
-                      <span className="font-bold text-[#4A3225]">{worldRadarStats.locationCount}</span>
-                      <span className="text-stone-500">Locations</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#E5E0D5] rounded-sm shadow-2xs">
-                      <BookOpen className="w-3.5 h-3.5 text-stone-600" />
-                      <span className="font-bold text-[#4A3225]">{worldRadarStats.scenesScanned}</span>
-                      <span className="text-stone-500">Scenes Scanned</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center flex-wrap gap-2 flex-1 sm:flex-initial justify-end">
-                    <div className="relative w-full sm:w-48">
-                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                      <input
-                        type="text"
-                        placeholder="Search name, role, scene..."
-                        value={radarSearch}
-                        onChange={(e) => setRadarSearch(e.target.value)}
-                        className="w-full pl-8 pr-6 py-1 bg-white border border-[#E5E0D5] rounded-sm text-xs font-serif focus:outline-none focus:ring-1 focus:ring-[#8C503C]"
-                      />
-                      {radarSearch && (
-                        <button
-                          onClick={() => setRadarSearch("")}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-xs"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Entity Type Filter Tabs */}
-                    <div className="flex items-center bg-[#E5E0D5]/70 p-0.5 rounded-sm border border-[#E5E0D5] text-[10px] font-bold uppercase tracking-wider">
-                      <button
-                        onClick={() => setRadarEntityType('all')}
-                        className={cn(
-                          "px-2 py-1 rounded-sm transition-all",
-                          radarEntityType === 'all' ? "bg-white text-[#4A3225] shadow-2xs" : "text-stone-600 hover:text-stone-900"
-                        )}
-                      >
-                        All
-                      </button>
-                      <button
-                        onClick={() => setRadarEntityType('characters')}
-                        className={cn(
-                          "px-2 py-1 rounded-sm transition-all flex items-center gap-1",
-                          radarEntityType === 'characters' ? "bg-white text-[#4A3225] shadow-2xs" : "text-stone-600 hover:text-stone-900"
-                        )}
-                      >
-                        <Users className="w-3 h-3" />
-                        Chars ({worldRadarStats.characterCount})
-                      </button>
-                      <button
-                        onClick={() => setRadarEntityType('locations')}
-                        className={cn(
-                          "px-2 py-1 rounded-sm transition-all flex items-center gap-1",
-                          radarEntityType === 'locations' ? "bg-white text-[#4A3225] shadow-2xs" : "text-stone-600 hover:text-stone-900"
-                        )}
-                      >
-                        <MapPin className="w-3 h-3" />
-                        Locs ({worldRadarStats.locationCount})
-                      </button>
-                    </div>
-
-                    {/* Activity Status Filter Tabs */}
-                    <div className="flex items-center bg-[#E5E0D5]/70 p-0.5 rounded-sm border border-[#E5E0D5] text-[10px] font-bold uppercase tracking-wider">
-                      <button
-                        onClick={() => setRadarFilter('all')}
-                        className={cn(
-                          "px-2 py-1 rounded-sm transition-all",
-                          radarFilter === 'all' ? "bg-white text-[#4A3225] shadow-2xs" : "text-stone-600 hover:text-stone-900"
-                        )}
-                      >
-                        All
-                      </button>
-                      <button
-                        onClick={() => setRadarFilter('active')}
-                        className={cn(
-                          "px-2 py-1 rounded-sm transition-all",
-                          radarFilter === 'active' ? "bg-white text-[#4A3225] shadow-2xs" : "text-stone-600 hover:text-stone-900"
-                        )}
-                      >
-                        Active ({worldRadarStats.sortedMentions.filter(m => m.count > 0).length})
-                      </button>
-                      <button
-                        onClick={() => setRadarFilter('silent')}
-                        className={cn(
-                          "px-2 py-1 rounded-sm transition-all",
-                          radarFilter === 'silent' ? "bg-white text-[#4A3225] shadow-2xs" : "text-stone-600 hover:text-stone-900"
-                        )}
-                      >
-                        Silent ({worldRadarStats.sortedMentions.filter(m => m.count === 0).length})
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Body: Full grid showing all scanned entities with scene breakdowns */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar space-y-3">
-                  {filteredRadarMentions.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                      {filteredRadarMentions.map((item, idx) => {
-                        const topCount = Math.max(1, worldRadarStats.sortedMentions[0]?.count || 1);
-                        const percentage = item.count > 0
-                          ? Math.round((item.count / topCount) * 100)
-                          : 0;
-                        const mentionShare = worldRadarStats.totalMentions > 0
-                          ? Math.round((item.count / worldRadarStats.totalMentions) * 100)
-                          : 0;
-
-                        return (
-                          <div
-                            key={`radar-modal-${item.id}-${idx}`}
-                            className="p-4 rounded-sm border border-[#E5E0D5] bg-white hover:border-[#8C503C] hover:shadow-md transition-all flex flex-col justify-between group"
-                          >
-                            <div>
-                              <div className="flex items-start justify-between gap-2 mb-2">
-                                <div className="flex items-start gap-2.5 min-w-0">
-                                  <span className={cn(
-                                    "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5",
-                                    idx === 0 && item.count > 0 ? "bg-[#8C503C] text-white shadow-xs" :
-                                    idx === 1 && item.count > 0 ? "bg-[#B8785E] text-white" :
-                                    "bg-stone-200 text-stone-700"
-                                  )}>
-                                    #{idx + 1}
-                                  </span>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <h4 className="font-serif font-bold text-base text-[#4A3225] group-hover:text-[#8C503C] transition-colors leading-tight truncate">
-                                        {item.name}
-                                      </h4>
-                                      <span className={cn(
-                                        "text-[8px] font-bold px-1.5 py-0.5 rounded-xs uppercase tracking-wider shrink-0 border",
-                                        item.entityType === 'character'
-                                          ? "bg-rose-50 text-rose-800 border-rose-200"
-                                          : "bg-amber-50 text-amber-800 border-amber-200"
-                                      )}>
-                                        {item.entityType === 'character' ? 'Character' : 'Location'}
-                                      </span>
-                                    </div>
-                                    <span className="text-[10px] font-bold text-[#8C503C] tracking-widest uppercase inline-block mt-0.5 truncate">
-                                      {item.role || (item.entityType === 'character' ? "Character" : "Location")}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="text-right shrink-0">
-                                  <span className={cn(
-                                    "text-sm font-bold font-sans block",
-                                    item.count > 0 ? "text-[#8C503C]" : "text-stone-400"
-                                  )}>
-                                    {item.count} {item.count === 1 ? 'mention' : 'mentions'}
-                                  </span>
-                                  {worldRadarStats.totalMentions > 0 && (
-                                    <span className="text-[9px] text-stone-500 font-sans block">
-                                      {mentionShare}% narrative share
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {item.description && (
-                                <p className="text-xs text-stone-600 font-serif line-clamp-2 mt-1 mb-2 italic">
-                                  "{item.description}"
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Relative Frequency Bar & Scenes breakdown */}
-                            <div className="mt-2 pt-2 border-t border-stone-100">
-                              <div className="flex justify-between text-[9px] text-stone-500 mb-1 font-sans">
-                                <span>Manuscript Density</span>
-                                <span>{percentage}%</span>
-                              </div>
-                              <div className="h-2 w-full bg-[#E5E0D5] rounded-xs overflow-hidden border border-[#D49A89]/20">
-                                <div
-                                  className={cn(
-                                    "h-full rounded-xs transition-all duration-700",
-                                    item.count > 0
-                                      ? item.entityType === 'character'
-                                        ? "bg-gradient-to-r from-[#D49A89] via-[#B8785E] to-[#8C503C]"
-                                        : "bg-gradient-to-r from-amber-300 via-amber-500 to-amber-700"
-                                      : "bg-stone-200"
-                                  )}
-                                  style={{ width: `${Math.max(percentage, item.count > 0 ? 6 : 0)}%` }}
-                                />
-                              </div>
-
-                              {/* Scene Appearance Pills */}
-                              {item.scenesAppeared.length > 0 && (
-                                <div className="mt-2.5 pt-2 border-t border-stone-100">
-                                  <span className="text-[9px] font-bold text-stone-500 font-serif uppercase tracking-wider block mb-1">
-                                    Appears in {item.scenesAppeared.length} {item.scenesAppeared.length === 1 ? 'scene' : 'scenes'}:
-                                  </span>
-                                  <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto custom-scrollbar">
-                                    {item.scenesAppeared.map((scene, sceneIdx) => (
-                                      <span
-                                        key={`scene-badge-${item.id}-${scene.id}-${sceneIdx}`}
-                                        className="text-[9px] bg-[#F4EFE6] text-[#4A3225] border border-[#E5E0D5] px-1.5 py-0.5 rounded-xs font-serif flex items-center gap-1"
-                                        title={`${scene.count} mention(s) in "${scene.title}"`}
-                                      >
-                                        <span className="truncate max-w-[120px]">{scene.title}</span>
-                                        <span className="font-bold text-[#8C503C]">×{scene.count}</span>
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="mt-3 flex items-center justify-between">
-                                <span className="text-[10px] text-stone-400 font-serif">
-                                  {item.count > 0
-                                    ? `Found in ${item.scenesAppeared.length} scene${item.scenesAppeared.length === 1 ? '' : 's'}`
-                                    : 'Not mentioned yet in manuscript'}
-                                </span>
-                                <button
-                                  onClick={() => {
-                                    setIsRadarExpanded(false);
-                                    if (activeProject) {
-                                      if (item.entityType === 'character') {
-                                        navigate(`/project/${activeProject.id}/characters`);
-                                      } else {
-                                        navigate(`/project/${activeProject.id}/workspace/locations`);
-                                      }
-                                    }
-                                  }}
-                                  className="text-[10px] font-bold uppercase tracking-wider text-[#8C503C] hover:text-[#4A3225] flex items-center gap-1 group-hover:underline"
-                                >
-                                  <span>{item.entityType === 'character' ? 'View Dossier' : 'View Location'}</span>
-                                  <ArrowUpRight className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center bg-white rounded-sm border border-[#E5E0D5]">
-                      <Users className="w-8 h-8 text-stone-400 mx-auto mb-2" />
-                      <p className="font-serif font-bold text-stone-700 text-sm">
-                        No entities found matching filter
-                      </p>
-                      <p className="text-xs text-stone-500 font-serif mt-1">
-                        Try changing your search term or select "All" above.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Modal Footer */}
-                <div className="p-3 sm:p-4 bg-[#F4EFE6] border-t border-[#E5E0D5] flex items-center justify-between text-xs text-stone-600 font-serif">
-                  <span>Tip: In Writing Studio, type character names directly or use <strong className="text-[#8C503C]">@</strong> to tag them into your narrative.</span>
-                  <button
-                    onClick={() => setIsRadarExpanded(false)}
-                    className="px-4 py-1.5 bg-[#8C503C] hover:bg-[#723F2F] text-white text-xs font-bold uppercase tracking-widest rounded-sm transition-colors shadow-2xs"
-                  >
-                    Close
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* AUTHOR TIMELINE & STATS CONFIGURATION MODAL */}
-        <TimelineSettingsModal
-          isOpen={isTimelineModalOpen}
-          onClose={() => setIsTimelineModalOpen(false)}
-          savedProjects={savedProjects}
-          totalWords={totalWordsAcrossAll}
-          onUpdated={() => setTimelineSettings(storage.getTimelineSettings())}
-        />
-
-        {/* DELETE ARCHIVE / BOOK CONFIRMATION MODAL */}
-        <AnimatePresence>
-          {projectToDelete && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => !isDeletingProject && setProjectToDelete(null)}
-                className="absolute inset-0 bg-black/60 backdrop-blur-xs"
-              />
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 12 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 8 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-                className="relative bg-[#FCFAF5] border border-[#D8D2C4] rounded-lg shadow-2xl w-full max-w-md overflow-hidden z-10"
-              >
-                {/* Header */}
-                <div className="p-4 sm:p-5 border-b border-[#E5E0D5] flex items-center justify-between bg-[#F4EFE6]">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-700">
-                      <Trash2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="font-serif font-bold text-stone-900 text-base leading-tight">
-                        Delete Manuscript Archive
-                      </h3>
-                      <p className="text-[11px] font-serif text-stone-500 mt-0.5">
-                        Permanent action confirmation
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    disabled={isDeletingProject}
-                    onClick={() => setProjectToDelete(null)}
-                    className="p-1.5 text-stone-400 hover:text-stone-700 rounded-sm transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Content */}
-                <div className="p-5 space-y-4">
-                  <div className="bg-white border border-[#E5E0D5] rounded-md p-3.5 shadow-2xs">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#8C503C] mb-1">
-                      {projectToDelete.genre || "Fiction Novel"}
-                    </div>
-                    <h4 className="font-serif font-bold text-stone-900 text-lg leading-snug">
-                      {projectToDelete.title}
-                    </h4>
-                    <div className="flex items-center gap-3 text-xs text-stone-500 font-serif mt-2 pt-2 border-t border-stone-100">
-                      <span>Author: <strong>{projectToDelete.author || "Author"}</strong></span>
-                      <span>•</span>
-                      <span>Words: <strong>{(projectToDelete.currentWords || 0).toLocaleString()}</strong></span>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-stone-600 font-serif leading-relaxed">
-                    Are you sure you want to permanently delete this book archive? All associated manuscript chapters, characters, locations, notes, and story bible files will be permanently erased from your account and cloud sync.
+              <div className="mt-5 flex items-center gap-4 p-3 rounded-2xl bg-white border border-[#E4DAC8]">
+                <BookCover
+                  title={projectToDelete.title}
+                  genre={projectToDelete.genre}
+                  seed={projectToDelete.id}
+                  className="w-14 h-[74px] shrink-0"
+                  titleClassName="text-[8px]"
+                />
+                <div className="min-w-0">
+                  <p className="text-[16px] font-bold truncate">{projectToDelete.title}</p>
+                  <p className="text-[12px] text-[#0E1D26]/55">
+                    {projectToDelete.genre || "Fiction"} · {(projectToDelete.currentWords || 0).toLocaleString()} words
                   </p>
-
-                  <div className="bg-rose-50/80 border border-rose-200 rounded-md p-2.5 text-[11px] text-rose-800 font-serif flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <span>This action cannot be undone.</span>
-                  </div>
                 </div>
+              </div>
 
-                {/* Footer */}
-                <div className="p-4 bg-[#F4EFE6] border-t border-[#E5E0D5] flex items-center justify-end gap-2.5">
-                  <button
-                    type="button"
-                    disabled={isDeletingProject}
-                    onClick={() => setProjectToDelete(null)}
-                    className="px-4 py-2 border border-[#D8D2C4] bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    Keep Archive
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isDeletingProject}
-                    onClick={() => handleDeleteProject(projectToDelete)}
-                    className="px-4 py-2 bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold uppercase tracking-wider rounded-sm transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {isDeletingProject ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Deleting...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete Permanently</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+              <p className="mt-4 text-[13px] leading-relaxed text-[#0E1D26]/65">
+                Every chapter, character, location, note and story bible entry in this book will be permanently erased from your account and cloud sync.{" "}
+                <strong className="text-[#C2410C]">This cannot be undone.</strong>
+              </p>
 
-        {/* FE Quota Exceeded Upgrade Modal */}
-        <UpgradeModal
-          isOpen={showUpgradeModal}
-          onClose={() => setShowUpgradeModal(false)}
-          feature="projects"
-          currentCount={savedProjects.length}
-          maxLimit={maxAllowedProjects}
-        />
-      </div>
+              <div className="mt-6 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isDeletingProject}
+                  onClick={() => setProjectToDelete(null)}
+                  className="h-11 px-5 rounded-full border border-[#E4DAC8] bg-white text-[13px] font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  Keep Book
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingProject}
+                  onClick={() => handleDeleteProject(projectToDelete)}
+                  className="h-11 px-5 rounded-full bg-[#C2410C] hover:bg-[#9A3412] text-white text-[13px] font-bold flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isDeletingProject ? <IconSpinner className="w-4 h-4" /> : <IconTrash className="w-4 h-4" />}
+                  {isDeletingProject ? "Deleting…" : "Delete Permanently"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        feature="projects"
+        currentCount={savedProjects.length}
+        maxLimit={maxAllowedProjects}
+      />
     </motion.div>
   );
 }

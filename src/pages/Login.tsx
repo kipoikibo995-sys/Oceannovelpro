@@ -18,6 +18,17 @@ import {
 import { storage } from "@/lib/storage";
 import { adminService } from "@/lib/adminService";
 import { cn } from "@/lib/utils";
+import {
+  IconAlert,
+  IconArrow,
+  IconBookWave,
+  IconCheck,
+  IconClose,
+  IconEye,
+  IconEyeOff,
+  IconRefresh,
+  IconSpinner,
+} from "@/components/brand/ocean-ui";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -637,113 +648,8 @@ function FeatureThumb({ variant }: { variant: number }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Icon set — 24px grid, 1.75 stroke, round caps                       */
-/* ------------------------------------------------------------------ */
-
-type IconProps = { className?: string };
-
-function Icon({ className, children }: IconProps & { children: React.ReactNode }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
-}
-
-// Brand glyph: an open book resting on a wave
-function IconBookWave(p: IconProps) {
-  return (
-    <Icon {...p}>
-      <path d="M3.5 5.75c2.9-1.3 5.8-1 8.5 1.1v10c-2.7-2.1-5.6-2.4-8.5-1.1z" />
-      <path d="M20.5 5.75c-2.9-1.3-5.8-1-8.5 1.1v10c2.7-2.1 5.6-2.4 8.5-1.1z" />
-      <path d="M2.5 20.25c1.6-1.1 3.2-1.1 4.9 0s3.2 1.1 4.6 0 3.2-1.1 4.6 0 3.3 1.1 4.9 0" />
-    </Icon>
-  );
-}
-
-function IconEye(p: IconProps) {
-  return (
-    <Icon {...p}>
-      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-      <circle cx="12" cy="12" r="2.75" />
-    </Icon>
-  );
-}
-
-function IconEyeOff(p: IconProps) {
-  return (
-    <Icon {...p}>
-      <path d="M9.9 5.8A9.7 9.7 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-2.6 3.4M6.3 7.4A15.6 15.6 0 0 0 2.5 12s3.5 6.5 9.5 6.5c1.6 0 3-.4 4.2-1" />
-      <path d="M10 10.1a2.75 2.75 0 0 0 3.9 3.9" />
-      <path d="m3.5 3.5 17 17" />
-    </Icon>
-  );
-}
-
-function IconArrow(p: IconProps) {
-  return (
-    <Icon {...p}>
-      <path d="M4.5 12h15M13.5 6l6 6-6 6" />
-    </Icon>
-  );
-}
-
-function IconRefresh(p: IconProps) {
-  return (
-    <Icon {...p}>
-      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
-      <path d="M19.5 4.5v4h-4" />
-    </Icon>
-  );
-}
-
-function IconAlert(p: IconProps) {
-  return (
-    <Icon {...p}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7.5v5.25M12 16.25v.25" />
-    </Icon>
-  );
-}
-
-function IconCheck(p: IconProps) {
-  return (
-    <Icon {...p}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="m8.25 12.25 2.5 2.5 5-5.25" />
-    </Icon>
-  );
-}
-
-function IconClose(p: IconProps) {
-  return (
-    <Icon {...p}>
-      <path d="M6 6l12 12M18 6 6 18" />
-    </Icon>
-  );
-}
-
-function IconSpinner({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={cn("animate-spin", className)} fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2.5" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 // Google's brand mark must stay in its official colours
-function GoogleLogo({ className }: IconProps) {
+function GoogleLogo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
