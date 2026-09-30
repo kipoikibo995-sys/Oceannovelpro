@@ -1,5 +1,5 @@
 import React, { ReactNode, useState, useEffect, useRef, useMemo } from "react";
-import { Maximize2, Plus, MoreVertical, FileText, Settings, RefreshCw, Copy, X, ListTree, ChevronDown, ChevronRight, ChevronLeft, Check, Focus, AlignLeft, Type, Target, Clock, MessageSquare, BookOpen, PanelRight, Users, MapPin, StickyNote, Search, ExternalLink, Tag, AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, MoreVertical, RefreshCw, Copy, X, ListTree, ChevronDown, ChevronRight, ChevronLeft, Check, Focus, Type, BookOpen, PanelRight, Users, MapPin, Search, ExternalLink, AlertTriangle, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,42 @@ const findFirstSceneId = (items: ManuscriptItem[]): string => {
       if (found) return found;
     }
   }
-  return 'scene-1';
+  return '';
+};
+
+const collectFolderIds = (items: ManuscriptItem[], acc: string[] = []): string[] => {
+  for (const item of items) {
+    if (item.type !== 'scene') acc.push(item.id);
+    if (item.children) collectFolderIds(item.children, acc);
+  }
+  return acc;
+};
+
+// Deep copy with fresh ids so duplicates never share ids with the original
+const cloneWithNewIds = (item: ManuscriptItem, stamp: string): ManuscriptItem => ({
+  ...item,
+  id: `${item.type}-${stamp}-${Math.random().toString(36).slice(2, 7)}`,
+  ...(item.children ? { children: item.children.map((c) => cloneWithNewIds(c, stamp)) } : {}),
+});
+
+// Which items may live directly inside which (root accepts anything)
+const canContain = (parentType: ManuscriptItem['type'] | 'root', childType: ManuscriptItem['type']) => {
+  if (parentType === 'root') return true;
+  if (parentType === 'part') return childType !== 'part';
+  if (parentType === 'chapter') return childType === 'scene';
+  return false;
+};
+
+const countWords = (html?: string) =>
+  html ? html.replace(/<[^>]*>?/gm, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter((w) => w.length > 0).length : 0;
+
+const TYPE_PREFS_KEY = 'ocean_studio_type';
+const readTypePrefs = () => {
+  try {
+    const raw = localStorage.getItem(TYPE_PREFS_KEY);
+    if (raw) return JSON.parse(raw) as { size?: string; family?: string };
+  } catch {}
+  return {};
 };
 
 const findNodeById = (items: ManuscriptItem[], id: string): ManuscriptItem | null => {
@@ -136,7 +171,18 @@ export default function WritingStudio() {
     return {};
   });
 
-  const [scratchpad, setScratchpad] = useState<string>('');
+  const [scratchpad, setScratchpad] = useState<string>(() => {
+    if (projectId) return storage.getProjectData(projectId)?.generalNotes || '';
+    return '';
+  });
+  const generalNoteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const handleGeneralNoteChange = (text: string) => {
+    setScratchpad(text);
+    if (generalNoteTimeoutRef.current) clearTimeout(generalNoteTimeoutRef.current);
+    generalNoteTimeoutRef.current = setTimeout(() => {
+      if (projectId) storage.saveProjectData(projectId, { generalNotes: text });
+    }, 600);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedEntityId, setExpandedEntityId] = useState<string | null>(null);
   const [copiedEntityName, setCopiedEntityName] = useState<string | null>(null);
@@ -207,6 +253,7 @@ export default function WritingStudio() {
         setCharacters(data.characters && data.characters.length > 0 ? data.characters : []);
         setLocations(data.locations && data.locations.length > 0 ? data.locations : []);
         setSceneNotes(data.notes || {});
+        setScratchpad(data.generalNotes || '');
 
         const projects = storage.getProjects();
         setProjectMeta(projects.find(p => p.id === projectId) || null);
@@ -229,8 +276,10 @@ export default function WritingStudio() {
 
   // Switch active scene cleanly without leaving sticky URL query params
   const handleSelectScene = (sceneId: string, customHighlight?: string) => {
-    setActiveDocId(sceneId);
-    setActiveContent(findSceneContent(manuscript, sceneId));
+    if (sceneId !== activeDocId) {
+      setActiveDocId(sceneId);
+      setActiveContent(findSceneContent(manuscript, sceneId));
+    }
 
     if (customHighlight !== undefined) {
       setHighlightKeyword(customHighlight);
@@ -267,7 +316,7 @@ export default function WritingStudio() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Binder State
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['part-1', 'chap-1', 'part-2', 'chap-4', 'chap-5']));
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => new Set(collectFolderIds(manuscript)));
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [contextMenuOpenId, setContextMenuOpenId] = useState<string | null>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
@@ -276,23 +325,28 @@ export default function WritingStudio() {
 
 
   // Typography Settings
-  const [fontSize, setFontSize] = useState<'text-base' | 'text-lg' | 'text-xl' | 'text-2xl'>('text-lg');
-  const [fontFamily, setFontFamily] = useState<'font-serif' | 'font-sans' | 'font-mono'>('font-serif');
+  const [fontSize, setFontSize] = useState<'text-base' | 'text-lg' | 'text-xl' | 'text-2xl'>(() => {
+    const v = readTypePrefs().size;
+    return v === 'text-base' || v === 'text-xl' || v === 'text-2xl' ? v : 'text-lg';
+  });
+  const [fontFamily, setFontFamily] = useState<'font-serif' | 'font-sans' | 'font-mono'>(() => {
+    const v = readTypePrefs().family;
+    return v === 'font-sans' || v === 'font-mono' ? v : 'font-serif';
+  });
+  useEffect(() => {
+    try { localStorage.setItem(TYPE_PREFS_KEY, JSON.stringify({ size: fontSize, family: fontFamily })); } catch {}
+  }, [fontSize, fontFamily]);
   const [showTypeSettings, setShowTypeSettings] = useState(false);
 
   // Stats (Active Scene)
-  const plainText = activeContent.replace(/<[^>]*>?/gm, ' ');
-  const wordCount = plainText.trim().split(/\s+/).filter(w => w.length > 0).length;
+  const wordCount = countWords(activeContent);
   const readingTime = Math.max(1, Math.ceil(wordCount / 200)); // ~200 wpm
   
   // Stats (Project Total)
   const getTotalWords = (items: ManuscriptItem[]): number => {
     let total = 0;
     for (const item of items) {
-       if (item.type === 'scene' && item.content) {
-         const plainText = item.content.replace(/<[^>]*>?/gm, ' ');
-         total += plainText.trim().split(/\s+/).filter(w => w.length > 0).length;
-       }
+       if (item.type === 'scene') total += countWords(item.content);
        if (item.children) total += getTotalWords(item.children);
     }
     return total;
@@ -301,7 +355,10 @@ export default function WritingStudio() {
   
   const currentProjectMeta = projectId ? storage.getProjects().find(p => p.id === projectId) : null;
   const targetWords = currentProjectMeta?.wordGoal || 50000;
-  const progressPercent = Math.min(100, Math.round((totalProjectWords / targetWords) * 100));
+  const progressPercent = targetWords > 0 ? Math.min(100, Math.round((totalProjectWords / targetWords) * 100)) : 0;
+  const sceneTotal = (function count(items: ManuscriptItem[]): number {
+    return items.reduce((n, i) => n + (i.type === 'scene' ? 1 : 0) + (i.children ? count(i.children) : 0), 0);
+  })(manuscript);
 
   // Save timeout and pending content refs for instant persistence
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -495,6 +552,21 @@ export default function WritingStudio() {
     e.stopPropagation();
     if (!draggedNodeId || draggedNodeId === targetId) return;
 
+    const dragged0 = findNodeById(manuscript, draggedNodeId);
+    const target0 = findNodeById(manuscript, targetId);
+    if (!dragged0 || !target0) return;
+    // Dropping a folder into its own descendant would detach the whole branch
+    if (findNodeById(dragged0.children || [], targetId)) { setDraggedNodeId(null); return; }
+    const targetParentType = (function parentOf(items: ManuscriptItem[], type: ManuscriptItem['type'] | 'root'): ManuscriptItem['type'] | 'root' | null {
+      for (const it of items) {
+        if (it.id === targetId) return type;
+        if (it.children) { const r = parentOf(it.children, it.type); if (r) return r; }
+      }
+      return null;
+    })(manuscript, 'root');
+    const dropInside = canContain(target0.type, dragged0.type);
+    if (!dropInside && !canContain(targetParentType || 'root', dragged0.type)) { setDraggedNodeId(null); return; }
+
     const newManuscript = JSON.parse(JSON.stringify(manuscript));
     
     // Find and remove source
@@ -517,13 +589,12 @@ export default function WritingStudio() {
     const insertNode = (items: ManuscriptItem[]) => {
       for (let i = 0; i < items.length; i++) {
         if (items[i].id === targetId) {
-          // If dropping on a folder, insert inside it
-          if (items[i].type === 'part' || items[i].type === 'chapter') {
+          // Drop inside a folder that can hold it, otherwise place it right after the target
+          if (dropInside) {
             if (!items[i].children) items[i].children = [];
             items[i].children!.push(draggedNode!);
             setExpandedNodes(prev => new Set(prev).add(targetId));
           } else {
-            // Drop on a scene, insert after it
             items.splice(i + 1, 0, draggedNode!);
           }
           return true;
@@ -577,7 +648,7 @@ export default function WritingStudio() {
           if (idx > -1) {
              const newId = (action === 'duplicate' ? item.type : 'scene') + '-' + Date.now();
              const newItem: ManuscriptItem = action === 'duplicate' 
-                ? JSON.parse(JSON.stringify({ ...item, id: newId, title: item.title + ' (Copy)' }))
+                ? { ...cloneWithNewIds(item, String(Date.now())), id: newId, title: item.title + ' (Copy)' }
                 : { id: newId, type: 'scene', title: 'New Scene', content: '' };
              
              parentArr.splice(idx + 1, 0, newItem);
@@ -792,8 +863,19 @@ export default function WritingStudio() {
       };
 
       if (isDescendantOrSelf(itemToDelete, activeDocId)) {
-        const nextScene = findFirstSceneId(newManuscript);
-        setActiveDocId(nextScene || '');
+        pendingContentRef.current = null;
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        setIsSaving(false);
+        setActiveDocId(findFirstSceneId(newManuscript));
+      }
+
+      const removedIds: string[] = [];
+      (function walk(n: ManuscriptItem) { removedIds.push(n.id); n.children?.forEach(walk); })(itemToDelete);
+      if (removedIds.some((rid) => sceneNotes[rid] !== undefined)) {
+        const nextNotes = { ...sceneNotes };
+        removedIds.forEach((rid) => delete nextNotes[rid]);
+        setSceneNotes(nextNotes);
+        if (projectId) storage.saveProjectData(projectId, { notes: nextNotes });
       }
     }
 
@@ -818,6 +900,39 @@ export default function WritingStudio() {
   return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFocusMode]);
 
+  // Close binder menus on any outside click
+  useEffect(() => {
+    if (!contextMenuOpenId && !addMenuOpen && !showTypeSettings) return;
+    const close = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.closest('[data-studio-menu]')) return;
+      setContextMenuOpenId(null);
+      setAddMenuOpen(false);
+      setShowTypeSettings(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [contextMenuOpenId, addMenuOpen, showTypeSettings]);
+
+  // Keep the open scene visible in the binder
+  useEffect(() => {
+    if (!activeDocId) return;
+    const path = getBreadcrumbs(manuscript, activeDocId);
+    if (!path) return;
+    const folders = path.slice(0, -1).map((p) => p.id);
+    if (folders.some((id) => !expandedNodes.has(id))) {
+      setExpandedNodes((prev) => {
+        const next = new Set(prev);
+        folders.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  }, [activeDocId]);
+
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const menuItem = 'w-full text-left px-3 py-2 text-[13px] rounded-xl hover:bg-[#F3EEE4] transition-colors flex items-center gap-2 cursor-pointer';
+
   const renderManuscriptTree = (items: ManuscriptItem[], level = 0) => {
     return (
       <div className="space-y-0.5">
@@ -825,135 +940,125 @@ export default function WritingStudio() {
           const isFolder = item.type === 'part' || item.type === 'chapter';
           const isExpanded = expandedNodes.has(item.id);
           const isEditing = editingNodeId === item.id;
-          
+          const isActive = activeDocId === item.id;
+          const words = item.type === 'scene' ? (isActive ? wordCount : countWords(item.content)) : 0;
+
           return (
           <div key={item.id}>
-            <div 
-              draggable
+            <div
+              draggable={!isEditing}
               onDragStart={(e) => handleDragStart(e, item.id)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, item.id)}
-              className={`group flex items-center justify-between py-1.5 px-2 rounded-sm cursor-pointer transition-colors ${activeDocId === item.id ? 'bg-[#8C503C] text-white shadow-sm' : 'hover:bg-[#E5E0D5] text-stone-600'} ${draggedNodeId === item.id ? 'opacity-50' : ''}`}
-              style={{ paddingLeft: `${level * 12 + 8}px` }}
+              onDragOver={(e) => { handleDragOver(e); if (dragOverId !== item.id) setDragOverId(item.id); }}
+              onDragLeave={() => setDragOverId((cur) => (cur === item.id ? null : cur))}
+              onDrop={(e) => { setDragOverId(null); handleDrop(e, item.id); }}
+              onDragEnd={() => { setDraggedNodeId(null); setDragOverId(null); }}
+              className={`group relative flex items-center gap-1.5 pr-1.5 rounded-xl cursor-pointer transition-colors ${
+                isActive
+                  ? 'bg-white shadow-[0_1px_2px_rgba(14,29,38,0.06)] ring-1 ring-[#E9E2D4]'
+                  : 'hover:bg-[#EFE9DE]/70'
+              } ${item.type === 'part' ? 'py-2 mt-2 first:mt-0' : 'py-1.5'} ${draggedNodeId === item.id ? 'opacity-40' : ''} ${
+                dragOverId === item.id && draggedNodeId && draggedNodeId !== item.id ? 'ring-2 ring-[#E8561F]/40' : ''
+              }`}
+              style={{ paddingLeft: `${level * 14 + 6}px` }}
               onClick={() => {
                 if (item.type === 'scene') handleSelectScene(item.id);
                 else toggleExpand(item.id, { stopPropagation: () => {} } as any);
               }}
             >
-              <div className="flex items-center gap-2 overflow-hidden flex-1">
-                {isFolder ? (
-                  <div onClick={(e) => toggleExpand(item.id, e)} className="shrink-0 p-0.5 hover:bg-black/10 rounded-sm">
-                    {isExpanded ? <ChevronDown className="w-3 h-3 opacity-70" /> : <ChevronRight className="w-3 h-3 opacity-70" />}
-                  </div>
-                ) : (
-                  <FileText className="w-3 h-3 opacity-70 ml-1 shrink-0" />
-                )}
-                
-                {isEditing ? (
-                  <input 
-                    autoFocus
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    onBlur={saveRename}
-                    onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); }}
-                    className={`text-xs w-full bg-white/20 border-b border-white/50 focus:outline-none px-1 ${isFolder ? 'font-bold uppercase tracking-widest text-[9px]' : 'font-medium'}`}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  isFolder && item.title.includes(':') ? (
-                  <div className="flex flex-col flex-1 min-w-0 pr-1 py-1">
-                    <span className="font-bold uppercase tracking-widest text-[8px] text-stone-400/80">
-                      {item.title.split(':')[0]}:
-                    </span>
-                    <span className="font-bold uppercase tracking-widest text-[10px] text-[#4A3225] leading-tight mt-[1px]">
-                      {item.title.substring(item.title.indexOf(':') + 1).trim()}
-                    </span>
-                  </div>
-                ) : (
-                  <span className={`text-xs ${isFolder ? 'font-bold uppercase tracking-widest text-[9px] whitespace-normal leading-tight py-1' : 'font-medium truncate'} flex-1`}>
-                    {item.title}
-                  </span>
-                )
-                )}
-              </div>
+              {isFolder ? (
+                <span onClick={(e) => toggleExpand(item.id, e)} className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[#0E1D26]/40 hover:text-[#0E1D26] hover:bg-black/5">
+                  {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                </span>
+              ) : (
+                <span className="shrink-0 w-5 h-5 flex items-center justify-center">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-[#E8561F]' : words > 0 ? 'bg-[#0E1D26]/30' : 'border border-[#0E1D26]/25'}`} />
+                </span>
+              )}
 
-              {/* Context Menu Button */}
-              <div className="relative shrink-0 ml-2">
-                <button 
+              {isEditing ? (
+                <input
+                  autoFocus
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={saveRename}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setEditingNodeId(null); }}
+                  className="flex-1 min-w-0 h-7 px-2 rounded-lg bg-white border border-[#E8561F]/50 text-[13px] font-medium text-[#0E1D26] focus:outline-none"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : item.type === 'part' ? (
+                <span className="flex-1 min-w-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[#0E1D26]/50 leading-tight">{item.title}</span>
+              ) : item.type === 'chapter' ? (
+                <span className="flex-1 min-w-0 text-[13px] font-semibold text-[#0E1D26] leading-snug truncate">{item.title}</span>
+              ) : (
+                <span className={`flex-1 min-w-0 text-[13px] leading-snug truncate ${isActive ? 'font-semibold text-[#0E1D26]' : 'text-[#0E1D26]/70'}`}>{item.title}</span>
+              )}
+
+              {!isEditing && item.type === 'scene' && words > 0 && (
+                <span className="shrink-0 text-[11px] tabular-nums text-[#0E1D26]/35 group-hover:hidden">{words.toLocaleString()}</span>
+              )}
+              {!isEditing && isFolder && item.children && item.children.length > 0 && (
+                <span className="shrink-0 text-[11px] tabular-nums text-[#0E1D26]/30 group-hover:hidden">{item.children.length}</span>
+              )}
+
+              {/* Row menu */}
+              <div className="relative shrink-0" data-studio-menu>
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setContextMenuOpenId(contextMenuOpenId === item.id ? null : item.id);
                   }}
-                  className={`p-0.5 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity ${contextMenuOpenId === item.id ? 'opacity-100 bg-black/10' : 'hover:bg-black/10'}`}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[#0E1D26]/50 hover:text-[#0E1D26] hover:bg-black/5 transition-opacity ${contextMenuOpenId === item.id ? 'flex bg-black/5' : 'hidden group-hover:flex'}`}
+                  title="More"
                 >
-                  <MoreVertical className="w-3 h-3" />
+                  <MoreVertical className="w-3.5 h-3.5" />
                 </button>
-                
-                {/* Dropdown */}
+
                 {contextMenuOpenId === item.id && (
-                  <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#E5E0D5] rounded-sm shadow-lg py-1 z-50 text-stone-700">
-                    <button onClick={(e) => handleAction('rename', item, e)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F4F1EA] transition-colors">Rename</button>
+                  <div className="absolute right-0 top-full mt-1 w-48 p-1.5 bg-white border border-[#E9E2D4] rounded-2xl shadow-[0_12px_32px_-12px_rgba(14,29,38,0.25)] z-50 text-[#0E1D26]">
+                    <button onClick={(e) => handleAction('rename', item, e)} className={menuItem}>Rename</button>
                     {item.type === 'part' && (
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setContextMenuOpenId(null);
-                          openCreateModal('chapter', item.id);
-                        }} 
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F4F1EA] text-[#8C503C] font-semibold transition-colors flex items-center gap-1.5"
-                      >
-                        <Plus className="w-3 h-3" /> Add Chapter Inside
+                      <button onClick={(e) => { e.stopPropagation(); setContextMenuOpenId(null); openCreateModal('chapter', item.id); }} className={menuItem}>
+                        <Plus className="w-3.5 h-3.5 text-[#E8561F]" /> Add chapter inside
                       </button>
                     )}
                     {item.type === 'chapter' && (
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setContextMenuOpenId(null);
-                          openCreateModal('scene', item.id);
-                        }} 
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F4F1EA] text-[#8C503C] font-semibold transition-colors flex items-center gap-1.5"
-                      >
-                        <Plus className="w-3 h-3" /> Add Scene Inside
+                      <button onClick={(e) => { e.stopPropagation(); setContextMenuOpenId(null); openCreateModal('scene', item.id); }} className={menuItem}>
+                        <Plus className="w-3.5 h-3.5 text-[#E8561F]" /> Add scene inside
                       </button>
                     )}
-                    <button onClick={(e) => handleAction('duplicate', item, e)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F4F1EA] transition-colors">Duplicate</button>
                     {!isFolder && (
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setContextMenuOpenId(null);
-                          // find parent chapter for this scene
                           const currentChapter = availableChapters.find(c => {
                             const chapNode = findNodeById(manuscript, c.id);
                             return chapNode?.children?.some(s => s.id === item.id);
                           });
                           openCreateModal('scene', currentChapter?.id);
-                        }} 
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F4F1EA] transition-colors"
+                        }}
+                        className={menuItem}
                       >
-                        Add Scene Below
+                        <Plus className="w-3.5 h-3.5 text-[#E8561F]" /> New scene in chapter
                       </button>
                     )}
-                    <div className="h-px bg-[#E5E0D5] my-1" />
-                    <button 
-                      onClick={(e) => handleAction('delete', item, e)} 
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F4F1EA] text-red-600 font-medium transition-colors flex items-center gap-1.5"
-                    >
-                      <Trash2 className="w-3 h-3" /> Delete
+                    <button onClick={(e) => handleAction('duplicate', item, e)} className={menuItem}>Duplicate</button>
+                    <div className="h-px bg-[#F1ECE2] my-1 mx-2" />
+                    <button onClick={(e) => handleAction('delete', item, e)} className={`${menuItem} text-[#B3261E] hover:bg-[#B3261E]/5`}>
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
                     </button>
                   </div>
                 )}
               </div>
             </div>
-            {isFolder && isExpanded && item.children && renderManuscriptTree(item.children, level + 1)}
+            {isFolder && isExpanded && item.children && item.children.length > 0 && renderManuscriptTree(item.children, level + 1)}
           </div>
         )})}
       </div>
     );
   };
 
-  const getBreadcrumbs = (items: ManuscriptItem[], targetId: string, currentPath: ManuscriptItem[] = []): ManuscriptItem[] | null => {
+  function getBreadcrumbs(items: ManuscriptItem[], targetId: string, currentPath: ManuscriptItem[] = []): ManuscriptItem[] | null {
     for (const item of items) {
       const path = [...currentPath, item];
       if (item.id === targetId) return path;
@@ -963,729 +1068,477 @@ export default function WritingStudio() {
       }
     }
     return null;
-  };
-  
+  }
+
   const breadcrumbs = getBreadcrumbs(manuscript, activeDocId) || [];
   const currentDoc = breadcrumbs[breadcrumbs.length - 1];
   const parentDoc = breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2] : null;
 
-  return (
-    <div className="flex-1 flex overflow-hidden bg-[#F4F1EA]">
-      {/* Left Panel: Manuscript Binder */}
-      {isManuscriptOpen && !isFocusMode && (
-        <div className="w-64 bg-[#FCFAF5] border-r border-[#E5E0D5] flex flex-col shrink-0 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.05)] z-10 transition-all">
-          <div className="p-4 border-b border-[#E5E0D5] flex justify-between items-center bg-[#FCFAF5] shrink-0">
-            <div className="flex items-center gap-2 text-[#4A3225]">
-              <BookOpen className="w-4 h-4" />
-              <span className="text-xs font-bold uppercase tracking-widest">Binder</span>
+  const toggleFocus = () => {
+    const next = !isFocusMode;
+    setIsFocusMode(next);
+    setIsContextOpen(!next);
+    setIsManuscriptOpen(!next);
+  };
+
+  const iconBtn = (active = false) =>
+    `w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+      active ? 'bg-[#0E1D26] text-[#F6F1E7]' : 'text-[#0E1D26]/55 hover:text-[#0E1D26] hover:bg-[#EFE9DE]'
+    }`;
+
+  // Entities in the current scene first, the rest after
+  const matchesQuery = (fields: any[]) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return fields.some((f) => (Array.isArray(f) ? f.some((t) => String(t).toLowerCase().includes(q)) : f && String(f).toLowerCase().includes(q)));
+  };
+  const rankEntities = (list: any[], kind: 'char' | 'loc') =>
+    list
+      .filter((e) => (kind === 'char' ? matchesQuery([e.name, e.role, e.description, e.traits]) : matchesQuery([e.name, e.type, e.description])))
+      .map((e) => ({ e, count: getEntityMentionCount(e) }))
+      .sort((a, b) => (b.count > 0 ? 1 : 0) - (a.count > 0 ? 1 : 0));
+  const rankedChars = activeTab === 'chars' ? rankEntities(characters, 'char') : [];
+  const rankedLocs = activeTab === 'locs' ? rankEntities(locations, 'loc') : [];
+
+  const renderEntityCard = (entity: any, count: number, kind: 'char' | 'loc', idx: number) => {
+    const key = `${kind}-${entity.id}`;
+    const isExpanded = expandedEntityId === key || selectedEntity?.id === String(entity.id);
+    const subtitle = kind === 'char'
+      ? `${entity.role || 'Character'}${entity.age ? ` · ${entity.age}` : ''}`
+      : entity.type || 'Place';
+    return (
+      <div
+        key={`studio-${key}-${idx}`}
+        id={`entity-${entity.id}`}
+        className={`rounded-2xl bg-white border transition-colors overflow-hidden ${isExpanded ? 'border-[#0E1D26]/25' : 'border-[#E9E2D4] hover:border-[#D9CFBC]'}`}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setExpandedEntityId(isExpanded ? null : key);
+            if (isExpanded && selectedEntity?.id === String(entity.id)) setSelectedEntity(null);
+          }}
+          className="w-full p-3 flex items-center gap-3 text-left cursor-pointer"
+        >
+          {entity.imageUrl ? (
+            <img src={entity.imageUrl} alt={entity.name} className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-[#E9E2D4]" />
+          ) : (
+            <span className="w-9 h-9 rounded-full bg-[#EFE9DE] text-[#0E1D26]/60 flex items-center justify-center text-[13px] font-bold shrink-0">
+              {kind === 'char' ? (entity.name ? entity.name.charAt(0).toUpperCase() : '?') : <MapPin className="w-4 h-4" />}
+            </span>
+          )}
+          <span className="flex-1 min-w-0">
+            <span className="block text-[14px] font-semibold text-[#0E1D26] truncate">{entity.name}</span>
+            <span className="block text-[12px] text-[#0E1D26]/50 truncate">{subtitle}</span>
+          </span>
+          {count > 0 && (
+            <span className="shrink-0 h-5 px-2 rounded-full bg-[#E8561F]/10 text-[#C4461A] text-[11px] font-semibold tabular-nums flex items-center" title={`${count} mention${count === 1 ? '' : 's'} in this scene`}>
+              {count}×
+            </span>
+          )}
+          <ChevronDown className={`w-4 h-4 shrink-0 text-[#0E1D26]/35 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isExpanded && (
+          <div className="px-3 pb-3 space-y-3 text-[13px]">
+            {kind === 'loc' && entity.imageUrl && (
+              <img src={entity.imageUrl} alt={entity.name} className="w-full h-28 object-cover rounded-xl" />
+            )}
+            {kind === 'char' && entity.motivation && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0E1D26]/40">Wants</p>
+                <p className="mt-0.5 leading-relaxed text-[#0E1D26]/80">{entity.motivation}</p>
+              </div>
+            )}
+            {(kind === 'char' ? entity.description || entity.backstory : entity.description) && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0E1D26]/40">{kind === 'char' ? 'Profile' : 'Atmosphere'}</p>
+                <p className={`mt-0.5 leading-relaxed text-[#0E1D26]/65 ${kind === 'char' ? 'line-clamp-5' : ''}`}>
+                  {kind === 'char' ? entity.description || entity.backstory : entity.description}
+                </p>
+              </div>
+            )}
+            {kind === 'char' && Array.isArray(entity.traits) && entity.traits.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {entity.traits.map((trait: string, i: number) => (
+                  <span key={i} className="h-6 px-2.5 rounded-full bg-[#F3EEE4] text-[#0E1D26]/70 text-[11px] font-medium flex items-center">{trait}</span>
+                ))}
+              </div>
+            )}
+            <div className="pt-2 flex items-center justify-between border-t border-[#F1ECE2]">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleCopyEntityTag(entity.name); }}
+                className="h-7 px-3 rounded-full bg-[#F3EEE4] hover:bg-[#EFE9DE] text-[12px] font-semibold text-[#0E1D26]/75 flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                {copiedEntityName === entity.name ? <><Check className="w-3.5 h-3.5 text-[#2F7A4F]" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy @tag</>}
+              </button>
+              {projectId && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); navigate(`/project/${projectId}/${kind === 'char' ? 'characters' : 'locations'}`); }}
+                  className="text-[12px] font-semibold text-[#0E1D26]/50 hover:text-[#0E1D26] flex items-center gap-1 cursor-pointer"
+                >
+                  Edit <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
             </div>
-            <button onClick={() => setIsManuscriptOpen(false)} className="text-stone-400 hover:text-stone-700 hover:bg-[#E5E0D5] p-1 rounded-sm transition-colors">
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderEntityList = (ranked: { e: any; count: number }[], kind: 'char' | 'loc', total: number) => {
+    const inScene = ranked.filter((r) => r.count > 0);
+    const rest = ranked.filter((r) => r.count === 0);
+    if (total === 0) {
+      return (
+        <div className="px-4 py-10 text-center">
+          <span className="mx-auto w-11 h-11 rounded-full bg-white border border-[#E9E2D4] flex items-center justify-center text-[#0E1D26]/35">
+            {kind === 'char' ? <Users className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+          </span>
+          <p className="mt-3 text-[14px] font-semibold text-[#0E1D26]">{kind === 'char' ? 'No characters yet' : 'No places yet'}</p>
+          <p className="mt-1 text-[13px] text-[#0E1D26]/50">{kind === 'char' ? 'Add your cast, then mention them with @ while writing.' : 'Add places in the World Atlas to keep them at hand.'}</p>
+        </div>
+      );
+    }
+    if (ranked.length === 0) {
+      return <p className="px-4 py-8 text-center text-[13px] text-[#0E1D26]/45">Nothing matches “{searchQuery}”.</p>;
+    }
+    return (
+      <div className="space-y-4">
+        {inScene.length > 0 && (
+          <div className="space-y-2">
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0E1D26]/40">In this scene</p>
+            {inScene.map((r, i) => renderEntityCard(r.e, r.count, kind, i))}
+          </div>
+        )}
+        {rest.length > 0 && (
+          <div className="space-y-2">
+            {inScene.length > 0 && <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0E1D26]/40">Everyone else</p>}
+            {rest.map((r, i) => renderEntityCard(r.e, r.count, kind, i + inScene.length))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const fieldLabel = 'block text-[12px] font-semibold text-[#0E1D26]/60 mb-1.5';
+  const fieldInput = 'w-full h-11 px-4 rounded-2xl bg-white border border-[#E9E2D4] text-[14px] text-[#0E1D26] placeholder:text-[#0E1D26]/35 focus:outline-none focus:border-[#0E1D26]/40 transition-colors';
+
+  return (
+    <div className="flex-1 flex overflow-hidden bg-[#F8F5EE] text-[#0E1D26] font-['Outfit']">
+      {/* Left: manuscript binder */}
+      {isManuscriptOpen && !isFocusMode && (
+        <aside className="w-[260px] bg-[#FBF9F4] border-r border-[#E9E2D4] flex flex-col shrink-0 z-10">
+          <div className="px-4 pt-5 pb-3 flex items-start justify-between gap-2 shrink-0">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Manuscript</p>
+              <p className="mt-1 text-[12px] text-[#0E1D26]/50 tabular-nums">
+                {sceneTotal} {sceneTotal === 1 ? 'scene' : 'scenes'} · {totalProjectWords.toLocaleString()} words
+              </p>
+            </div>
+            <button onClick={() => setIsManuscriptOpen(false)} className={iconBtn()} title="Hide manuscript">
               <ChevronLeft className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+
+          <div className="flex-1 overflow-y-auto px-2.5 pb-3 custom-scrollbar">
             {manuscript.length === 0 ? (
-              <div className="py-8 px-3 text-center">
-                <p className="text-xs text-stone-400 mb-3">No chapters or scenes yet</p>
+              <div className="px-3 py-10 text-center">
+                <p className="text-[13px] text-[#0E1D26]/50">No chapters yet.</p>
                 <button
                   onClick={() => openCreateModal('chapter')}
-                  className="px-3 py-1.5 bg-[#8C503C] hover:bg-[#733F2E] text-white text-[10px] font-bold uppercase tracking-wider rounded-sm inline-flex items-center gap-1.5 shadow-sm transition-colors"
+                  className="mt-3 h-9 px-4 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[13px] font-semibold inline-flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-3 h-3" /> Add First Chapter
+                  <Plus className="w-4 h-4" /> First chapter
                 </button>
               </div>
             ) : (
               renderManuscriptTree(manuscript)
             )}
           </div>
-          <div className="p-3 border-t border-[#E5E0D5] bg-[#F9F6ED] shrink-0 relative">
-            <button 
-              onClick={() => setAddMenuOpen(!addMenuOpen)}
-              className="w-full py-1.5 border border-dashed border-[#D49A89] text-[#8C503C] rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-[#8C503C] hover:text-white transition-colors flex items-center justify-center gap-1">
-              <Plus className="w-3 h-3" /> ADD
+
+          <div className="p-3 border-t border-[#E9E2D4] shrink-0 flex items-center gap-2 relative" data-studio-menu>
+            <button
+              onClick={() => openCreateModal('scene')}
+              className="flex-1 h-10 rounded-full bg-[#0E1D26] hover:bg-[#132631] text-[#F6F1E7] text-[13px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <Plus className="w-4 h-4" /> New scene
             </button>
-            
+            <button
+              onClick={() => setAddMenuOpen(!addMenuOpen)}
+              className={`w-10 h-10 rounded-full border flex items-center justify-center cursor-pointer transition-colors ${addMenuOpen ? 'bg-[#EFE9DE] border-[#E9E2D4]' : 'border-[#E9E2D4] hover:bg-[#EFE9DE]'}`}
+              title="Add chapter or part"
+            >
+              <MoreVertical className="w-4 h-4 text-[#0E1D26]/60" />
+            </button>
             {addMenuOpen && (
-               <div className="absolute bottom-full left-3 right-3 mb-1 bg-white border border-[#E5E0D5] rounded-sm shadow-lg py-1 z-50 text-stone-700">
-                  <button onClick={() => openCreateModal('scene')} className="w-full text-left px-3 py-2 text-xs font-bold uppercase tracking-widest hover:bg-[#F4F1EA] transition-colors flex items-center gap-2"><FileText className="w-3.5 h-3.5 text-[#8C503C]" /> New Scene</button>
-                  <button onClick={() => openCreateModal('chapter')} className="w-full text-left px-3 py-2 text-xs font-bold uppercase tracking-widest hover:bg-[#F4F1EA] transition-colors flex items-center gap-2"><BookOpen className="w-3.5 h-3.5 text-[#8C503C]" /> New Chapter</button>
-                  <button onClick={() => openCreateModal('part')} className="w-full text-left px-3 py-2 text-xs font-bold uppercase tracking-widest hover:bg-[#F4F1EA] transition-colors flex items-center gap-2"><ListTree className="w-3.5 h-3.5 text-[#8C503C]" /> New Part</button>
-               </div>
+              <div className="absolute bottom-full left-3 right-3 mb-2 p-1.5 bg-white border border-[#E9E2D4] rounded-2xl shadow-[0_12px_32px_-12px_rgba(14,29,38,0.25)] z-50">
+                <button onClick={() => openCreateModal('chapter')} className={menuItem}><BookOpen className="w-4 h-4 text-[#0E1D26]/50" /> New chapter</button>
+                <button onClick={() => openCreateModal('part')} className={menuItem}><ListTree className="w-4 h-4 text-[#0E1D26]/50" /> New part</button>
+              </div>
             )}
           </div>
-        </div>
+        </aside>
       )}
 
-      {/* Center: Editor Area */}
-      <div className={`flex-1 flex flex-col relative transition-all duration-500 ${isFocusMode ? 'bg-[#FCFAF5]' : 'bg-[#F4F1EA]'}`}>
-        {/* Editor Header */}
-        <div className={`shrink-0 p-4 flex items-center justify-between transition-opacity duration-300 ${isFocusMode ? 'opacity-0 hover:opacity-100 absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-[#FCFAF5] to-transparent pt-6' : 'border-b border-[#E5E0D5] bg-white/40 backdrop-blur-md relative z-10'}`}>
-          <div className="flex items-center gap-3">
+      {/* Centre: the page */}
+      <div className="flex-1 min-w-0 flex flex-col relative">
+        <header className={`shrink-0 h-14 px-4 flex items-center justify-between gap-3 transition-opacity duration-300 ${isFocusMode ? 'opacity-0 hover:opacity-100 absolute top-0 left-0 right-0 z-50 bg-[#F8F5EE]/95' : 'border-b border-[#E9E2D4] bg-[#F8F5EE] relative z-10'}`}>
+          <div className="flex items-center gap-2 min-w-0">
             {!isManuscriptOpen && !isFocusMode && (
-              <button onClick={() => setIsManuscriptOpen(true)} className="p-1.5 text-stone-500 hover:text-stone-800 hover:bg-[#E5E0D5] rounded-sm transition-colors">
+              <button onClick={() => setIsManuscriptOpen(true)} className={iconBtn()} title="Show manuscript">
                 <ListTree className="w-4 h-4" />
               </button>
             )}
-            <div className="flex flex-col">
-              <h2 className="text-sm font-bold text-[#4A3225]">
-                 {parentDoc ? parentDoc.title : (currentDoc?.title || 'Untitled')}
-              </h2>
-              {parentDoc && currentDoc && (
-                <div className="text-[11px] font-medium text-stone-500 flex items-center gap-1.5 mt-0.5">
-                  <span>{currentDoc.title}</span>
-                </div>
-              )}
+            <div className="min-w-0 flex items-baseline gap-1.5 text-[13px]">
+              {parentDoc && <span className="text-[#0E1D26]/45 truncate max-w-[180px]">{parentDoc.title}</span>}
+              {parentDoc && <span className="text-[#0E1D26]/25">/</span>}
+              <span className="font-semibold text-[#0E1D26] truncate">{currentDoc?.title || 'Untitled'}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Formatting Toolbar Portal Target */}
-            <div id="editor-toolbar-portal-target" className="flex items-center justify-center"></div>
+          <div className="flex items-center gap-1.5 shrink-0">
 
-            <div className="w-px h-5 bg-[#E5E0D5]" />
+            <span className="w-[74px] flex items-center justify-end gap-1.5 text-[12px] text-[#0E1D26]/45">
+              {isSaving ? <><RefreshCw className="w-3 h-3 animate-spin" /> Saving</> : <><Check className="w-3.5 h-3.5 text-[#2F7A4F]" /> Saved</>}
+            </span>
 
-            {/* Auto-save */}
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-stone-400 w-20 justify-end transition-opacity duration-300">
-               {isSaving ? (
-                  <><RefreshCw className="w-3 h-3 animate-spin text-stone-400/70" /> Saving...</>
-               ) : (
-                  <><Check className="w-3.5 h-3.5 text-[#5A9672]/70" /> Saved</>
-               )}
-            </div>
-            
-            {/* Typography Controls */}
-            <div className="relative ml-2">
-              <button 
-                onClick={() => setShowTypeSettings(!showTypeSettings)}
-                className={`p-1.5 rounded-sm transition-colors ${showTypeSettings ? 'bg-[#E5E0D5] text-[#4A3225]' : 'text-stone-500 hover:bg-[#E5E0D5] hover:text-[#4A3225]'}`}
-                title="Typography Settings"
-              >
+            <div className="relative" data-studio-menu>
+              <button onClick={() => setShowTypeSettings(!showTypeSettings)} className={iconBtn(showTypeSettings)} title="Typography">
                 <Type className="w-4 h-4" />
               </button>
-              
               {showTypeSettings && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-[#E5E0D5] shadow-xl rounded-sm p-3 z-50">
-                  <div className="text-[9px] font-bold tracking-widest text-stone-400 uppercase mb-2">Font Style</div>
-                  <div className="flex gap-1 mb-4 bg-stone-100 p-1 rounded-sm">
-                    <button onClick={() => setFontFamily('font-serif')} className={`flex-1 py-1 text-xs font-serif rounded-sm ${fontFamily === 'font-serif' ? 'bg-white shadow-sm font-bold text-[#4A3225]' : 'text-stone-500'}`}>Serif</button>
-                    <button onClick={() => setFontFamily('font-sans')} className={`flex-1 py-1 text-xs font-sans rounded-sm ${fontFamily === 'font-sans' ? 'bg-white shadow-sm font-bold text-[#4A3225]' : 'text-stone-500'}`}>Sans</button>
-                    <button onClick={() => setFontFamily('font-mono')} className={`flex-1 py-1 text-xs font-mono rounded-sm ${fontFamily === 'font-mono' ? 'bg-white shadow-sm font-bold text-[#4A3225]' : 'text-stone-500'}`}>Mono</button>
+                <div className="absolute top-full right-0 mt-2 w-56 p-3 bg-white border border-[#E9E2D4] rounded-2xl shadow-[0_12px_32px_-12px_rgba(14,29,38,0.25)] z-50">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0E1D26]/40 mb-2">Typeface</p>
+                  <div className="flex gap-1 p-1 rounded-full bg-[#F3EEE4]">
+                    {([['font-serif', 'Serif'], ['font-sans', 'Sans'], ['font-mono', 'Mono']] as const).map(([v, label]) => (
+                      <button key={v} onClick={() => setFontFamily(v)} className={`flex-1 h-8 rounded-full text-[13px] ${v} cursor-pointer ${fontFamily === v ? 'bg-white shadow-sm font-semibold text-[#0E1D26]' : 'text-[#0E1D26]/55'}`}>{label}</button>
+                    ))}
                   </div>
-                  
-                  <div className="text-[9px] font-bold tracking-widest text-stone-400 uppercase mb-2">Size</div>
-                  <div className="flex justify-between items-center bg-stone-100 p-1 rounded-sm">
-                    <button onClick={() => setFontSize('text-base')} className={`w-8 h-8 flex items-center justify-center text-sm rounded-sm ${fontSize === 'text-base' ? 'bg-white shadow-sm text-[#4A3225]' : 'text-stone-500'}`}>A</button>
-                    <button onClick={() => setFontSize('text-lg')} className={`w-8 h-8 flex items-center justify-center text-base rounded-sm ${fontSize === 'text-lg' ? 'bg-white shadow-sm text-[#4A3225]' : 'text-stone-500'}`}>A</button>
-                    <button onClick={() => setFontSize('text-xl')} className={`w-8 h-8 flex items-center justify-center text-lg rounded-sm ${fontSize === 'text-xl' ? 'bg-white shadow-sm text-[#4A3225]' : 'text-stone-500'}`}>A</button>
-                    <button onClick={() => setFontSize('text-2xl')} className={`w-8 h-8 flex items-center justify-center text-xl rounded-sm ${fontSize === 'text-2xl' ? 'bg-white shadow-sm text-[#4A3225]' : 'text-stone-500'}`}>A</button>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0E1D26]/40 mt-4 mb-2">Size</p>
+                  <div className="flex gap-1 p-1 rounded-full bg-[#F3EEE4]">
+                    {([['text-base', 'text-[12px]'], ['text-lg', 'text-[14px]'], ['text-xl', 'text-[16px]'], ['text-2xl', 'text-[18px]']] as const).map(([v, cls]) => (
+                      <button key={v} onClick={() => setFontSize(v)} className={`flex-1 h-8 rounded-full ${cls} cursor-pointer ${fontSize === v ? 'bg-white shadow-sm font-semibold text-[#0E1D26]' : 'text-[#0E1D26]/55'}`}>A</button>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Global Search & Replace Trigger */}
-            <button 
-              onClick={() => setIsSearchModalOpen(true)}
-              className="p-1.5 rounded-sm transition-colors text-stone-500 hover:text-stone-800 hover:bg-[#E5E0D5]"
-              title="Global Search & Replace (Ctrl+Shift+F)"
-            >
+            <button onClick={() => setIsSearchModalOpen(true)} className={iconBtn()} title="Search & replace (Ctrl+Shift+F)">
               <Search className="w-4 h-4" />
             </button>
-
-            {/* Toggle Context Panel */}
             {!isFocusMode && (
-              <button 
-                onClick={() => setIsContextOpen(!isContextOpen)}
-                className={`p-1.5 rounded-sm transition-colors ml-1 ${isContextOpen ? 'bg-[#E5E0D5] text-[#4A3225]' : 'text-stone-500 hover:text-stone-800 hover:bg-[#E5E0D5]'}`}
-                title={isContextOpen ? "Hide Sidebar (Characters, Locations, Notes)" : "Show Sidebar (Characters, Locations, Notes)"}
-              >
+              <button onClick={() => setIsContextOpen(!isContextOpen)} className={iconBtn(isContextOpen)} title={isContextOpen ? 'Hide cast & notes' : 'Show cast & notes'}>
                 <PanelRight className="w-4 h-4" />
               </button>
             )}
-
-            {/* Focus Mode Toggle */}
-            <button 
-              onClick={() => {
-                setIsFocusMode(!isFocusMode);
-                if (!isFocusMode) {
-                  setIsContextOpen(false);
-                  setIsManuscriptOpen(false);
-                } else {
-                  setIsContextOpen(true);
-                  setIsManuscriptOpen(true);
-                }
-              }} 
-              className={`p-1.5 rounded-sm transition-colors ${isFocusMode ? 'bg-[#8C503C] text-white shadow-inner' : 'text-stone-500 hover:text-stone-800 hover:bg-[#E5E0D5]'}`}
-              title="Focus Mode"
-            >
+            <button onClick={toggleFocus} className={iconBtn(isFocusMode)} title={isFocusMode ? 'Leave focus mode (Esc)' : 'Focus mode'}>
               <Focus className="w-4 h-4" />
             </button>
-
-            
           </div>
-        </div>
+        </header>
 
-        {/* Editor Area */}
-        <div className="flex-1 overflow-y-auto scroll-smooth custom-scrollbar relative z-0">
-          <div className="max-w-[800px] mx-auto h-full flex flex-col px-8">
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative z-0">
+          <div className={`max-w-[820px] mx-auto min-h-full flex flex-col px-4 sm:px-6 ${isFocusMode ? 'pt-16 pb-20' : 'py-8'}`}>
             {manuscript.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-16 h-16 rounded-full bg-[#EDE8DC] flex items-center justify-center text-[#8C503C] mb-4">
-                  <BookOpen className="w-8 h-8" />
-                </div>
-                <h3 className="font-serif text-2xl font-bold text-[#332218] mb-2">Manuscript Empty</h3>
-                <p className="text-sm text-stone-500 max-w-sm mb-6">
-                  Start drafting by creating your first chapter and scene in the binder.
-                </p>
+                <span className="w-12 h-12 rounded-full bg-white border border-[#E9E2D4] flex items-center justify-center text-[#0E1D26]/40">
+                  <BookOpen className="w-5 h-5" />
+                </span>
+                <p className="mt-4 text-[20px] font-bold">A blank first page</p>
+                <p className="mt-1 text-[14px] text-[#0E1D26]/55 max-w-sm">Create a scene and start writing. Chapters and parts can come later.</p>
                 <button
-                  onClick={() => {
-                    setCreateModal({ isOpen: true, type: 'scene', parentId: undefined });
-                    setCreateTitle('Scene 1');
-                  }}
-                  className="px-5 py-2.5 bg-[#8C503C] hover:bg-[#703F2F] text-white text-xs font-bold tracking-wider uppercase rounded-sm shadow-md transition-all flex items-center gap-2"
+                  onClick={() => { setCreateModal({ isOpen: true, type: 'scene', parentId: undefined }); setCreateTitle('Scene 1'); }}
+                  className="mt-5 h-10 pl-4 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[13px] font-bold flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <Plus className="w-4 h-4" /> Create First Scene
+                  Create first scene
+                  <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center"><Plus className="w-4 h-4" /></span>
                 </button>
               </div>
-            ) : !activeDocId ? (
+            ) : !activeDocId || !currentDoc || currentDoc.type !== 'scene' ? (
               <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                <p className="text-sm text-stone-500 font-serif italic">Select a scene from the left binder to begin editing.</p>
+                <p className="text-[15px] text-[#0E1D26]/50">Pick a scene from the manuscript to start writing.</p>
+                <button onClick={() => openCreateModal('scene')} className="mt-4 h-9 px-4 rounded-full border border-[#E9E2D4] hover:bg-[#EFE9DE] text-[13px] font-semibold inline-flex items-center gap-1.5 cursor-pointer">
+                  <Plus className="w-4 h-4" /> New scene
+                </button>
               </div>
             ) : (
-              <div className={`flex-1 py-16 ${isFocusMode ? 'pb-48' : 'pb-32'}`}>
-                {/* Search Match Banner if user navigated from Global Search */}
+              <>
+              <div className="sticky top-3 z-20 mb-4 flex justify-center pointer-events-none">
+                <div id="editor-toolbar-portal-target" className="pointer-events-auto flex items-center rounded-full bg-white/95 backdrop-blur border border-[#E9E2D4] shadow-[0_6px_20px_-12px_rgba(14,29,38,0.3)] p-1 empty:hidden"></div>
+              </div>
+              <article className={`flex-1 flex flex-col bg-white rounded-[28px] ${isFocusMode ? 'border border-transparent' : 'border border-[#EDE6D8] shadow-[0_1px_2px_rgba(14,29,38,0.04)]'} px-5 sm:px-12 lg:px-16 pt-12 pb-16`}>
+                <div className="mb-8 px-4">
+                  {parentDoc && <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0E1D26]/40">{parentDoc.title}</p>}
+                  <h1 className="mt-2 font-serif text-[28px] sm:text-[32px] font-bold leading-tight text-[#0E1D26]">{currentDoc.title}</h1>
+                  <span className="mt-4 block w-8 h-[3px] rounded-full bg-[#E8561F]" />
+                </div>
+
                 {highlightKeyword && (
-                  <div className="mb-6 p-2.5 bg-amber-50/90 border border-amber-300 rounded-md flex items-center justify-between text-xs text-amber-950 shadow-xs animate-in fade-in duration-150">
-                    <div className="flex items-center gap-2">
-                      <Search className="w-4 h-4 text-amber-700 shrink-0" />
-                      <span>
-                        Showing search match for: <strong className="bg-amber-200 px-1 py-0.5 rounded border border-amber-300 font-mono font-bold">"{highlightKeyword}"</strong> (Scrolled to text match)
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setHighlightKeyword(null)}
-                      className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-200/80 hover:bg-amber-300 text-amber-950 rounded cursor-pointer transition-colors"
-                      title="Clear highlight"
-                    >
-                      Dismiss
+                  <div className="mb-6 mx-4 h-10 pl-4 pr-1.5 rounded-full bg-[#FFF6DC] border border-[#F0B54B]/50 flex items-center justify-between gap-3 text-[13px]">
+                    <span className="flex items-center gap-2 min-w-0 text-[#0E1D26]/75">
+                      <Search className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Showing matches for <strong className="text-[#0E1D26]">“{highlightKeyword}”</strong></span>
+                    </span>
+                    <button onClick={() => setHighlightKeyword(null)} className="h-7 px-3 rounded-full bg-white/80 hover:bg-white text-[12px] font-semibold cursor-pointer" title="Clear highlight">
+                      Clear
                     </button>
                   </div>
                 )}
 
-                <MentionEditor 
+                <MentionEditor
                   key={`${activeDocId}-${highlightKeyword || ''}`}
                   initialValue={activeContent}
                   mentionItems={[...characters, ...locations]}
                   onEntityClick={handleEntityClick}
                   onChange={handleContentChange}
                   highlightText={highlightKeyword || undefined}
-                  className={`${fontFamily} ${fontSize} leading-[1.8] text-[#332218]`}
+                  className={`flex-1 min-h-[50vh] ${fontFamily} ${fontSize} leading-[1.8] text-[#1D2A31]`}
                 />
-              </div>
+              </article>
+              </>
             )}
           </div>
         </div>
 
-        {/* Bottom Status Bar */}
-        <div className={`shrink-0 h-10 border-t border-[#E5E0D5] bg-[#FCFAF5] flex items-center justify-between px-6 transition-opacity duration-300 ${isFocusMode ? 'opacity-0 hover:opacity-100 absolute bottom-0 left-0 right-0 z-50' : 'relative z-10'}`}>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-1.5 text-stone-500">
-              <AlignLeft className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-bold tracking-widest uppercase">{wordCount} Words</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-stone-500">
-              <Clock className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-bold tracking-widest uppercase">{readingTime} min read</span>
-            </div>
+        {/* Status bar */}
+        <footer className={`shrink-0 h-12 px-5 border-t border-[#E9E2D4] bg-[#F8F5EE] flex items-center justify-between gap-4 transition-opacity duration-300 ${isFocusMode ? 'opacity-0 hover:opacity-100 absolute bottom-0 left-0 right-0 z-50' : 'relative z-10'}`}>
+          <div className="flex items-center gap-4 text-[12px] text-[#0E1D26]/55 tabular-nums">
+            <span><strong className="font-semibold text-[#0E1D26]">{wordCount.toLocaleString()}</strong> words</span>
+            <span className="hidden sm:inline">{readingTime} min read</span>
           </div>
 
-          {/* Center AI Prompt Hub Button (No Star Icon) */}
           <button
             onClick={handleOpenAiPromptHub}
-            className="px-3.5 py-1 text-[11px] font-bold tracking-wider uppercase text-[#8C503C] hover:text-white bg-[#8C503C]/10 hover:bg-[#8C503C] border border-[#8C503C]/20 hover:border-[#8C503C] rounded-sm transition-all duration-200 cursor-pointer select-none active:scale-95 flex items-center gap-1.5"
-            title="Open Ocean Novel AI Prompt Hub (Premium)"
+            className="h-8 pl-3.5 pr-1.5 rounded-full border border-[#0E1D26]/15 hover:border-[#0E1D26]/40 bg-white text-[12px] font-semibold text-[#0E1D26] flex items-center gap-2 cursor-pointer transition-colors"
+            title="Open the AI Prompt Hub"
           >
-            <span>AI Prompt Hub</span>
-            {!hasAiGhostwriter && (
-              <span className="text-[8px] bg-[#8C503C] text-white px-1 py-0.2 rounded-xs font-mono font-bold">
-                Premium
-              </span>
+            AI Prompt Hub
+            {!hasAiGhostwriter ? (
+              <span className="h-5 px-2 rounded-full bg-[#E8561F]/10 text-[#C4461A] text-[10px] font-bold uppercase tracking-wider flex items-center">Premium</span>
+            ) : (
+              <span className="w-5 h-5 rounded-full bg-[#0E1D26] text-[#F6F1E7] flex items-center justify-center"><ChevronRight className="w-3 h-3" /></span>
             )}
           </button>
-          
-          <div className="flex items-center gap-3 text-stone-500">
-            <span className="text-[10px] font-bold tracking-widest uppercase">Project Goal: {progressPercent}%</span>
-            <div className="w-24 h-1.5 bg-[#E5E0D5] rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-[#5A9672] transition-all duration-500"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+
+          <div className="flex items-center gap-2.5 text-[12px] text-[#0E1D26]/55 tabular-nums" title={`${totalProjectWords.toLocaleString()} of ${targetWords.toLocaleString()} words`}>
+            <span className="hidden md:inline">Book goal</span>
+            <span className="w-24 h-1.5 rounded-full bg-[#E9E2D4] overflow-hidden">
+              <span className="block h-full rounded-full bg-[#E8561F] transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+            </span>
+            <span className="font-semibold text-[#0E1D26]">{progressPercent}%</span>
           </div>
-        </div>
+        </footer>
       </div>
 
-      {/* Right Panel: Context Panel (Characters, Locations, Notes) */}
+      {/* Right: cast, places, notes */}
       {isContextOpen && !isFocusMode && (
-        <div className="w-80 bg-[#FCFAF5] border-l border-[#E5E0D5] flex flex-col shrink-0 h-full relative z-20 shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.05)] transition-all">
-          {/* Header with Navigation Tabs and Close */}
-          <div className="p-2.5 border-b border-[#E5E0D5] bg-[#FCFAF5] shrink-0 flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1 bg-[#EDE8DC] p-0.5 rounded-sm flex-1">
-              <button
-                onClick={() => { setActiveTab('chars'); setSearchQuery(''); }}
-                className={`flex-1 py-1 px-1.5 text-[10px] font-bold uppercase tracking-wider rounded-sm transition-all flex items-center justify-center gap-1 ${
-                  activeTab === 'chars'
-                    ? 'bg-[#8C503C] text-white shadow-sm'
-                    : 'text-[#5D3F32] hover:text-[#8C503C]'
-                }`}
-              >
-                <Users className="w-3 h-3" />
-                <span>Characters</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('locs'); setSearchQuery(''); }}
-                className={`flex-1 py-1 px-1.5 text-[10px] font-bold uppercase tracking-wider rounded-sm transition-all flex items-center justify-center gap-1 ${
-                  activeTab === 'locs'
-                    ? 'bg-[#8C503C] text-white shadow-sm'
-                    : 'text-[#5D3F32] hover:text-[#8C503C]'
-                }`}
-              >
-                <MapPin className="w-3 h-3" />
-                <span>Locations</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('notes'); setSearchQuery(''); }}
-                className={`flex-1 py-1 px-1.5 text-[10px] font-bold uppercase tracking-wider rounded-sm transition-all flex items-center justify-center gap-1 ${
-                  activeTab === 'notes'
-                    ? 'bg-[#8C503C] text-white shadow-sm'
-                    : 'text-[#5D3F32] hover:text-[#8C503C]'
-                }`}
-              >
-                <StickyNote className="w-3 h-3" />
-                <span>Notes</span>
-              </button>
+        <aside className="w-[320px] bg-[#FBF9F4] border-l border-[#E9E2D4] flex flex-col shrink-0 h-full relative z-20">
+          <div className="p-3 shrink-0 flex items-center gap-2">
+            <div className="flex-1 flex items-center gap-0.5 p-1 rounded-full bg-[#EFE9DE]">
+              {([['chars', 'Cast'], ['locs', 'Places'], ['notes', 'Notes']] as const).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  onClick={() => { setActiveTab(tab); setSearchQuery(''); }}
+                  className={`flex-1 h-8 rounded-full text-[13px] font-semibold transition-colors cursor-pointer ${activeTab === tab ? 'bg-white text-[#0E1D26] shadow-sm' : 'text-[#0E1D26]/55 hover:text-[#0E1D26]'}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-
-            <button
-              onClick={() => setIsContextOpen(false)}
-              className="text-stone-400 hover:text-stone-700 hover:bg-[#E5E0D5] p-1 rounded-sm transition-colors shrink-0"
-              title="Close Panel"
-            >
+            <button onClick={() => setIsContextOpen(false)} className={iconBtn()} title="Close panel">
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Search Bar for Characters and Locations */}
           {(activeTab === 'chars' || activeTab === 'locs') && (
-            <div className="p-2.5 border-b border-[#E5E0D5] bg-[#F9F6ED] shrink-0">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={activeTab === 'chars' ? "Filter characters..." : "Filter locations..."}
-                  className="w-full bg-white border border-[#E5E0D5] rounded-sm pl-8 pr-7 py-1 text-xs text-[#4A3225] font-serif placeholder:text-stone-400 focus:outline-none focus:border-[#8C503C]"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-0.5"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
+            <>
+              <div className="px-3 pb-3 shrink-0">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-[#0E1D26]/35 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={activeTab === 'chars' ? 'Find a character' : 'Find a place'}
+                    className="w-full h-10 pl-10 pr-9 rounded-full bg-white border border-[#E9E2D4] text-[13px] text-[#0E1D26] placeholder:text-[#0E1D26]/35 focus:outline-none focus:border-[#0E1D26]/35"
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-[#0E1D26]/40 hover:text-[#0E1D26] hover:bg-[#EFE9DE] cursor-pointer">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* TAB CONTENT 1: CHARACTERS */}
-          {activeTab === 'chars' && (
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex-1 overflow-y-auto p-2.5 space-y-2 custom-scrollbar">
-                {characters
-                  .filter((c) => {
-                    if (!searchQuery.trim()) return true;
-                    const query = searchQuery.toLowerCase();
-                    return (
-                      (c.name && c.name.toLowerCase().includes(query)) ||
-                      (c.role && c.role.toLowerCase().includes(query)) ||
-                      (c.description && c.description.toLowerCase().includes(query)) ||
-                      (c.traits && Array.isArray(c.traits) && c.traits.some((t: string) => t.toLowerCase().includes(query)))
-                    );
-                  })
-                  .map((char, cIdx) => {
-                    const isExpanded = expandedEntityId === `char-${char.id}` || selectedEntity?.id === String(char.id);
-                    const mentionCount = getEntityMentionCount(char);
-
-                    return (
-                      <div
-                        key={`studio-char-${char.id || cIdx}`}
-                        id={`entity-${char.id}`}
-                        className={`border rounded-sm transition-all overflow-hidden bg-white shadow-[0_1px_3px_rgba(0,0,0,0.03)] ${
-                          isExpanded ? 'border-[#8C503C] ring-1 ring-[#8C503C]/20' : 'border-[#E5E0D5] hover:border-[#D49A89]'
-                        }`}
-                      >
-                        {/* Header Row */}
-                        <div
-                          onClick={() => setExpandedEntityId(isExpanded ? null : `char-${char.id}`)}
-                          className="p-2.5 flex items-start justify-between gap-2 cursor-pointer select-none hover:bg-[#F9F6ED]/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            {char.imageUrl ? (
-                              <img
-                                src={char.imageUrl}
-                                alt={char.name}
-                                className="w-8 h-8 rounded-sm object-cover shrink-0 border border-[#E5E0D5]"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-sm bg-[#8C503C]/10 text-[#8C503C] border border-[#8C503C]/20 flex items-center justify-center font-serif font-bold text-xs shrink-0">
-                                {char.name ? char.name.charAt(0).toUpperCase() : '?'}
-                              </div>
-                            )}
-
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <h4 className="font-serif text-xs font-bold text-[#4A3225] truncate">
-                                  {char.name}
-                                </h4>
-                                {mentionCount > 0 && (
-                                  <span className="bg-[#8C503C]/10 text-[#8C503C] text-[8px] font-bold px-1 rounded-sm font-mono shrink-0">
-                                    {mentionCount} {mentionCount === 1 ? 'mention' : 'mentions'}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[10px] text-stone-500 font-sans truncate">
-                                {char.role || 'Character'} {char.age ? `• ${char.age} yrs` : ''}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0 text-stone-400">
-                            {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                          </div>
-                        </div>
-
-                        {/* Expandable Details */}
-                        {isExpanded && (
-                          <div className="px-2.5 pb-2.5 pt-1 border-t border-[#F4F1EA] bg-[#FCFAF5] space-y-2 text-xs">
-                            {char.motivation && (
-                              <div>
-                                <span className="text-[9px] uppercase tracking-wider font-bold text-stone-400 block mb-0.5">
-                                  Motivation:
-                                </span>
-                                <p className="font-serif text-[#4A3225] leading-relaxed text-[11px]">
-                                  {char.motivation}
-                                </p>
-                              </div>
-                            )}
-
-                            {(char.description || char.backstory) && (
-                              <div>
-                                <span className="text-[9px] uppercase tracking-wider font-bold text-stone-400 block mb-0.5">
-                                  Profile / Backstory:
-                                </span>
-                                <p className="font-serif text-stone-600 leading-relaxed text-[11px] line-clamp-4">
-                                  {char.description || char.backstory}
-                                </p>
-                              </div>
-                            )}
-
-                            {char.traits && Array.isArray(char.traits) && char.traits.length > 0 && (
-                              <div className="flex flex-wrap gap-1 pt-1">
-                                {char.traits.map((trait: string, idx: number) => (
-                                  <span
-                                    key={idx}
-                                    className="bg-[#EDE8DC] text-[#5D3F32] text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm"
-                                  >
-                                    {trait}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-
-                            <div className="pt-1.5 flex items-center justify-between border-t border-[#E5E0D5]/60">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopyEntityTag(char.name);
-                                }}
-                                className="text-[10px] font-bold uppercase tracking-wider text-[#8C503C] hover:text-[#B8785E] flex items-center gap-1 transition-colors"
-                              >
-                                {copiedEntityName === char.name ? (
-                                  <><Check className="w-3 h-3 text-emerald-600" /> Copied @{char.name}</>
-                                ) : (
-                                  <><Copy className="w-3 h-3" /> Copy @{char.name}</>
-                                )}
-                              </button>
-
-                              {projectId && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/project/${projectId}/characters`);
-                                  }}
-                                  className="text-[9px] text-stone-400 hover:text-stone-700 flex items-center gap-0.5"
-                                >
-                                  Edit <ExternalLink className="w-2.5 h-2.5" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                {characters.length === 0 && (
-                  <div className="text-center p-6 text-stone-400 font-serif">
-                    <Users className="w-8 h-8 text-stone-300 mx-auto mb-2 stroke-[1.5]" />
-                    <p className="text-xs font-bold text-stone-600">No characters recorded</p>
-                    <p className="text-[10px] text-stone-400 mt-1">Add characters in the Story Bible to reference them here.</p>
-                  </div>
-                )}
+              <div className="flex-1 overflow-y-auto px-3 pb-3 custom-scrollbar">
+                {activeTab === 'chars' ? renderEntityList(rankedChars, 'char', characters.length) : renderEntityList(rankedLocs, 'loc', locations.length)}
               </div>
-
-              {/* Bottom Link to Story Bible */}
               {projectId && (
-                <div className="p-2 border-t border-[#E5E0D5] bg-[#F9F6ED] shrink-0 text-center">
+                <div className="p-3 border-t border-[#E9E2D4] shrink-0">
                   <button
-                    onClick={() => navigate(`/project/${projectId}/characters`)}
-                    className="text-[10px] font-bold tracking-widest uppercase text-[#8C503C] hover:text-[#4A3225] flex items-center justify-center gap-1.5 w-full py-1 transition-colors"
+                    onClick={() => navigate(`/project/${projectId}/${activeTab === 'chars' ? 'characters' : 'locations'}`)}
+                    className="w-full h-9 rounded-full hover:bg-[#EFE9DE] text-[13px] font-semibold text-[#0E1D26]/65 hover:text-[#0E1D26] flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    <span>Manage Characters in Story Bible</span>
-                    <ExternalLink className="w-3 h-3" />
+                    {activeTab === 'chars' ? 'Open Characters' : 'Open World Atlas'} <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}
-            </div>
+            </>
           )}
 
-          {/* TAB CONTENT 2: LOCATIONS */}
-          {activeTab === 'locs' && (
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex-1 overflow-y-auto p-2.5 space-y-2 custom-scrollbar">
-                {locations
-                  .filter((loc) => {
-                    if (!searchQuery.trim()) return true;
-                    const query = searchQuery.toLowerCase();
-                    return (
-                      (loc.name && loc.name.toLowerCase().includes(query)) ||
-                      (loc.type && loc.type.toLowerCase().includes(query)) ||
-                      (loc.description && loc.description.toLowerCase().includes(query))
-                    );
-                  })
-                  .map((loc, lIdx) => {
-                    const isExpanded = expandedEntityId === `loc-${loc.id}` || selectedEntity?.id === String(loc.id);
-                    const mentionCount = getEntityMentionCount(loc);
-
-                    return (
-                      <div
-                        key={`studio-loc-${loc.id || lIdx}`}
-                        id={`entity-${loc.id}`}
-                        className={`border rounded-sm transition-all overflow-hidden bg-white shadow-[0_1px_3px_rgba(0,0,0,0.03)] ${
-                          isExpanded ? 'border-[#8C503C] ring-1 ring-[#8C503C]/20' : 'border-[#E5E0D5] hover:border-[#D49A89]'
-                        }`}
-                      >
-                        {/* Header Row */}
-                        <div
-                          onClick={() => setExpandedEntityId(isExpanded ? null : `loc-${loc.id}`)}
-                          className="p-2.5 flex items-start justify-between gap-2 cursor-pointer select-none hover:bg-[#F9F6ED]/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            {loc.imageUrl ? (
-                              <img
-                                src={loc.imageUrl}
-                                alt={loc.name}
-                                className="w-8 h-8 rounded-sm object-cover shrink-0 border border-[#E5E0D5]"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-sm bg-[#8C503C]/10 text-[#8C503C] border border-[#8C503C]/20 flex items-center justify-center font-serif font-bold text-xs shrink-0">
-                                <MapPin className="w-4 h-4" />
-                              </div>
-                            )}
-
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <h4 className="font-serif text-xs font-bold text-[#4A3225] truncate">
-                                  {loc.name}
-                                </h4>
-                                {mentionCount > 0 && (
-                                  <span className="bg-[#8C503C]/10 text-[#8C503C] text-[8px] font-bold px-1 rounded-sm font-mono shrink-0">
-                                    {mentionCount} {mentionCount === 1 ? 'mention' : 'mentions'}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[10px] text-stone-500 font-sans truncate">
-                                {loc.type || 'Setting'}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0 text-stone-400">
-                            {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                          </div>
-                        </div>
-
-                        {/* Expandable Details */}
-                        {isExpanded && (
-                          <div className="px-2.5 pb-2.5 pt-1 border-t border-[#F4F1EA] bg-[#FCFAF5] space-y-2 text-xs">
-                            {loc.imageUrl && (
-                              <div className="rounded-sm overflow-hidden border border-[#E5E0D5] my-1">
-                                <img src={loc.imageUrl} alt={loc.name} className="w-full h-24 object-cover" />
-                              </div>
-                            )}
-
-                            {loc.description && (
-                              <div>
-                                <span className="text-[9px] uppercase tracking-wider font-bold text-stone-400 block mb-0.5">
-                                  Atmosphere & Details:
-                                </span>
-                                <p className="font-serif text-stone-600 leading-relaxed text-[11px]">
-                                  {loc.description}
-                                </p>
-                              </div>
-                            )}
-
-                            <div className="pt-1.5 flex items-center justify-between border-t border-[#E5E0D5]/60">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopyEntityTag(loc.name);
-                                }}
-                                className="text-[10px] font-bold uppercase tracking-wider text-[#8C503C] hover:text-[#B8785E] flex items-center gap-1 transition-colors"
-                              >
-                                {copiedEntityName === loc.name ? (
-                                  <><Check className="w-3 h-3 text-emerald-600" /> Copied @{loc.name}</>
-                                ) : (
-                                  <><Copy className="w-3 h-3" /> Copy @{loc.name}</>
-                                )}
-                              </button>
-
-                              {projectId && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/project/${projectId}/locations`);
-                                  }}
-                                  className="text-[9px] text-stone-400 hover:text-stone-700 flex items-center gap-0.5"
-                                >
-                                  Edit <ExternalLink className="w-2.5 h-2.5" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                {locations.length === 0 && (
-                  <div className="text-center p-6 text-stone-400 font-serif">
-                    <MapPin className="w-8 h-8 text-stone-300 mx-auto mb-2 stroke-[1.5]" />
-                    <p className="text-xs font-bold text-stone-600">No locations recorded</p>
-                    <p className="text-[10px] text-stone-400 mt-1">Add locations in Story Bible to reference them here.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Bottom Link to Story Bible */}
-              {projectId && (
-                <div className="p-2 border-t border-[#E5E0D5] bg-[#F9F6ED] shrink-0 text-center">
-                  <button
-                    onClick={() => navigate(`/project/${projectId}/locations`)}
-                    className="text-[10px] font-bold tracking-widest uppercase text-[#8C503C] hover:text-[#4A3225] flex items-center justify-center gap-1.5 w-full py-1 transition-colors"
-                  >
-                    <span>Manage Locations in Story Bible</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB CONTENT 3: NOTES */}
           {activeTab === 'notes' && (
-            <div className="flex-1 flex flex-col min-h-0 p-3 space-y-3 overflow-y-auto custom-scrollbar">
-              {/* Active Scene Note Box */}
-              <div className="bg-white border border-[#E5E0D5] rounded-sm p-3 shadow-sm flex flex-col">
-                <div className="flex items-center justify-between pb-2 border-b border-[#F4F1EA] mb-2">
-                  <div>
-                    <span className="text-[9px] uppercase tracking-wider font-bold text-[#8C503C]">
-                      Scene Scratchpad
-                    </span>
-                    <h4 className="font-serif text-xs font-bold text-[#4A3225] truncate max-w-[180px]">
-                      {currentDoc?.title || 'Current Scene'}
-                    </h4>
-                  </div>
-                  <span className="text-[9px] text-stone-400 italic">
-                    Auto-saved
-                  </span>
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 space-y-3 custom-scrollbar">
+              <section className="rounded-2xl bg-white border border-[#E9E2D4] p-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0E1D26]/40">This scene</p>
+                  <span className="text-[11px] text-[#0E1D26]/35">Saved automatically</span>
                 </div>
-
+                <p className="mt-1 text-[14px] font-semibold truncate">{currentDoc?.title || 'No scene open'}</p>
                 <textarea
                   value={sceneNotes[activeDocId] || ''}
                   onChange={(e) => handleNoteChange(e.target.value)}
-                  placeholder="Record sensory details, motives, secrets to reveal, dialogue cues, or revisions for this specific scene..."
+                  disabled={!activeDocId}
+                  placeholder="Beats, secrets to reveal, sensory details, what to fix on the next pass…"
                   rows={8}
-                  className="w-full bg-[#FCFAF5] border border-[#E5E0D5] rounded-sm p-2.5 text-xs text-[#332218] font-serif leading-relaxed placeholder:text-stone-400 focus:outline-none focus:border-[#8C503C] resize-none"
+                  className="mt-3 w-full rounded-xl bg-[#FBF9F4] border border-[#EFE9DE] p-3 text-[13px] leading-relaxed text-[#0E1D26] placeholder:text-[#0E1D26]/35 focus:outline-none focus:border-[#0E1D26]/30 resize-none disabled:opacity-50"
                 />
-              </div>
+              </section>
 
-              {/* Crafting Prompts / Checkpoints */}
-              <div className="bg-[#F9F6ED] border border-[#E5E0D5] rounded-sm p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] uppercase tracking-widest font-bold text-[#5D3F32] block">
-                    Scene Focus Checkpoints
-                  </span>
-                  <button
-                    onClick={handleOpenAiPromptHub}
-                    className="text-[10px] text-[#8C503C] hover:underline font-bold"
-                  >
-                    Generate AI Prompt
-                  </button>
+              <section className="rounded-2xl border border-[#E9E2D4] p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0E1D26]/40">Before you write</p>
+                  <button onClick={handleOpenAiPromptHub} className="text-[12px] font-semibold text-[#C4461A] hover:underline cursor-pointer">Build AI prompt</button>
                 </div>
-                <ul className="space-y-1.5 text-[11px] font-serif text-stone-600">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-[#8C503C] font-bold">•</span>
-                    <span>What does the viewpoint character desire right now?</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-[#8C503C] font-bold">•</span>
-                    <span>What sensory detail roots the reader in this space?</span>
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-[#8C503C] font-bold">•</span>
-                    <span>What conflict or unexpected turn shifts the tension?</span>
-                  </li>
+                <ul className="mt-2.5 space-y-2 text-[13px] leading-snug text-[#0E1D26]/70">
+                  {[
+                    'What does the viewpoint character want right now?',
+                    'Which detail puts the reader in the room?',
+                    'What shifts the tension before the scene ends?',
+                  ].map((q) => (
+                    <li key={q} className="flex gap-2"><span className="mt-[7px] w-1 h-1 rounded-full bg-[#E8561F] shrink-0" />{q}</li>
+                  ))}
                 </ul>
-              </div>
+              </section>
 
-              {/* Global Project Scratchpad */}
-              <div className="bg-white border border-[#E5E0D5] rounded-sm p-3 shadow-sm flex flex-col">
-                <div className="flex items-center justify-between pb-1.5 border-b border-[#F4F1EA] mb-2">
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-stone-500">
-                    General Manuscript Notes
-                  </span>
-                </div>
+              <section className="rounded-2xl bg-white border border-[#E9E2D4] p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0E1D26]/40">Whole book</p>
                 <textarea
                   value={scratchpad}
-                  onChange={(e) => setScratchpad(e.target.value)}
-                  placeholder="Universal story ideas, future plot turns, questions to research..."
-                  rows={4}
-                  className="w-full bg-[#FCFAF5] border border-[#E5E0D5] rounded-sm p-2 text-xs text-[#332218] font-serif leading-relaxed placeholder:text-stone-400 focus:outline-none focus:border-[#8C503C] resize-none"
+                  onChange={(e) => handleGeneralNoteChange(e.target.value)}
+                  placeholder="Ideas, future twists, things to research…"
+                  rows={5}
+                  className="mt-3 w-full rounded-xl bg-[#FBF9F4] border border-[#EFE9DE] p-3 text-[13px] leading-relaxed text-[#0E1D26] placeholder:text-[#0E1D26]/35 focus:outline-none focus:border-[#0E1D26]/30 resize-none"
                 />
-              </div>
+              </section>
             </div>
           )}
-        </div>
+        </aside>
       )}
 
-      {/* Global Search & Replace Modal */}
       <GlobalSearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
@@ -1695,7 +1548,6 @@ export default function WritingStudio() {
         }}
       />
 
-      {/* Ocean Novel AI Prompt Hub Modal */}
       <AIPromptModal
         isOpen={isAIPromptModalOpen}
         onClose={() => setIsAIPromptModalOpen(false)}
@@ -1713,112 +1565,70 @@ export default function WritingStudio() {
         locations={locations}
       />
 
-      {/* Create Item Modal */}
+      {/* Create item */}
       <AnimatePresence>
         {createModal?.isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 font-['Outfit']">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#0E1D26]/40 backdrop-blur-sm" onClick={() => setCreateModal(null)} />
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
-              onClick={() => setCreateModal(null)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative w-full max-w-md bg-[#FCFAF5] rounded-xl shadow-2xl border border-[#E5E0D5] overflow-hidden flex flex-col z-10"
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+              className="relative w-full max-w-md bg-[#FBF9F4] rounded-[28px] border border-[#E9E2D4] shadow-2xl z-10 text-[#0E1D26]"
             >
-              <div className="flex items-center justify-between p-5 border-b border-[#E5E0D5] bg-white/60">
-                <h2 className="text-base font-serif font-bold text-stone-800 flex items-center gap-2">
-                  {createModal.type === 'part' && <ListTree className="w-5 h-5 text-[#8C503C]" />}
-                  {createModal.type === 'chapter' && <BookOpen className="w-5 h-5 text-[#8C503C]" />}
-                  {createModal.type === 'scene' && <FileText className="w-5 h-5 text-[#8C503C]" />}
-                  Add New {createModal.type.charAt(0).toUpperCase() + createModal.type.slice(1)}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setCreateModal(null)}
-                  className="p-1 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-200 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleConfirmCreate} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-stone-500 mb-2">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={createTitle}
-                    onChange={(e) => setCreateTitle(e.target.value)}
-                    placeholder={
-                      createModal.type === 'part'
-                        ? "e.g. Part I: The Silent Twilight"
-                        : createModal.type === 'chapter'
-                        ? "e.g. Chapter 1: Whispers in the Dark"
-                        : "e.g. Scene 1: An Unexpected Encounter"
-                    }
-                    className="w-full bg-white border border-[#E5E0D5] rounded-sm px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-[#8C503C] transition-colors"
-                  />
+              <form onSubmit={handleConfirmCreate} className="p-6 sm:p-7">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Manuscript</p>
+                    <h2 className="mt-1 text-[22px] font-extrabold tracking-[-0.01em]">New {createModal.type}</h2>
+                  </div>
+                  <button type="button" onClick={() => setCreateModal(null)} className={iconBtn()}>
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
 
-                {createModal.type === 'chapter' && availableParts.length > 0 && (
+                <div className="mt-6 space-y-4">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-stone-500 mb-2">
-                      Place Inside Part (Optional)
-                    </label>
-                    <select
-                      value={createParentId}
-                      onChange={(e) => setCreateParentId(e.target.value)}
-                      className="w-full bg-white border border-[#E5E0D5] rounded-sm px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-[#8C503C] transition-colors"
-                    >
-                      <option value="">(Root Level - No Part)</option>
-                      {availableParts.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.title}
-                        </option>
-                      ))}
-                    </select>
+                    <label className={fieldLabel}>Title</label>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={createTitle}
+                      onChange={(e) => setCreateTitle(e.target.value)}
+                      placeholder={createModal.type === 'part' ? 'Part I: The Silent Twilight' : createModal.type === 'chapter' ? 'Chapter 1: Whispers in the Dark' : 'An unexpected encounter'}
+                      className={fieldInput}
+                    />
                   </div>
-                )}
 
-                {createModal.type === 'scene' && availableChapters.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-stone-500 mb-2">
-                      Belongs to Chapter
-                    </label>
-                    <select
-                      value={createParentId}
-                      onChange={(e) => setCreateParentId(e.target.value)}
-                      className="w-full bg-white border border-[#E5E0D5] rounded-sm px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-[#8C503C] transition-colors"
-                    >
-                      {availableChapters.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.partTitle ? `${c.partTitle} ➔ ${c.title}` : c.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                  {createModal.type === 'chapter' && availableParts.length > 0 && (
+                    <div>
+                      <label className={fieldLabel}>Inside part</label>
+                      <select value={createParentId} onChange={(e) => setCreateParentId(e.target.value)} className={fieldInput}>
+                        <option value="">No part (top level)</option>
+                        {availableParts.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                      </select>
+                    </div>
+                  )}
 
-                <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#E5E0D5]">
-                  <button
-                    type="button"
-                    onClick={() => setCreateModal(null)}
-                    className="px-4 py-2 border border-[#E5E0D5] bg-white hover:bg-[#F4F1EA] text-stone-600 rounded-sm text-xs font-bold uppercase tracking-wider transition-colors"
-                  >
+                  {createModal.type === 'scene' && availableChapters.length > 0 && (
+                    <div>
+                      <label className={fieldLabel}>Chapter</label>
+                      <select value={createParentId} onChange={(e) => setCreateParentId(e.target.value)} className={fieldInput}>
+                        {availableChapters.map((c) => (
+                          <option key={c.id} value={c.id}>{c.partTitle ? `${c.partTitle} — ${c.title}` : c.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-7 flex items-center justify-end gap-2">
+                  <button type="button" onClick={() => setCreateModal(null)} className="h-10 px-4 rounded-full text-[13px] font-semibold text-[#0E1D26]/60 hover:text-[#0E1D26] hover:bg-[#EFE9DE] cursor-pointer">
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-[#8C503C] hover:bg-[#733F2E] text-white rounded-sm text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" /> Create {createModal.type}
+                  <button type="submit" className="h-10 pl-4 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[13px] font-bold flex items-center gap-2 cursor-pointer transition-colors">
+                    Create {createModal.type}
+                    <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center"><Plus className="w-4 h-4" /></span>
                   </button>
                 </div>
               </form>
@@ -1827,64 +1637,36 @@ export default function WritingStudio() {
         )}
       </AnimatePresence>
 
-      {/* Delete Item Confirmation Modal */}
+      {/* Delete confirmation */}
       <AnimatePresence>
         {itemToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 font-['Outfit']">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#0E1D26]/40 backdrop-blur-sm" onClick={() => setItemToDelete(null)} />
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
-              onClick={() => setItemToDelete(null)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative w-full max-w-md bg-[#FCFAF5] rounded-xl shadow-2xl border border-[#E5E0D5] overflow-hidden flex flex-col z-10 p-6"
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+              className="relative w-full max-w-md bg-[#FBF9F4] rounded-[28px] border border-[#E9E2D4] shadow-2xl z-10 p-6 sm:p-7 text-[#0E1D26]"
             >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 shrink-0">
-                  <Trash2 className="w-5 h-5" />
+              <span className="w-11 h-11 rounded-full bg-[#B3261E]/10 text-[#B3261E] flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </span>
+              <h3 className="mt-4 text-[20px] font-extrabold tracking-[-0.01em]">Delete this {itemToDelete.type}?</h3>
+              <p className="mt-1.5 text-[14px] text-[#0E1D26]/65">
+                “{itemToDelete.title}” will be removed from the manuscript. This can’t be undone.
+              </p>
+              {itemToDelete.children && itemToDelete.children.length > 0 && (
+                <div className="mt-4 p-3 rounded-2xl bg-[#FFF6DC] border border-[#F0B54B]/50 text-[13px] text-[#0E1D26]/80 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-[#B7791F] shrink-0 mt-0.5" />
+                  <span>Everything inside it goes too — {itemToDelete.children.length} item{itemToDelete.children.length === 1 ? '' : 's'} and their scenes.</span>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-base font-serif font-bold text-stone-800">
-                    Delete {itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)}
-                  </h3>
-                  <p className="text-sm text-stone-600 mt-1">
-                    Are you sure you want to delete <span className="font-semibold text-stone-800">"{itemToDelete.title}"</span>?
-                  </p>
-
-                  {itemToDelete.children && itemToDelete.children.length > 0 && (
-                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-sm text-xs text-amber-800 flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <span>
-                        This {itemToDelete.type} contains {itemToDelete.children.length} sub-item(s). All child chapters and scenes will also be permanently deleted.
-                      </span>
-                    </div>
-                  )}
-
-                  <p className="text-xs text-stone-400 mt-2">
-                    This action cannot be undone.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-[#E5E0D5] flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setItemToDelete(null)}
-                  className="px-4 py-2 border border-[#E5E0D5] bg-white hover:bg-[#F4F1EA] text-stone-600 rounded-sm text-xs font-bold uppercase tracking-wider transition-colors"
-                >
+              )}
+              <div className="mt-7 flex items-center justify-end gap-2">
+                <button type="button" onClick={() => setItemToDelete(null)} className="h-10 px-4 rounded-full text-[13px] font-semibold text-[#0E1D26]/60 hover:text-[#0E1D26] hover:bg-[#EFE9DE] cursor-pointer">
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmDelete}
-                  className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-sm text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" /> Delete
+                <button type="button" onClick={handleConfirmDelete} className="h-10 px-5 rounded-full bg-[#B3261E] hover:bg-[#9A2019] text-white text-[13px] font-bold cursor-pointer transition-colors">
+                  Delete
                 </button>
               </div>
             </motion.div>
@@ -1892,7 +1674,6 @@ export default function WritingStudio() {
         )}
       </AnimatePresence>
 
-      {/* OTO2 AI Ghostwriter Upgrade Modal */}
       <UpgradeModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}

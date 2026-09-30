@@ -107,6 +107,7 @@ export interface ProjectData {
     unmapped?: any[];
   };
   notes?: Record<string, string>;
+  generalNotes?: string;
   lastActiveSceneId?: string;
   lastActiveSceneTitle?: string;
   storyBible?: StoryBibleData;

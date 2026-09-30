@@ -59,33 +59,33 @@ const MentionList = forwardRef((props: any, ref) => {
   }));
 
   return (
-    <div className="bg-[#F9F6ED] shadow-xl border border-[#E5E0D5] rounded-xl overflow-hidden py-2 min-w-[240px] z-50">
-      <div className="px-3 pb-2 mb-2 border-b border-[#E5E0D5] text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center justify-between">
-        <span>Link Character</span>
-        <span className="text-[9px] text-[#8C503C] font-mono">Bold In Text</span>
+    <div className="bg-white shadow-[0_12px_32px_-12px_rgba(14,29,38,0.3)] border border-[#E9E2D4] rounded-2xl overflow-hidden p-1.5 min-w-[240px] z-50 font-['Outfit']">
+      <div className="px-2.5 pt-1.5 pb-2 text-[11px] font-semibold text-[#0E1D26]/40 uppercase tracking-[0.14em] flex items-center justify-between">
+        <span>Mention</span>
+        <span className="normal-case tracking-normal">↵ to insert</span>
       </div>
       {props.items.length ? (
         <div className="max-h-48 overflow-y-auto">
           {props.items.map((item: any, index: number) => (
             <button
-              className={`w-full px-4 py-2 text-left flex items-center gap-3 transition-colors ${
-                index === selectedIndex ? 'bg-[#E5E0D5]' : 'hover:bg-[#E5E0D5]/50'
+              className={`w-full px-2.5 py-2 rounded-xl text-left flex items-center gap-3 transition-colors cursor-pointer ${
+                index === selectedIndex ? 'bg-[#F3EEE4]' : 'hover:bg-[#F3EEE4]/60'
               }`}
               key={`mention-item-${item.id || item.name || index}-${index}`}
               onClick={() => selectItem(index)}
             >
-              <div className="w-6 h-6 rounded-full bg-[#D3BFA9] flex items-center justify-center text-[10px] font-serif text-stone-800 font-bold">
+              <div className="w-7 h-7 rounded-full bg-[#EFE9DE] flex items-center justify-center text-[12px] text-[#0E1D26]/70 font-bold">
                 {item.name.charAt(0)}
               </div>
               <div>
-                <div className="text-sm font-bold text-stone-800">{item.name}</div>
-                <div className="text-[10px] text-stone-500 uppercase tracking-wider">{item.role || item.type || 'Character'}</div>
+                <div className="text-[14px] font-semibold text-[#0E1D26]">{item.name}</div>
+                <div className="text-[12px] text-[#0E1D26]/50">{item.role || item.type || 'Character'}</div>
               </div>
             </button>
           ))}
         </div>
       ) : (
-        <div className="px-4 py-2 text-sm text-stone-500">No matching character</div>
+        <div className="px-2.5 py-2 text-[13px] text-[#0E1D26]/50">No match</div>
       )}
     </div>
   );
@@ -162,8 +162,8 @@ function MenuButton({ children, action, isActive }: any) {
         e.preventDefault();
         action();
       }}
-      className={`p-1.5 rounded-lg transition-colors ${
-        isActive ? 'bg-[#8C503C] text-white shadow-inner' : 'text-stone-600 hover:bg-[#E5E0D5] hover:text-[#4A3225]'
+      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+        isActive ? 'bg-[#EFE9DE] text-[#0E1D26]' : 'text-[#0E1D26]/55 hover:text-[#0E1D26] hover:bg-[#F3EEE4]'
       }`}
       type="button"
     >
@@ -226,7 +226,7 @@ export default function MentionEditor({
       TextAlign.configure({ types: ['heading', 'paragraph'], defaultAlignment: 'justify' }),
       Mention.configure({
         HTMLAttributes: {
-          class: 'mention-node font-bold text-[#8C503C] hover:text-[#5C2E1F] hover:bg-[#8C503C]/10 px-0.5 rounded cursor-pointer transition-colors duration-150 decoration-none inline-block border-b border-[#8C503C]/20 hover:border-[#8C503C]',
+          class: 'mention-node font-semibold text-[#0E1D26] hover:bg-[#E8561F]/10 px-0.5 rounded cursor-pointer transition-colors duration-150 decoration-none inline-block border-b border-[#E8561F]/35 hover:border-[#E8561F]',
         },
         // IMPORTANT: Eliminates '@' in text, displays character name cleanly in bold
         renderLabel({ node }) {
@@ -365,7 +365,7 @@ export default function MentionEditor({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -16, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-2 right-4 z-50 bg-[#332218] text-[#FAF8F5] text-xs px-3.5 py-2.5 rounded-lg shadow-xl border border-[#8C503C]/50 flex items-center gap-2.5 max-w-md pointer-events-auto"
+            className="absolute top-2 right-4 z-50 bg-[#0E1D26] text-[#F6F1E7] text-xs px-3.5 py-2.5 rounded-2xl shadow-xl flex items-center gap-2.5 max-w-md pointer-events-auto"
           >
             <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -376,7 +376,7 @@ export default function MentionEditor({
               ) : (
                 <div>
                   <span className="font-semibold text-white">Auto-detected & bolded ({toastInfo.count}): </span>
-                  <span className="text-[#E5B59E] font-medium">
+                  <span className="text-[#F0B54B] font-medium">
                     {toastInfo.names.slice(0, 4).join(', ')}{toastInfo.names.length > 4 ? ` +${toastInfo.names.length - 4}` : ''}
                   </span>
                 </div>
@@ -396,8 +396,8 @@ export default function MentionEditor({
         <EditorContent editor={editor} className="h-full" />
         
         {editor?.isEmpty && (
-          <div className="absolute top-8 left-8 pointer-events-none text-stone-400 font-serif text-lg opacity-70">
-            Paste draft from AI or start writing... Character names will be automatically recognized and bolded.
+          <div className="absolute top-0 left-4 right-4 pointer-events-none text-[#0E1D26]/30 font-serif text-lg">
+            Start writing, or paste a draft. Type @ to mention a character or place.
           </div>
         )}
 
@@ -408,27 +408,27 @@ export default function MentionEditor({
             <MenuButton action={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')}><Italic className="w-4 h-4" /></MenuButton>
             <MenuButton action={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')}><Strikethrough className="w-4 h-4" /></MenuButton>
             
-            <div className="w-px h-4 bg-[#E5E0D5] mx-1.5" />
+            <div className="w-px h-4 bg-[#0E1D26]/10 mx-1" />
             
             <MenuButton action={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} isActive={editor.isActive('heading', { level: 1 })}><Heading1 className="w-4 h-4" /></MenuButton>
             <MenuButton action={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })}><Heading2 className="w-4 h-4" /></MenuButton>
             
-            <div className="w-px h-4 bg-[#E5E0D5] mx-1.5" />
+            <div className="w-px h-4 bg-[#0E1D26]/10 mx-1" />
             
             <MenuButton action={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')}><List className="w-4 h-4" /></MenuButton>
             <MenuButton action={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')}><ListOrdered className="w-4 h-4" /></MenuButton>
             
-            <div className="w-px h-4 bg-[#E5E0D5] mx-1.5" />
+            <div className="w-px h-4 bg-[#0E1D26]/10 mx-1" />
 
             <button
               onClick={(e) => { e.preventDefault(); editor.chain().focus().setHorizontalRule().run(); }}
-              className="p-1.5 text-stone-500 hover:text-[#4A3225] hover:bg-[#E5E0D5] rounded-sm transition-colors flex items-center justify-center"
+              className="w-8 h-8 rounded-full text-[#0E1D26]/55 hover:text-[#0E1D26] hover:bg-[#F3EEE4] transition-colors flex items-center justify-center cursor-pointer"
               title="Scene Break"
             >
               <Scissors className="w-4 h-4" />
             </button>
 
-            <div className="w-px h-4 bg-[#E5E0D5] mx-1.5" />
+            <div className="w-px h-4 bg-[#0E1D26]/10 mx-1" />
 
             {/* Smart Auto-Link Entity Button & Indicator */}
             <button
@@ -436,12 +436,12 @@ export default function MentionEditor({
                 e.preventDefault();
                 handleScanAndAutoLinkCurrentContent();
               }}
-              className="px-2.5 py-1 text-[11px] font-semibold text-[#8C503C] hover:text-white bg-[#8C503C]/10 hover:bg-[#8C503C] border border-[#8C503C]/25 hover:border-[#8C503C] rounded-sm transition-all duration-150 flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+              className="h-8 px-3 rounded-full text-[12px] font-semibold text-[#0E1D26]/70 hover:text-[#0E1D26] hover:bg-[#F3EEE4] transition-colors flex items-center gap-1.5 cursor-pointer"
               title="Auto-detect & bold all character mentions in this scene"
               type="button"
             >
               <UserCheck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Auto-Link Characters</span>
+              <span className="hidden xl:inline">Auto-link</span>
             </button>
           </div>,
           portalTarget
