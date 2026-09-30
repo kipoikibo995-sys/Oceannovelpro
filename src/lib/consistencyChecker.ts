@@ -107,11 +107,29 @@ function levenshtein(a: string, b: string): number {
   return matrix[bn][an];
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Whole-name matcher that works for accented names and names containing symbols
+function nameRegex(name: string, flags = 'iu'): RegExp {
+  return new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp(name.trim())}(?![\\p{L}\\p{N}_])`, flags);
+}
+
+// Split scene HTML into plain-text paragraphs (stripHtml collapses line breaks)
+function htmlParagraphs(html: string): string[] {
+  if (!html) return [];
+  return html
+    .split(/<\/(?:p|h[1-6]|li|blockquote|div)>|<br\s*\/?>|\n{2,}/i)
+    .map((p) => stripHtml(p))
+    .filter((p) => p.trim().length > 0);
+}
+
 /**
  * Extracts all plain text scenes from manuscript tree
  */
-export function getAllScenes(items: ManuscriptItem[]): Array<{ id: string; title: string; html: string; text: string }> {
-  const scenes: Array<{ id: string; title: string; html: string; text: string }> = [];
+export function getAllScenes(items: ManuscriptItem[]): Array<{ id: string; title: string; html: string; text: string; paragraphs: string[] }> {
+  const scenes: Array<{ id: string; title: string; html: string; text: string; paragraphs: string[] }> = [];
   const traverse = (list: ManuscriptItem[]) => {
     for (const item of list) {
       if (item.type === 'scene') {
@@ -122,6 +140,7 @@ export function getAllScenes(items: ManuscriptItem[]): Array<{ id: string; title
           title: item.title,
           html,
           text,
+          paragraphs: htmlParagraphs(html),
         });
       }
       if (item.children) {
@@ -164,6 +183,29 @@ export function analyzeProjectConsistency(
     }
   });
 
+  // Every word that belongs to a known name or alias ("Sarah" of "Sarah Cole", "Lighthouse" of
+  // "Old Lighthouse") — these must never be reported as unregistered names or typos.
+  const knownNameParts = new Set<string>();
+  [...characters, ...locations].forEach((e: any) => {
+    [e.name, ...(Array.isArray(e.aliases) ? e.aliases : [])].forEach((n: string) => {
+      if (typeof n === 'string') n.split(/\s+/).forEach(p => p && knownNameParts.add(p.toLowerCase()));
+    });
+  });
+
+  // Words that appear in lowercase somewhere in the manuscript are ordinary words ("cold"),
+  // not misspelled names ("Cole") — used to avoid destructive typo "fixes".
+  const lowercaseWords = new Set<string>();
+  allScenes.forEach(s => {
+    (s.text.match(/\p{Ll}[\p{L}'’]*/gu) || []).forEach(w => lowercaseWords.add(w.toLowerCase()));
+  });
+
+  const isDeceased = (char: any): boolean => {
+    const status = String(char.status || '').toUpperCase();
+    if (status) return status === 'DECEASED' || status === 'DEAD';
+    // Legacy profiles without a status field: only trust an explicit marker in the role
+    return /\b(deceased|dead)\b/i.test(String(char.role || ''));
+  };
+
   let totalWords = 0;
   const wordFrequencyMap = new Map<string, { count: number; sample: string }>();
   const echoes: WordEcho[] = [];
@@ -197,24 +239,22 @@ export function analyzeProjectConsistency(
     }
 
     // Check which characters are mentioned in this scene
+    // (a character counts as present if their full name, first name or an alias appears)
     const mentionedChars: any[] = [];
-    characters.forEach(char => {
-      if (char.name) {
-        const regex = new RegExp(`\\b${char.name}\\b`, 'i');
-        if (regex.test(scene.html) || regex.test(plainText)) {
-          mentionedChars.push(char);
-        }
+    characters.forEach((char: any) => {
+      if (!char.name) return;
+      const first = char.name.trim().split(/\s+/)[0];
+      const names = [char.name, ...(first && first.length >= 3 ? [first] : []), ...(Array.isArray(char.aliases) ? char.aliases : [])];
+      if (names.some((n: string) => typeof n === 'string' && n.trim() && nameRegex(n).test(plainText))) {
+        mentionedChars.push(char);
       }
     });
 
     // Check which locations are mentioned in this scene
     const mentionedLocs: any[] = [];
-    locations.forEach(loc => {
-      if (loc.name) {
-        const regex = new RegExp(`\\b${loc.name}\\b`, 'i');
-        if (regex.test(scene.html) || regex.test(plainText)) {
-          mentionedLocs.push(loc);
-        }
+    locations.forEach((loc: any) => {
+      if (loc.name && nameRegex(loc.name).test(plainText)) {
+        mentionedLocs.push(loc);
       }
     });
 
@@ -246,11 +286,9 @@ export function analyzeProjectConsistency(
     }
 
     // 1B. Deceased / Mortality Conflict
+    // Uses the profile's status field — backstory words like "killed" describe other people.
     mentionedChars.forEach(char => {
-      const statusText = `${char.role || ''} ${char.description || ''}`.toLowerCase();
-      const isDeceased = statusText.includes('deceased') || statusText.includes('dead') || statusText.includes('killed') || statusText.includes('died');
-      
-      if (isDeceased) {
+      if (isDeceased(char)) {
         // Check if scene explicitly mentions memory/flashback
         const isFlashback = scene.title.toLowerCase().includes('flashback') || 
                             scene.title.toLowerCase().includes('memory') ||
@@ -274,8 +312,12 @@ export function analyzeProjectConsistency(
 
     // 1C. Potential Typo in Character or Location Names
     // Look for words with 1 or 2 edit distance to registered character names
-    const wordsInScene = plainText.match(/[a-zA-Z]+/g) || [];
+    const wordsInScene = plainText.match(/[\p{L}'’]+/gu) || [];
     const checkedVariants = new Set<string>();
+    // A capitalised word is only a typo suspect if it is not a known name part and
+    // never appears in lowercase in the manuscript (e.g. "Cold" vs character "Cole").
+    const isTypoSuspect = (w: string) =>
+      !knownNameParts.has(w.toLowerCase()) && !lowercaseWords.has(w.toLowerCase()) && !STOP_WORDS.has(w.toLowerCase());
 
     characters.forEach(char => {
       if (!char.name) return;
@@ -286,9 +328,10 @@ export function analyzeProjectConsistency(
       // Scan 2-word sequences for full name typos
       for (let i = 0; i < wordsInScene.length - 1; i++) {
         const bigram = `${wordsInScene[i]} ${wordsInScene[i + 1]}`;
-        if (bigram.toLowerCase() !== fullName.toLowerCase()) {
+        if (bigram.toLowerCase() !== fullName.toLowerCase() && nameParts.length > 1) {
           const dist = levenshtein(bigram.toLowerCase(), fullName.toLowerCase());
-          if (dist === 1 && !checkedVariants.has(bigram.toLowerCase())) {
+          const suspectPart = [wordsInScene[i], wordsInScene[i + 1]].some(isTypoSuspect);
+          if (dist === 1 && suspectPart && !checkedVariants.has(bigram.toLowerCase())) {
             checkedVariants.add(bigram.toLowerCase());
             issues.push({
               id: `typo-${scene.id}-${bigram}`,
@@ -314,9 +357,9 @@ export function analyzeProjectConsistency(
       // Check 1-word typos if main name is at least 4 letters
       if (mainName.length >= 4) {
         for (const w of wordsInScene) {
-          if (w.length >= 4 && w[0] === w[0].toUpperCase() && w.toLowerCase() !== mainName.toLowerCase()) {
+          if (w.length >= 4 && w[0] !== w[0].toLowerCase() && w.toLowerCase() !== mainName.toLowerCase()) {
             const dist = levenshtein(w.toLowerCase(), mainName.toLowerCase());
-            if (dist === 1 && !checkedVariants.has(w.toLowerCase()) && !STOP_WORDS.has(w.toLowerCase())) {
+            if (dist === 1 && !checkedVariants.has(w.toLowerCase()) && isTypoSuspect(w)) {
               checkedVariants.add(w.toLowerCase());
               issues.push({
                 id: `typo-single-${scene.id}-${w}`,
@@ -342,11 +385,21 @@ export function analyzeProjectConsistency(
     });
 
     // 1D. Unregistered Names Detector: Names like "Detective Marcus", "Dr. Vance" or repeated Capitalized names
-    const capitalizedNameMatches = plainText.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/g) || [];
+    // Only mid-sentence capitalised words count: sentence-initial words ("Every", "Nothing") are
+    // capitalised by grammar, not because they are names.
+    const capitalizedNameMatches: string[] = [];
+    const capRe = /(?<![\p{L}\p{N}_])(\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+)?)(?![\p{L}\p{N}_])/gu;
+    let capM: RegExpExecArray | null;
+    while ((capM = capRe.exec(plainText)) !== null) {
+      const before = plainText.slice(0, capM.index).trimEnd();
+      const sentenceStart = before.length === 0 || /[.!?…:"“”'‘’—–-]$/.test(before);
+      if (!sentenceStart) capitalizedNameMatches.push(capM[1]);
+    }
     const candidateNameCount = new Map<string, number>();
     for (const cand of capitalizedNameMatches) {
       const candLower = cand.trim().toLowerCase();
-      if (cand.length > 3 && !STOP_WORDS.has(candLower) && !charNamesLower.has(candLower) && !locNamesLower.has(candLower)) {
+      const allPartsKnown = candLower.split(/\s+/).every(p => knownNameParts.has(p) || STOP_WORDS.has(p));
+      if (cand.length > 3 && !STOP_WORDS.has(candLower) && !charNamesLower.has(candLower) && !locNamesLower.has(candLower) && !allPartsKnown) {
         // Exclude common initial sentence capitalized words
         if (!['Chapter', 'Scene', 'Part', 'The', 'After', 'Before', 'When', 'Suddenly', 'Then', 'However', 'Meanwhile'].includes(cand)) {
           candidateNameCount.set(cand, (candidateNameCount.get(cand) || 0) + 1);
@@ -377,14 +430,15 @@ export function analyzeProjectConsistency(
     // 2. REPETITIVE WORDS & ECHOES ANALYSIS
     // ==========================================
     // Split into paragraphs for echo detection
-    const paragraphs = plainText.split(/\n+/).filter(p => p.trim().length > 0);
-    
+    const paragraphs = scene.paragraphs.length > 0 ? scene.paragraphs : [plainText];
+
     paragraphs.forEach((para, pIdx) => {
-      const paraWords = para.toLowerCase().match(/[a-z0-9]+/g) || [];
+      const paraWords = para.toLowerCase().match(/[\p{L}\p{N}'’]+/gu) || [];
       const paraWordCounts = new Map<string, number>();
 
       for (const w of paraWords) {
-        if (w.length >= 4 && !STOP_WORDS.has(w) && !/^\d+$/.test(w)) {
+        // names of characters/places naturally repeat — they are not stylistic echoes
+        if (w.length >= 4 && !STOP_WORDS.has(w) && !/^\d+$/.test(w) && !knownNameParts.has(w)) {
           paraWordCounts.set(w, (paraWordCounts.get(w) || 0) + 1);
         }
       }
@@ -414,7 +468,7 @@ export function analyzeProjectConsistency(
     // Count overall word frequencies across the scope
     for (const w of wordsInScene) {
       const lower = w.toLowerCase();
-      if (lower.length >= 3 && !STOP_WORDS.has(lower) && !/^\d+$/.test(lower)) {
+      if (lower.length >= 3 && !STOP_WORDS.has(lower) && !/^\d+$/.test(lower) && !knownNameParts.has(lower)) {
         const existing = wordFrequencyMap.get(lower);
         if (existing) {
           existing.count++;
