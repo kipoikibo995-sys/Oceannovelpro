@@ -18,6 +18,7 @@ import {
 import { storage } from "@/lib/storage";
 import { adminService } from "@/lib/adminService";
 import { cn } from "@/lib/utils";
+import { CHARACTER_PRESETS } from "@/data/characterPresets";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -256,31 +257,31 @@ export default function Login() {
   return (
     <div className="min-h-screen w-full flex bg-[#FAF8F4] font-sans text-[#2A1B14] selection:bg-[#8C503C] selection:text-white">
       {/* ================= LEFT: EDITORIAL PANEL ================= */}
-      <aside className="hidden lg:flex relative w-1/2 overflow-hidden border-r border-[#ECE6DB] bg-[#FBF9F5]">
+      <aside className="hidden lg:flex relative w-[56%] overflow-hidden border-r border-[#ECE6DB] bg-[#FBF9F5]">
         <Aura />
 
-        <div className="relative z-10 m-auto w-full max-w-[460px] px-10 py-16">
-          <GlyphTile />
-
-          <h1 className="mt-10 font-['Cormorant_Garamond'] text-[64px] leading-[1.02] font-medium tracking-tight text-[#1E140E]">
-            Build worlds
-            <br />
-            <span className="italic text-[#6B3D2E]">worth reading.</span>
-          </h1>
-
-          <p className="mt-7 text-[17px] leading-[1.7] text-stone-600 max-w-[400px]">
-            Ocean Novel is a private studio for novelists — characters, lore, plot and manuscript, all in one place.
-          </p>
-
-          <div className="mt-12 grid grid-cols-2 gap-8 max-w-[380px]">
-            <Stat value="50" label="Character presets" />
-            <Stat value="EPUB 3" label="KDP-ready export" />
+        <div className="relative z-10 m-auto w-full max-w-[660px] px-10 xl:px-14 py-8 flex flex-col gap-7">
+          {/* Brand row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <GlyphTile small />
+              <span className="font-['Cormorant_Garamond'] text-[22px] font-semibold text-[#1E140E]">Ocean Novel</span>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-white/60 border border-white/80 backdrop-blur text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+              Novel Architecture Studio
+            </span>
           </div>
 
-          <div className="mt-14 flex items-center gap-4 text-[12px] font-semibold uppercase tracking-[0.2em] text-stone-500">
-            <span className="h-px w-8 bg-stone-300" />
-            Ocean Novel Studio
+          <div>
+            <h1 className="font-['Cormorant_Garamond'] text-[48px] xl:text-[56px] leading-[1.02] font-medium tracking-tight text-[#1E140E]">
+              Build worlds <span className="italic text-[#8C503C]">worth reading.</span>
+            </h1>
+            <p className="mt-4 text-[16px] leading-relaxed text-stone-600 max-w-[480px]">
+              Characters, lore, plot and manuscript — one private studio for your novel.
+            </p>
           </div>
+
+          <StudioBento />
         </div>
       </aside>
 
@@ -542,11 +543,171 @@ function GlyphTile({ small }: { small?: boolean }) {
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
+/* ------------------------------------------------------------------ */
+/* Studio bento — miniature previews of the real app sections,         */
+/* built from the same character presets the Characters page uses.    */
+/* ------------------------------------------------------------------ */
+
+const HERO = CHARACTER_PRESETS[0]; // Elaseth Moonwhisper — protagonist
+const MENTOR = CHARACTER_PRESETS[3]; // Orion Astralveil
+const ANTAGONIST = CHARACTER_PRESETS[2]; // Empress Vespera Aurelia
+const RIVAL = CHARACTER_PRESETS[6]; // Kaelen Nightshade
+
+const firstName = (name: string) => name.replace(/^(Empress|Sir)\s+/, "").split(" ")[0];
+
+function BentoBlock({
+  className,
+  delay,
+  children,
+}: {
+  className?: string;
+  delay: number;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="border-l border-stone-300 pl-4">
-      <p className="font-['Cormorant_Garamond'] text-[30px] leading-none font-semibold text-[#1E140E]">{value}</p>
-      <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">{label}</p>
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay, ease: "easeOut" }}
+      whileHover={{ y: -3 }}
+      className={cn(
+        "relative rounded-2xl bg-white/65 backdrop-blur-md border border-white/80 shadow-[0_12px_32px_-18px_rgba(42,27,20,0.45)] overflow-hidden",
+        className
+      )}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function BlockLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">{children}</p>;
+}
+
+function Mention({ children }: { children: React.ReactNode }) {
+  return <span className="font-bold text-[#8C503C] border-b border-[#8C503C]/25 px-0.5">{children}</span>;
+}
+
+function Portrait({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      className={cn("rounded-full object-cover ring-2 ring-white shadow-sm", className)}
+    />
+  );
+}
+
+function StudioBento() {
+  return (
+    <div className="grid grid-cols-6 auto-rows-[80px] gap-3" aria-hidden="true">
+      {/* Character dossier */}
+      <BentoBlock delay={0.1} className="col-span-2 row-span-3 !bg-[#1E140E]">
+        <img src={HERO.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1E140E] via-[#1E140E]/40 to-transparent" />
+        <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-white/85 text-[9px] font-bold uppercase tracking-[0.14em] text-[#8C503C]">
+          {HERO.role.toLowerCase()}
+        </div>
+        <div className="absolute bottom-0 inset-x-0 p-4 text-[#FAF6EE]">
+          <p className="font-['Cormorant_Garamond'] text-[24px] leading-none font-semibold">{HERO.name}</p>
+          <p className="mt-1 text-[11px] text-[#E0CDB6]">{HERO.title}</p>
+          <div className="mt-3 flex flex-wrap gap-1">
+            {HERO.traits.slice(0, 3).map((t) => (
+              <span key={t} className="px-2 py-0.5 rounded-full bg-white/15 backdrop-blur text-[10px]">
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      </BentoBlock>
+
+      {/* Writing studio */}
+      <BentoBlock delay={0.2} className="col-span-4 row-span-2 p-4 flex flex-col">
+        <div className="flex items-center justify-between">
+          <BlockLabel>Writing Studio · Chapter 7</BlockLabel>
+          <span className="flex items-center gap-1.5 text-[10px] text-emerald-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Synced
+          </span>
+        </div>
+        <p className="mt-2 font-['Cormorant_Garamond'] text-[20px] font-semibold text-[#1E140E] leading-tight">
+          The Glyphs of the First Dawn
+        </p>
+        <p className="mt-1.5 font-serif text-[12.5px] leading-relaxed text-stone-600 line-clamp-2">
+          <Mention>@{firstName(HERO.name)}</Mention> traced the fading glyph while <Mention>@{firstName(MENTOR.name)}</Mention> watched
+          from the Loom — somewhere beyond the seal, <Mention>@{firstName(ANTAGONIST.name)}</Mention> was already listening.
+        </p>
+        <div className="mt-auto flex items-center gap-3">
+          <div className="h-1.5 flex-1 rounded-full bg-[#EFE9DE] overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-[#8C503C] to-[#D9A876]"
+              initial={{ width: 0 }}
+              animate={{ width: "71%" }}
+              transition={{ duration: 1.2, delay: 0.6, ease: "easeOut" }}
+            />
+          </div>
+          <span className="text-[10px] text-stone-500 tabular-nums">2,840 / 4,000 words</span>
+        </div>
+      </BentoBlock>
+
+      {/* Relationship web */}
+      <BentoBlock delay={0.3} className="col-span-2 row-span-1 px-3.5 py-3">
+        <BlockLabel>Relationships</BlockLabel>
+        <div className="mt-2 flex items-center">
+          <div className="flex -space-x-2 shrink-0">
+            {[MENTOR, ANTAGONIST, RIVAL].map((c) => (
+              <Portrait key={c.id} src={c.imageUrl} alt={c.name} className="w-8 h-8" />
+            ))}
+          </div>
+          <span className="ml-2 h-8 px-2 rounded-full bg-[#EFE9DE] flex items-center text-[10px] font-semibold text-[#8C503C]">
+            +{CHARACTER_PRESETS.length - 4}
+          </span>
+        </div>
+      </BentoBlock>
+
+      {/* Plot arc */}
+      <BentoBlock delay={0.4} className="col-span-2 row-span-1 px-3.5 py-3">
+        <BlockLabel>Plot · Act II</BlockLabel>
+        <div className="mt-3 relative flex items-center justify-between">
+          <div className="absolute inset-x-0 h-px bg-[#E2D8C8]" />
+          <motion.div
+            className="absolute left-0 h-px bg-[#8C503C]"
+            initial={{ width: 0 }}
+            animate={{ width: "55%" }}
+            transition={{ duration: 1, delay: 0.8, ease: "easeOut" }}
+          />
+          {["I", "II", "III"].map((act, i) => (
+            <span
+              key={act}
+              className={cn(
+                "relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold",
+                i === 0 && "bg-[#8C503C] text-white",
+                i === 1 && "bg-white text-[#8C503C] ring-2 ring-[#8C503C]",
+                i === 2 && "bg-white text-stone-400 ring-1 ring-[#E2D8C8]"
+              )}
+            >
+              {act}
+            </span>
+          ))}
+        </div>
+      </BentoBlock>
+
+      {/* Export */}
+      <BentoBlock delay={0.5} className="col-span-6 row-span-1 !bg-[#2A1B14] px-4 py-3 flex items-center gap-4 text-[#FAF6EE]">
+        <div className="flex items-end gap-[3px] shrink-0" aria-hidden="true">
+          {[40, 52, 46, 56].map((h, i) => (
+            <span
+              key={i}
+              style={{ height: h }}
+              className={cn("w-3 rounded-sm", ["bg-[#8C503C]", "bg-[#D9A876]", "bg-[#6B3D2E]", "bg-[#EFC3B1]"][i])}
+            />
+          ))}
+        </div>
+        <div className="min-w-0">
+          <p className="font-['Cormorant_Garamond'] text-[20px] leading-tight font-semibold">Export to EPUB 3</p>
+          <p className="text-[11px] text-[#CDBBA5]">KDP-ready manuscript in one click · {CHARACTER_PRESETS.length} character presets included</p>
+        </div>
+      </BentoBlock>
     </div>
   );
 }
