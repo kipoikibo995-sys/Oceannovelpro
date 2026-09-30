@@ -248,49 +248,62 @@ export default function Login() {
     }
   };
 
+  const labelCls = "block text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600 mb-2";
   const inputCls =
-    "w-full h-11 px-3.5 bg-white border border-[#E3DACB] rounded-xl text-sm text-stone-800 placeholder:text-stone-400 outline-none transition focus:border-[#8C503C] focus:ring-4 focus:ring-[#8C503C]/10";
+    "w-full h-[52px] px-4 bg-white border border-[#E6DFD3] rounded-xl text-[15px] text-stone-900 placeholder:text-stone-400 outline-none transition shadow-[0_1px_2px_rgba(42,27,20,0.04)] focus:border-[#2A1B14]/40 focus:ring-4 focus:ring-[#2A1B14]/5";
+  const isSignup = mode === "signup";
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center px-4 py-10 bg-[#140E0A] overflow-hidden font-sans selection:bg-[#8C503C] selection:text-white">
-      <Backdrop />
+    <div className="min-h-screen w-full flex bg-[#FAF8F4] font-sans text-[#2A1B14] selection:bg-[#8C503C] selection:text-white">
+      {/* ================= LEFT: EDITORIAL PANEL ================= */}
+      <aside className="hidden lg:flex relative w-1/2 overflow-hidden border-r border-[#ECE6DB] bg-[#FBF9F5]">
+        <Aura />
 
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative w-full max-w-[380px]"
-      >
-        {/* Brand */}
-        <div className="flex flex-col items-center text-center mb-6">
-          <LogoMark className="w-12 h-12" />
-          <h1 className="mt-3 font-serif text-2xl font-bold text-[#FAF6EE] tracking-tight">Ocean Novel</h1>
-          <p className="mt-1 font-serif italic text-[13px] text-[#B8A68F]">Where stories find their shape.</p>
-        </div>
+        <div className="relative z-10 m-auto w-full max-w-[460px] px-10 py-16">
+          <GlyphTile />
 
-        <div className="rounded-3xl bg-[#FAF8F5] p-6 sm:p-7 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.85)] space-y-5">
-          {/* Mode switch */}
-          <div className="grid grid-cols-2 p-1 bg-[#EFE9DE] rounded-xl relative">
-            {(["signin", "signup"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => switchMode(m)}
-                className={cn(
-                  "relative z-10 py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer",
-                  mode === m ? "text-[#2A1B14]" : "text-stone-500 hover:text-stone-800"
-                )}
-              >
-                {m === "signin" ? "Sign in" : "Sign up"}
-              </button>
-            ))}
-            <motion.div
-              className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow-sm"
-              initial={false}
-              animate={{ left: mode === "signin" ? 4 : "50%" }}
-              transition={{ type: "spring", stiffness: 450, damping: 35 }}
-            />
+          <h1 className="mt-10 font-['Cormorant_Garamond'] text-[64px] leading-[1.02] font-medium tracking-tight text-[#1E140E]">
+            Build worlds
+            <br />
+            <span className="italic text-[#6B3D2E]">worth reading.</span>
+          </h1>
+
+          <p className="mt-7 text-[17px] leading-[1.7] text-stone-600 max-w-[400px]">
+            Ocean Novel is a private studio for novelists — characters, lore, plot and manuscript, all in one place.
+          </p>
+
+          <div className="mt-12 grid grid-cols-2 gap-8 max-w-[380px]">
+            <Stat value="50" label="Character presets" />
+            <Stat value="EPUB 3" label="KDP-ready export" />
           </div>
+
+          <div className="mt-14 flex items-center gap-4 text-[12px] font-semibold uppercase tracking-[0.2em] text-stone-500">
+            <span className="h-px w-8 bg-stone-300" />
+            Ocean Novel Studio
+          </div>
+        </div>
+      </aside>
+
+      {/* ================= RIGHT: FORM ================= */}
+      <main className="flex-1 flex items-center justify-center px-6 py-12 sm:px-10">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full max-w-[440px]"
+        >
+          {/* Mobile brand */}
+          <div className="lg:hidden mb-10 flex items-center gap-3">
+            <GlyphTile small />
+            <span className="font-['Cormorant_Garamond'] text-2xl font-semibold">Ocean Novel</span>
+          </div>
+
+          <h2 className="font-['Cormorant_Garamond'] text-[34px] leading-tight font-medium text-[#1E140E]">
+            {isSignup ? "Create your studio" : "Welcome back"}
+          </h2>
+          <p className="mt-2 text-[15px] text-stone-500">
+            {isSignup ? "Set up your author profile in under a minute." : "Sign in to access your manuscripts and story bible."}
+          </p>
 
           {/* Feedback */}
           <AnimatePresence mode="wait">
@@ -302,7 +315,7 @@ export default function Login() {
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.18 }}
                 className={cn(
-                  "px-3 py-2.5 rounded-xl flex items-start gap-2 text-[13px] leading-snug",
+                  "mt-6 px-3.5 py-3 rounded-xl flex items-start gap-2.5 text-[13px] leading-snug",
                   errorMsg ? "bg-rose-50 text-rose-800" : "bg-emerald-50 text-emerald-800"
                 )}
               >
@@ -312,161 +325,129 @@ export default function Login() {
             )}
           </AnimatePresence>
 
-          {/* Google */}
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            disabled={isGoogleLoading || isLoading}
-            className="w-full h-11 bg-white border border-[#E3DACB] hover:border-[#C9B79F] hover:bg-[#FFFDF9] rounded-xl text-sm font-medium text-stone-700 flex items-center justify-center gap-2.5 transition cursor-pointer disabled:opacity-60"
-          >
-            {isGoogleLoading ? <IconSpinner className="w-4 h-4 text-[#8C503C]" /> : <GoogleLogo className="w-4 h-4" />}
-            {isGoogleLoading ? "Connecting…" : "Continue with Google"}
-          </button>
-
-          <div className="flex items-center gap-3 text-xs text-stone-400">
-            <div className="h-px flex-1 bg-[#E6DECF]" />
-            or
-            <div className="h-px flex-1 bg-[#E6DECF]" />
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {mode === "signup" && (
-              <input
-                type="text"
-                aria-label="Pen name"
-                required
-                placeholder="Pen name"
-                value={penName}
-                onChange={(e) => setPenName(e.target.value)}
-                className={inputCls}
-              />
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+            {isSignup && (
+              <div>
+                <label htmlFor="pen" className={labelCls}>Pen name</label>
+                <input id="pen" type="text" required value={penName} onChange={(e) => setPenName(e.target.value)} placeholder="How readers will know you" className={inputCls} />
+              </div>
             )}
 
-            <input
-              type="email"
-              aria-label="Email"
-              required
-              autoComplete="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputCls}
-            />
-
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                aria-label="Password"
-                required
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={cn(inputCls, "pr-11")}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-stone-400 hover:text-[#8C503C] transition cursor-pointer"
-              >
-                {showPassword ? <IconEyeOff className="w-[18px] h-[18px]" /> : <IconEye className="w-[18px] h-[18px]" />}
-              </button>
+            <div>
+              <label htmlFor="email" className={labelCls}>Email address</label>
+              <input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputCls} />
             </div>
 
-            {mode === "signup" && (
-              <>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  aria-label="Confirm password"
-                  required
-                  autoComplete="new-password"
-                  placeholder="Confirm password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={cn(
-                    inputCls,
-                    confirmPassword && password !== confirmPassword && "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-                  )}
-                />
-
-                <div className="flex items-center gap-2">
-                  <span className="h-11 px-3.5 flex items-center rounded-xl bg-[#EFE9DE] font-mono text-sm font-semibold text-[#2A1B14] select-none shrink-0">
-                    {captchaQuestion.num1} + {captchaQuestion.num2} =
-                  </span>
-                  <input
-                    type="number"
-                    aria-label="Answer to the sum"
-                    required
-                    placeholder="?"
-                    value={captchaInput}
-                    onChange={(e) => setCaptchaInput(e.target.value)}
-                    className={cn(inputCls, "font-mono")}
-                  />
+            <div>
+              <div className="flex items-baseline justify-between">
+                <label htmlFor="pw" className={labelCls}>Password</label>
+                {!isSignup && (
                   <button
                     type="button"
-                    onClick={refreshCaptcha}
-                    aria-label="New sum"
-                    className="h-11 w-11 shrink-0 rounded-xl flex items-center justify-center text-stone-400 hover:text-[#8C503C] hover:bg-[#EFE9DE] transition cursor-pointer"
+                    onClick={() => {
+                      setResetEmail(email);
+                      setIsForgotModalOpen(true);
+                    }}
+                    className="text-[12px] text-stone-500 hover:text-[#2A1B14] transition cursor-pointer"
                   >
-                    <IconRefresh className="w-[18px] h-[18px]" />
+                    Forgot password?
                   </button>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  id="pw"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  autoComplete={isSignup ? "new-password" : "current-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={isSignup ? "At least 6 characters" : "••••••••"}
+                  className={cn(inputCls, "pr-12")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-stone-400 hover:text-[#2A1B14] transition cursor-pointer"
+                >
+                  {showPassword ? <IconEyeOff className="w-[18px] h-[18px]" /> : <IconEye className="w-[18px] h-[18px]" />}
+                </button>
+              </div>
+            </div>
+
+            {isSignup && (
+              <>
+                <div>
+                  <label htmlFor="pw2" className={labelCls}>Confirm password</label>
+                  <input
+                    id="pw2"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={cn(inputCls, confirmPassword && password !== confirmPassword && "border-rose-300 focus:ring-rose-100")}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="sum" className={labelCls}>Quick check</label>
+                  <div className="flex items-center gap-2">
+                    <span className="h-[52px] px-4 flex items-center rounded-xl bg-[#F1ECE3] font-mono text-[15px] font-semibold select-none shrink-0">
+                      {captchaQuestion.num1} + {captchaQuestion.num2} =
+                    </span>
+                    <input id="sum" type="number" required value={captchaInput} onChange={(e) => setCaptchaInput(e.target.value)} placeholder="?" className={cn(inputCls, "font-mono")} />
+                    <button
+                      type="button"
+                      onClick={refreshCaptcha}
+                      aria-label="New sum"
+                      className="h-[52px] w-[52px] shrink-0 rounded-xl flex items-center justify-center text-stone-400 hover:text-[#2A1B14] hover:bg-[#F1ECE3] transition cursor-pointer"
+                    >
+                      <IconRefresh className="w-[18px] h-[18px]" />
+                    </button>
+                  </div>
                 </div>
               </>
             )}
 
-            <div className="flex items-center justify-between pt-0.5">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-[13px] text-stone-600">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded accent-[#8C503C] cursor-pointer"
-                />
-                Keep me signed in
-              </label>
-              {mode === "signin" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setResetEmail(email);
-                    setIsForgotModalOpen(true);
-                  }}
-                  className="text-[13px] text-[#8C503C] hover:underline cursor-pointer"
-                >
-                  Forgot?
-                </button>
-              )}
-            </div>
-
             <button
               type="submit"
               disabled={isLoading || isGoogleLoading}
-              className="group w-full h-11 mt-1 bg-[#8C503C] hover:bg-[#7A4332] text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-[0_8px_24px_-10px_rgba(140,80,60,0.9)] transition-colors cursor-pointer disabled:opacity-60"
+              className="w-full h-[52px] !mt-7 bg-[#2A1B14] hover:bg-[#1E140E] text-[#FAF6EE] rounded-xl text-[13px] font-semibold uppercase tracking-[0.16em] flex items-center justify-center gap-2 shadow-[0_10px_24px_-12px_rgba(30,20,14,0.8)] transition-colors cursor-pointer disabled:opacity-60"
             >
-              {isLoading ? (
-                <IconSpinner className="w-4 h-4" />
-              ) : (
-                <>
-                  {mode === "signin" ? "Sign in" : "Create account"}
-                  <IconArrow className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                </>
-              )}
+              {isLoading ? <IconSpinner className="w-4 h-4" /> : isSignup ? "Create my studio" : "Sign in to studio"}
             </button>
           </form>
-        </div>
 
-        <p className="mt-5 text-center text-[13px] text-[#A69584]">
-          {mode === "signin" ? "New to Ocean Novel?" : "Already have an account?"}{" "}
+          <div className="my-7 flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-400">
+            <div className="h-px flex-1 bg-[#E6DFD3]" />
+            or
+            <div className="h-px flex-1 bg-[#E6DFD3]" />
+          </div>
+
           <button
             type="button"
-            onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
-            className="font-semibold text-[#E0B98A] hover:underline cursor-pointer"
+            onClick={handleGoogleSignIn}
+            disabled={isGoogleLoading || isLoading}
+            className="w-full h-[52px] bg-white border border-[#E6DFD3] hover:border-[#CFC4B3] rounded-xl text-[15px] font-semibold text-[#1E140E] flex items-center justify-center gap-3 shadow-[0_1px_2px_rgba(42,27,20,0.04)] transition cursor-pointer disabled:opacity-60"
           >
-            {mode === "signin" ? "Create an account" : "Sign in"}
+            {isGoogleLoading ? <IconSpinner className="w-4 h-4 text-stone-500" /> : <GoogleLogo className="w-[18px] h-[18px]" />}
+            {isGoogleLoading ? "Connecting…" : "Continue with Google"}
           </button>
-        </p>
-      </motion.div>
+
+          <p className="mt-8 text-center text-[14px] text-stone-500">
+            {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
+            <button
+              type="button"
+              onClick={() => switchMode(isSignup ? "signin" : "signup")}
+              className="font-semibold text-[#1E140E] hover:underline cursor-pointer"
+            >
+              {isSignup ? "Sign in." : "Create one here."}
+            </button>
+          </p>
+        </motion.div>
+      </main>
 
       {/* Password reset */}
       <AnimatePresence>
@@ -475,7 +456,7 @@ export default function Login() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1E140E]/40 backdrop-blur-sm"
             onClick={() => setIsForgotModalOpen(false)}
           >
             <motion.div
@@ -484,39 +465,30 @@ export default function Login() {
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.18 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-[360px] bg-[#FAF8F5] rounded-3xl p-6 shadow-2xl space-y-4"
+              className="relative w-full max-w-[400px] bg-[#FAF8F4] rounded-2xl p-7 shadow-2xl"
             >
               <button
                 type="button"
                 onClick={() => setIsForgotModalOpen(false)}
                 aria-label="Close"
-                className="absolute right-4 top-4 p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-[#EFE9DE] transition cursor-pointer"
+                className="absolute right-4 top-4 p-1.5 rounded-lg text-stone-400 hover:text-stone-800 hover:bg-[#F1ECE3] transition cursor-pointer"
               >
                 <IconClose className="w-4 h-4" />
               </button>
 
-              <div>
-                <h3 className="font-serif text-lg font-bold text-[#2A1B14]">Reset password</h3>
-                <p className="mt-1 text-[13px] text-stone-500">We'll email you a link to set a new one.</p>
-              </div>
+              <h3 className="font-['Cormorant_Garamond'] text-[26px] font-medium text-[#1E140E]">Reset password</h3>
+              <p className="mt-1 text-[14px] text-stone-500">We'll email you a link to set a new one.</p>
 
-              <form onSubmit={handleSendPasswordReset} className="space-y-3">
-                <input
-                  type="email"
-                  aria-label="Email"
-                  required
-                  placeholder="Email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  className={inputCls}
-                />
-                {resetStatus && (
-                  <p className="text-[13px] text-[#8C503C] bg-[#8C503C]/8 px-3 py-2 rounded-xl">{resetStatus}</p>
-                )}
+              <form onSubmit={handleSendPasswordReset} className="mt-6 space-y-4">
+                <div>
+                  <label htmlFor="reset" className={labelCls}>Email address</label>
+                  <input id="reset" type="email" required value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className={inputCls} />
+                </div>
+                {resetStatus && <p className="text-[13px] text-[#6B3D2E] bg-[#F1ECE3] px-3 py-2 rounded-xl">{resetStatus}</p>}
                 <button
                   type="submit"
                   disabled={isResetting}
-                  className="w-full h-11 bg-[#8C503C] hover:bg-[#7A4332] text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
+                  className="w-full h-[52px] bg-[#2A1B14] hover:bg-[#1E140E] text-[#FAF6EE] rounded-xl text-[13px] font-semibold uppercase tracking-[0.16em] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-60"
                 >
                   {isResetting ? <IconSpinner className="w-4 h-4" /> : "Send reset link"}
                 </button>
@@ -530,48 +502,52 @@ export default function Login() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Backdrop & brand                                                    */
+/* Editorial panel pieces                                              */
 /* ------------------------------------------------------------------ */
 
-function Backdrop() {
+// Soft, slowly drifting colour washes — sand, amber and terracotta
+function Aura() {
+  const blob = "absolute rounded-full blur-[110px]";
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[720px] h-[520px] rounded-full bg-[#8C503C]/25 blur-[140px]" />
-      <div className="absolute -bottom-40 -right-20 w-[520px] h-[420px] rounded-full bg-[#C89D66]/10 blur-[120px]" />
-      <svg className="absolute bottom-0 left-0 w-full h-48 text-[#C89D66]" viewBox="0 0 1440 200" preserveAspectRatio="none" fill="none">
-        {[0, 1, 2, 3].map((i) => (
-          <motion.path
-            key={i}
-            d={`M0 ${80 + i * 30} C 240 ${50 + i * 30}, 480 ${110 + i * 30}, 720 ${80 + i * 30} S 1200 ${50 + i * 30}, 1440 ${80 + i * 30}`}
-            stroke="currentColor"
-            strokeOpacity={0.14 - i * 0.03}
-            strokeWidth="1.2"
-            animate={{ x: [0, i % 2 ? 24 : -24, 0] }}
-            transition={{ duration: 14 + i * 3, repeat: Infinity, ease: "easeInOut" }}
-          />
-        ))}
-      </svg>
+      <motion.div
+        className={cn(blob, "-top-24 -left-24 w-[460px] h-[460px] bg-[#BFB5A6]/55")}
+        animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className={cn(blob, "top-1/3 -right-32 w-[420px] h-[420px] bg-[#F3D9A4]/60")}
+        animate={{ x: [0, -24, 0], y: [0, 30, 0] }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className={cn(blob, "-bottom-32 left-1/3 w-[520px] h-[420px] bg-[#EFC3B1]/55")}
+        animate={{ x: [0, 20, 0], y: [0, -24, 0] }}
+        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+      />
     </div>
   );
 }
 
-// Brand mark: an open book resting on a wave
-function LogoMark({ className }: { className?: string }) {
+function GlyphTile({ small }: { small?: boolean }) {
   return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
-      <defs>
-        <linearGradient id="on-logo" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#C89D66" />
-          <stop offset="1" stopColor="#8C503C" />
-        </linearGradient>
-      </defs>
-      <rect width="48" height="48" rx="14" fill="url(#on-logo)" />
-      <g fill="none" stroke="#FFF8EE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M13 15.5c3.6-1.6 7.4-1.2 11 1.5v13c-3.6-2.7-7.4-3.1-11-1.5z" />
-        <path d="M35 15.5c-3.6-1.6-7.4-1.2-11 1.5v13c3.6-2.7 7.4-3.1 11-1.5z" />
-        <path d="M11 35.5c2.2-1.6 4.4-1.6 6.5 0s4.4 1.6 6.5 0 4.4-1.6 6.5 0 4.4 1.6 6.5 0" strokeOpacity="0.85" />
-      </g>
-    </svg>
+    <div
+      className={cn(
+        "flex items-center justify-center rounded-2xl bg-white/50 backdrop-blur-md border border-white/70 shadow-[0_8px_24px_-10px_rgba(42,27,20,0.35)] text-[#2A1B14]",
+        small ? "w-11 h-11" : "w-16 h-16"
+      )}
+    >
+      <IconBookWave className={small ? "w-6 h-6" : "w-8 h-8"} />
+    </div>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="border-l border-stone-300 pl-4">
+      <p className="font-['Cormorant_Garamond'] text-[30px] leading-none font-semibold text-[#1E140E]">{value}</p>
+      <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-600">{label}</p>
+    </div>
   );
 }
 
@@ -595,6 +571,17 @@ function Icon({ className, children }: IconProps & { children: React.ReactNode }
     >
       {children}
     </svg>
+  );
+}
+
+// Brand glyph: an open book resting on a wave
+function IconBookWave(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M3.5 5.75c2.9-1.3 5.8-1 8.5 1.1v10c-2.7-2.1-5.6-2.4-8.5-1.1z" />
+      <path d="M20.5 5.75c-2.9-1.3-5.8-1-8.5 1.1v10c2.7-2.1 5.6-2.4 8.5-1.1z" />
+      <path d="M2.5 20.25c1.6-1.1 3.2-1.1 4.9 0s3.2 1.1 4.6 0 3.2-1.1 4.6 0 3.3 1.1 4.9 0" />
+    </Icon>
   );
 }
 
