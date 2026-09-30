@@ -70,14 +70,14 @@ function ProtectedRoute() {
     const unsub = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser && !currentUser.isAnonymous) {
-        try {
-          storage.switchUser(currentUser.uid, currentUser.email, currentUser.displayName);
-          const res = await adminService.trackUserActivity(currentUser);
-          setIsBanned(res.isBanned);
-          await storage.syncFromCloud(currentUser.uid);
-        } catch {
-          // ignore tracking error
-        }
+        storage.switchUser(currentUser.uid, currentUser.email, currentUser.displayName);
+        // Ban check and cloud sync run side by side
+        const work = Promise.all([
+          adminService.trackUserActivity(currentUser).then((res) => setIsBanned(res.isBanned)).catch(() => {}),
+          storage.syncFromCloud(currentUser.uid).catch(() => {}),
+        ]);
+        // Books already on this device: open straight away and refresh in the background
+        if (storage.getProjects().length === 0) await work;
       }
       setLoading(false);
       if (currentUser && !currentUser.isAnonymous) prefetchPages();

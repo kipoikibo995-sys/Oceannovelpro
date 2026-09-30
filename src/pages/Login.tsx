@@ -87,11 +87,8 @@ export default function Login() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && !user.isAnonymous) {
         storage.switchUser(user.uid, user.email, user.displayName);
-        try {
-          await storage.syncFromCloud(user.uid);
-        } catch (e) {
-          console.warn("Auto-sync on login mount:", e);
-        }
+        // Start syncing now; the studio picks up the same request instead of waiting here
+        storage.syncFromCloud(user.uid).catch((e) => console.warn("Auto-sync on login mount:", e));
         navigate("/dashboard", { replace: true });
       }
     });
@@ -103,17 +100,12 @@ export default function Login() {
     const authorName = customPenName || user.displayName || user.email?.split("@")[0] || "Author";
     storage.switchUser(user.uid, user.email, authorName);
 
-    try {
-      await adminService.trackUserActivity({
-        uid: user.uid,
-        email: user.email,
-        displayName: authorName,
-      });
-      await storage.syncFromCloud(user.uid);
-      await storage.syncAllLocalDataToCloud(user.uid);
-    } catch (e) {
-      console.warn("Post-auth synchronization note:", e);
-    }
+    // Record the sign-in and pull the library in the background. syncFromCloud already
+    // uploads local books when the account has none in the cloud.
+    adminService
+      .trackUserActivity({ uid: user.uid, email: user.email, displayName: authorName })
+      .catch((e) => console.warn("Post-auth activity note:", e));
+    storage.syncFromCloud(user.uid).catch((e) => console.warn("Post-auth synchronization note:", e));
 
     navigate("/dashboard");
   };

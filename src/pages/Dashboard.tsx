@@ -99,14 +99,17 @@ export default function Dashboard() {
       setCurrentUser(u);
       if (u && !u.isAnonymous) {
         storage.switchUser(u.uid, u.email, u.displayName);
+        const showFromCache = (selectFirst: boolean) => {
+          setUserProfile(storage.getUserProfile());
+          const projs = storage.getProjects().sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
+          setSavedProjects(projs);
+          if (selectFirst && projs.length > 0) setSelectedProjectId((cur) => cur ?? projs[0].id);
+          setTasks(storage.getTasks());
+        };
+        // Books saved on this device appear at once; the cloud copy refreshes them after
+        showFromCache(true);
         await storage.syncFromCloud(u.uid);
-        setUserProfile(storage.getUserProfile());
-        const projs = storage.getProjects().sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
-        setSavedProjects(projs);
-        if (projs.length > 0) {
-          setSelectedProjectId(projs[0].id);
-        }
-        setTasks(storage.getTasks());
+        showFromCache(true);
       } else {
         storage.clearCache();
         setUserProfile(storage.getUserProfile());

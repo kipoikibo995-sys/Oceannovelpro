@@ -280,6 +280,8 @@ let cachedProjects: ProjectMeta[] = [];
 let cachedProjectData: Record<string, ProjectData> = {};
 let cachedTasks: StudioTask[] = [];
 let cachedProfile: UserProfile | null = null;
+let syncInFlight: { uid: string; promise: Promise<void> } | null = null;
+let lastCloudSync: { uid: string; at: number } | null = null;
 
 function loadLocalUserCache(uid: string | null) {
   try {
@@ -472,6 +474,8 @@ export const storage = {
 
   clearCache: () => {
     currentUserId = null;
+    syncInFlight = null;
+    lastCloudSync = null;
     cachedProjects = [];
     cachedProjectData = {};
     cachedTasks = [];
@@ -545,13 +549,30 @@ export const storage = {
     }
   },
 
-  syncFromCloud: async (userId: string) => {
+  syncFromCloud: (userId: string, options?: { force?: boolean }): Promise<void> => {
+    if (!userId || userId === 'null') return Promise.resolve();
+    if (syncInFlight && syncInFlight.uid === userId) return syncInFlight.promise;
+    if (!options?.force && lastCloudSync && lastCloudSync.uid === userId && Date.now() - lastCloudSync.at < 60_000) {
+      return Promise.resolve();
+    }
+    const promise = storage._syncFromCloudOnce(userId).finally(() => {
+      lastCloudSync = { uid: userId, at: Date.now() };
+      if (syncInFlight?.promise === promise) syncInFlight = null;
+    });
+    syncInFlight = { uid: userId, promise };
+    return promise;
+  },
+
+  _syncFromCloudOnce: async (userId: string) => {
     if (!userId || userId === 'null') return;
     if (!canSyncWithFirestore(userId)) return;
 
     currentUserId = userId;
 
     try {
+      // Sections are independent reads, so they run in parallel
+      await Promise.all([
+      (async () => {
       // 1. Load Profile from Cloud with authoritative CRM Tier sync
       try {
         const currentUser = auth.currentUser;
@@ -606,7 +627,8 @@ export const storage = {
       } catch(e) {
         handleFirestoreError(e, OperationType.GET, `users/${userId}/profile/default`);
       }
-
+      })(),
+      (async () => {
       // 2. Load Timeline Settings
       try {
         const tlDoc = await getDoc(doc(db, `users/${userId}/settings/timeline`));
@@ -620,7 +642,8 @@ export const storage = {
       } catch(e) {
         handleFirestoreError(e, OperationType.GET, `users/${userId}/settings/timeline`);
       }
-
+      })(),
+      (async () => {
       // 3. Load Projects from Cloud (100% User Isolated)
       try {
         const projSnapshot = await getDocs(collection(db, `users/${userId}/projects`));
@@ -665,9 +688,9 @@ export const storage = {
       } catch(e) {
         handleFirestoreError(e, OperationType.LIST, `users/${userId}/projects`);
       }
-
+      })(),
+      (async () => {
       // 4. Load Tasks from Cloud
-      if (!canSyncWithFirestore(userId)) return;
       try {
         const taskSnapshot = await getDocs(collection(db, `users/${userId}/tasks`));
         if (!taskSnapshot.empty) {
@@ -681,9 +704,9 @@ export const storage = {
       } catch(e) {
         handleFirestoreError(e, OperationType.LIST, `users/${userId}/tasks`);
       }
-
+      })(),
+      (async () => {
       // 5. Load Project Data from Cloud
-      if (!canSyncWithFirestore(userId)) return;
       try {
         const pdSnapshot = await getDocs(collection(db, `users/${userId}/projectData`));
         pdSnapshot.docs.forEach(d => {
@@ -694,7 +717,8 @@ export const storage = {
       } catch(e) {
         handleFirestoreError(e, OperationType.LIST, `users/${userId}/projectData`);
       }
-
+      })(),
+      ]);
     } catch (e) {
       console.error("Critical Cloud Sync Error:", e);
     }
