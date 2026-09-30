@@ -44,6 +44,8 @@ export default function Dashboard() {
 
   const [savedProjects, setSavedProjects] = useState<ProjectMeta[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  // True until the first cloud sync finishes, so an empty cache doesn't look like an empty shelf
+  const [libraryLoading, setLibraryLoading] = useState(true);
   const [projectToDelete, setProjectToDelete] = useState<ProjectMeta | null>(null);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -108,10 +110,12 @@ export default function Dashboard() {
         };
         // Books saved on this device appear at once; the cloud copy refreshes them after
         showFromCache(true);
-        await storage.syncFromCloud(u.uid);
+        await storage.syncFromCloud(u.uid).catch(() => {});
         showFromCache(true);
+        setLibraryLoading(false);
       } else {
         storage.clearCache();
+        setLibraryLoading(false);
         setUserProfile(storage.getUserProfile());
         setSavedProjects([]);
         setTasks([]);
@@ -784,6 +788,16 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </>
+              ) : libraryLoading ? (
+                <>
+                  <Tag tone="light">Library</Tag>
+                  <h1 className="mt-4 text-[38px] sm:text-[48px] font-extrabold leading-[0.98] tracking-[-0.02em]">
+                    Opening your
+                    <br />
+                    <span className="text-[#E8561F]">library…</span>
+                  </h1>
+                  <p className="mt-4 text-[15px] text-[#F6F1E7]/70 max-w-[380px]">Fetching your books from the cloud.</p>
+                </>
               ) : (
                 <>
                   <Tag tone="light">Start Writing</Tag>
@@ -1088,7 +1102,7 @@ export default function Dashboard() {
 
                 {savedProjects.length === 0 && (
                   <p className="self-center ml-4 text-[14px] text-[#0E1D26]/55">
-                    Your shelf is empty — add your first book to get started.
+                    {libraryLoading ? "Bringing your books to the shelf…" : "Your shelf is empty — add your first book to get started."}
                   </p>
                 )}
               </div>

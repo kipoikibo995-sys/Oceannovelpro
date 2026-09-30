@@ -12,7 +12,6 @@ import {
   updateProfile,
   onAuthStateChanged,
   setPersistence,
-  browserLocalPersistence,
   browserSessionPersistence,
 } from "firebase/auth";
 import { storage } from "@/lib/storage";
@@ -30,6 +29,8 @@ import {
   IconSpinner,
 } from "@/components/brand/ocean-ui";
 
+const LAST_EMAIL_KEY = "ocean_last_email";
+
 export default function Login() {
   const navigate = useNavigate();
 
@@ -37,12 +38,18 @@ export default function Login() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
 
   // Form fields
-  const [email, setEmail] = useState("");
+  // Only the last email is remembered on this device; the session itself ends with the tab
+  const [email, setEmail] = useState(() => {
+    try {
+      return localStorage.getItem(LAST_EMAIL_KEY) || "";
+    } catch {
+      return "";
+    }
+  });
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [penName, setPenName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
 
   // Security Math Captcha (For Register)
   const [captchaQuestion, setCaptchaQuestion] = useState(() => {
@@ -67,8 +74,7 @@ export default function Login() {
   };
 
   // Honour "Keep me signed in": persist across browser restarts, or only for this tab session
-  const applyPersistence = () =>
-    setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+  const applyPersistence = () => setPersistence(auth, browserSessionPersistence);
 
   // Status & Feedback
   const [isLoading, setIsLoading] = useState(false);
@@ -98,6 +104,9 @@ export default function Login() {
   // Post-login data sync and redirection
   const handlePostAuthSync = async (user: any, customPenName?: string) => {
     const authorName = customPenName || user.displayName || user.email?.split("@")[0] || "Author";
+    try {
+      if (user.email) localStorage.setItem(LAST_EMAIL_KEY, user.email);
+    } catch {}
     storage.switchUser(user.uid, user.email, authorName);
 
     // Record the sign-in and pull the library in the background. syncFromCloud already

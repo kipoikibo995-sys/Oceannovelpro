@@ -76,8 +76,12 @@ function ProtectedRoute() {
           adminService.trackUserActivity(currentUser).then((res) => setIsBanned(res.isBanned)).catch(() => {}),
           storage.syncFromCloud(currentUser.uid).catch(() => {}),
         ]);
-        // Books already on this device: open straight away and refresh in the background
-        if (storage.getProjects().length === 0) await work;
+        // Books already on this device: open straight away and refresh in the background.
+        // First sign-in here: wait for the library, but never longer than 1.5s — the
+        // Dashboard shows a loading state and fills in when the data arrives.
+        if (storage.getProjects().length === 0) {
+          await Promise.race([work, new Promise((resolve) => setTimeout(resolve, 1500))]);
+        }
       }
       setLoading(false);
       if (currentUser && !currentUser.isAnonymous) prefetchPages();
