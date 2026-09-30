@@ -101,8 +101,14 @@ export default function GlobalSearchComponent({
   };
 
   // Perform replacement
+  const [undoSnapshot, setUndoSnapshot] = useState<any | null>(null);
+
   const handleExecuteReplace = () => {
     if (!query.trim() || selectedIds.size === 0) return;
+    // Only matches that are both selected and currently in the results are replaced
+    const chosen = allResults.filter(r => selectedIds.has(r.id));
+    if (chosen.length === 0) return;
+    if (!window.confirm(`Replace ${chosen.length} selected ${chosen.length === 1 ? "match" : "matches"} of "${query}" with "${replacement}"?`)) return;
 
     setIsReplacing(true);
     try {
@@ -110,17 +116,19 @@ export default function GlobalSearchComponent({
         projectId,
         query,
         replacement,
-        selectedIds,
+        chosen,
         { caseSensitive, wholeWord }
       );
-      
-      setReplaceSuccessMsg(`Successfully replaced ${res.updatedCount} occurrences across the project.`);
+
+      setUndoSnapshot(res.previousData);
+      setReplaceSuccessMsg(`Replaced ${res.updatedCount} ${res.updatedCount === 1 ? "occurrence" : "occurrences"}.`);
       setReplaceErrorMsg(null);
       setProjectData(res.projectData);
-      
+      window.dispatchEvent(new CustomEvent('novelist-storage-updated'));
+
       setTimeout(() => {
         setReplaceSuccessMsg(null);
-      }, 5000);
+      }, 12000);
     } catch (err: any) {
       setReplaceErrorMsg("An error occurred during replacement: " + (err?.message || "Unknown error"));
       setTimeout(() => setReplaceErrorMsg(null), 5000);
@@ -371,6 +379,20 @@ export default function GlobalSearchComponent({
           <div className="flex items-center gap-2 text-sm font-medium">
             <Check className="w-4 h-4 text-emerald-600" />
             <span>{replaceSuccessMsg}</span>
+            {undoSnapshot && (
+              <button
+                onClick={() => {
+                  storage.saveProjectData(projectId, undoSnapshot);
+                  setProjectData(undoSnapshot);
+                  setUndoSnapshot(null);
+                  setReplaceSuccessMsg("Replacement undone.");
+                  window.dispatchEvent(new CustomEvent('novelist-storage-updated'));
+                }}
+                className="ml-2 px-2.5 py-0.5 rounded-md border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-bold"
+              >
+                Undo
+              </button>
+            )}
           </div>
           <button onClick={() => setReplaceSuccessMsg(null)} className="text-emerald-500 hover:text-emerald-800">
             <X className="w-4 h-4" />

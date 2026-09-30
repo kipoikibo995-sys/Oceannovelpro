@@ -11,7 +11,7 @@ import {
   analyzeProjectConsistency, ConsistencyAnalysisResult, ContinuityIssue,
   OverusedWordStat, WordEcho, getAllScenes
 } from "@/lib/consistencyChecker";
-import { executeBatchReplace } from "@/lib/globalSearch";
+import { executeBatchReplace, searchProject } from "@/lib/globalSearch";
 import GlobalSearchModal from "@/components/GlobalSearchModal";
 import UpgradeModal from "@/components/UpgradeModal";
 import { PLAN_LIMITS } from "@/lib/license";
@@ -79,9 +79,14 @@ export default function ConsistencyCheckerPage() {
     const { findText, replaceText, sceneId } = issue.replacementData;
 
     try {
-      // Create a temporary ID to target this scene content
-      const targetId = `manuscript-${sceneId}-content-0`;
-      executeBatchReplace(id, findText, replaceText, new Set([targetId]), { wholeWord: true });
+      // Fix every occurrence of the typo in that scene's text
+      const data = storage.getProjectData(id);
+      const matches = data
+        ? searchProject(data, findText, { wholeWord: true, sourceTypes: ['manuscript'] }).filter(
+            (r) => r.targetId === sceneId && r.field === 'content'
+          )
+        : [];
+      executeBatchReplace(id, findText, replaceText, matches, { wholeWord: true });
       
       setActionSuccessMsg(`Successfully fixed "${findText}" to "${replaceText}".`);
       setActionErrorMsg(null);

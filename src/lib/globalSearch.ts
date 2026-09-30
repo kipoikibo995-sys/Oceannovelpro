@@ -17,6 +17,8 @@ export interface SearchResultItem {
   fullSnippet: string;
   originalText: string;
   matchIndex: number;
+  /** 0-based order of this match within its field — used to replace only the selected occurrences */
+  occurrence: number;
 }
 
 export interface SearchOptions {
@@ -33,6 +35,14 @@ export interface ReplaceItemRequest {
 // Helper to escape regex special characters
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Build the search pattern. "Whole word" uses Unicode letter boundaries so accented
+// words (e.g. "Lê", "Đông") work — plain \b only understands ASCII letters.
+function buildPattern(query: string, options: SearchOptions): { source: string; flags: string } {
+  const escaped = escapeRegExp(query.trim());
+  const source = options.wholeWord ? `(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])` : escaped;
+  return { source, flags: options.caseSensitive ? "gu" : "giu" };
 }
 
 // Strip HTML tags safely to get plain text while retaining spacing
@@ -65,13 +75,9 @@ export function searchProject(
   if (!query || !query.trim()) return [];
 
   const results: SearchResultItem[] = [];
-  const flags = options.caseSensitive ? "g" : "gi";
-  const escapedQuery = escapeRegExp(query.trim());
-  const regexPattern = options.wholeWord ? `\\b${escapedQuery}\\b` : escapedQuery;
-  
-  let regex: RegExp;
+  const { source: regexPattern, flags } = buildPattern(query, options);
   try {
-    regex = new RegExp(regexPattern, flags);
+    new RegExp(regexPattern, flags);
   } catch (e) {
     return [];
   }
@@ -92,6 +98,7 @@ export function searchProject(
     const plainText = stripHtml(text);
     let match: RegExpExecArray | null;
     const localRegex = new RegExp(regexPattern, flags);
+    let occurrence = 0;
 
     while ((match = localRegex.exec(plainText)) !== null) {
       const matchIndex = match.index;
@@ -167,6 +174,7 @@ export function searchProject(
         fullSnippet: `${prefix}${before}${matched}${after}${suffix}`,
         originalText: plainText,
         matchIndex,
+        occurrence: occurrence++,
       });
 
       // Avoid infinite loop if zero-width match
@@ -307,182 +315,138 @@ export function searchProject(
 }
 
 /**
- * Executes a global replacement across the project data.
- * Safely handles HTML mentions (updating data-label and inner text)
- * and plain text in scenes, characters, locations, notes, and story bible.
+ * Replaces exactly the selected occurrences across the project.
+ * Each field is scanned in the same order as searchProject, so a match is
+ * replaced only if its occurrence number was selected. Mentions keep their
+ * data-label in sync with the visible name.
+ * Returns the previous data so the caller can offer an undo.
  */
 export function executeBatchReplace(
   projectId: string,
   searchQuery: string,
   replacementText: string,
-  selectedResultIds: Set<string>,
+  selectedResults: SearchResultItem[],
   options: SearchOptions = {}
-): { updatedCount: number; projectData: ProjectData } {
+): { updatedCount: number; projectData: ProjectData; previousData: ProjectData } {
   const currentData = storage.getProjectData(projectId);
   if (!currentData) {
     throw new Error("Project data not found");
   }
 
+  const { source, flags } = buildPattern(searchQuery, options);
   let updatedCount = 0;
-  const flags = options.caseSensitive ? "g" : "gi";
-  const escapedQuery = escapeRegExp(searchQuery.trim());
-  const regexPattern = options.wholeWord ? `\\b${escapedQuery}\\b` : escapedQuery;
-  const regex = new RegExp(regexPattern, flags);
 
-  // Deep clone to safely mutate
+  // "sourceType|targetId|field" -> set of selected occurrence numbers
+  const selected = new Map<string, Set<number>>();
+  for (const r of selectedResults) {
+    const key = `${r.sourceType}|${r.targetId}|${r.field}`;
+    if (!selected.has(key)) selected.set(key, new Set());
+    selected.get(key)!.add(r.occurrence);
+  }
+  const pick = (sourceType: string, targetId: string, field: string) => selected.get(`${sourceType}|${targetId}|${field}`);
+
+  const previousData: ProjectData = JSON.parse(JSON.stringify(currentData));
   const data: ProjectData = JSON.parse(JSON.stringify(currentData));
 
-  // Helper to replace plain text occurrences
-  const replaceInPlainText = (text: string): string => {
-    return text.replace(regex, (match) => {
-      updatedCount++;
-      return replacementText;
+  // Plain text: replace only chosen occurrences
+  const replacePlain = (text: string, chosen: Set<number>): string => {
+    let k = 0;
+    return text.replace(new RegExp(source, flags), (m) => {
+      const hit = chosen.has(k++);
+      if (hit) updatedCount++;
+      return hit ? replacementText : m;
     });
   };
 
-  // Helper to replace in HTML content (specifically handling TipTap mentions)
-  const replaceInHtml = (htmlContent: string): string => {
-    if (!htmlContent) return "";
-    
-    // 1. First replace occurrences inside mentions:
-    // <span data-type="mention" data-id="1" data-label="OldName" class="mention">@OldName</span>
-    let updatedHtml = htmlContent.replace(
-      /<span([^>]*?)data-label="([^"]*?)"([^>]*?)>@?([^<]*?)<\/span>/gi,
-      (fullTag, p1, label, p3, text) => {
-        let modified = false;
-        let newLabel = label;
-        let newText = text;
-
-        if (regex.test(label)) {
-          newLabel = label.replace(regex, () => {
-            updatedCount++;
-            modified = true;
-            return replacementText;
-          });
-        }
-        if (regex.test(text)) {
-          newText = text.replace(regex, () => {
-            modified = true;
-            return replacementText;
-          });
-        }
-
-        if (modified) {
-          return `<span${p1}data-label="${newLabel}"${p3}>@${newLabel}</span>`;
-        }
-        return fullTag;
-      }
-    );
-
-    // 2. Then replace general text outside tags
-    // Split by tags so we don't destroy HTML markup tags
-    const parts = updatedHtml.split(/(<[^>]*>)/g);
+  // HTML: walk text nodes in document order (the order search sees them),
+  // never touching markup; keep mention labels in sync with their text.
+  const replaceHtml = (html: string, chosen: Set<number>): string => {
+    let k = 0;
+    const parts = html.split(/(<[^>]*>)/g);
+    let mentionOpenIdx = -1;
     for (let i = 0; i < parts.length; i++) {
-      if (!parts[i].startsWith('<')) {
-        parts[i] = parts[i].replace(regex, (m) => {
-          updatedCount++;
-          return replacementText;
-        });
+      const part = parts[i];
+      if (part.startsWith("<")) {
+        if (/data-type="mention"/i.test(part)) mentionOpenIdx = i;
+        else if (/^<\/span/i.test(part)) mentionOpenIdx = -1;
+        continue;
+      }
+      if (!part) continue;
+      const replaced = part.replace(new RegExp(source, flags), (m) => {
+        const hit = chosen.has(k++);
+        if (hit) updatedCount++;
+        return hit ? replacementText : m;
+      });
+      if (replaced !== part) {
+        parts[i] = replaced;
+        if (mentionOpenIdx >= 0) {
+          const label = replaced.replace(/^@/, "").replace(/"/g, "&quot;");
+          parts[mentionOpenIdx] = parts[mentionOpenIdx].replace(/data-label="[^"]*"/i, `data-label="${label}"`);
+        }
       }
     }
-
     return parts.join("");
   };
 
-  // 1. Replace in Manuscript
+  // 1. Manuscript
   if (data.manuscript) {
-    const updateManuscript = (items: ManuscriptItem[]) => {
+    const walk = (items: ManuscriptItem[]) => {
       for (const item of items) {
-        if (item.type === 'scene') {
-          // Check if any results were selected for this scene
-          const hasSelectedTitle = Array.from(selectedResultIds).some(id => id.includes(`manuscript-${item.id}-title`));
-          const hasSelectedContent = Array.from(selectedResultIds).some(id => id.includes(`manuscript-${item.id}-content`));
-
-          if (hasSelectedTitle && item.title) {
-            item.title = replaceInPlainText(item.title);
-          }
-          if (hasSelectedContent && item.content) {
-            item.content = replaceInHtml(item.content);
-          }
+        if (item.type === "scene") {
+          const t1 = pick("manuscript", item.id, "title");
+          if (t1 && item.title) item.title = replacePlain(item.title, t1);
+          const c1 = pick("manuscript", item.id, "content");
+          if (c1 && item.content) item.content = replaceHtml(item.content, c1);
         }
-        if (item.children) {
-          updateManuscript(item.children);
-        }
+        if (item.children) walk(item.children);
       }
     };
-    updateManuscript(data.manuscript);
+    walk(data.manuscript);
   }
 
-  // 2. Replace in Characters
+  // 2. Characters (traits are searched as one comma-joined string)
   if (data.characters) {
-    for (const char of data.characters) {
-      const charId = String(char.id);
-      const isSelected = (field: string) => 
-        Array.from(selectedResultIds).some(id => id.includes(`character-${charId}-${field}`));
-
-      if (char.name && isSelected('name')) {
-        char.name = replaceInPlainText(char.name);
+    for (const char of data.characters as any[]) {
+      const cid = String(char.id);
+      for (const field of ["name", "role", "description", "motivation", "backstory"]) {
+        const s = pick("character", cid, field);
+        if (s && typeof char[field] === "string") char[field] = replacePlain(char[field], s);
       }
-      if (char.role && isSelected('role')) {
-        char.role = replaceInPlainText(char.role);
-      }
-      if (char.description && isSelected('description')) {
-        char.description = replaceInPlainText(char.description);
-      }
-      if (char.motivation && isSelected('motivation')) {
-        char.motivation = replaceInPlainText(char.motivation);
-      }
-      if (char.backstory && isSelected('backstory')) {
-        char.backstory = replaceInPlainText(char.backstory);
+      const ts = pick("character", cid, "traits");
+      if (ts && Array.isArray(char.traits)) {
+        char.traits = replacePlain(char.traits.join(", "), ts).split(", ");
       }
     }
   }
 
-  // 3. Replace in Locations
+  // 3. Locations
   if (data.locations) {
-    for (const loc of data.locations) {
-      const locId = String(loc.id);
-      const isSelected = (field: string) => 
-        Array.from(selectedResultIds).some(id => id.includes(`location-${locId}-${field}`));
-
-      if (loc.name && isSelected('name')) {
-        loc.name = replaceInPlainText(loc.name);
-      }
-      if (loc.type && isSelected('type')) {
-        loc.type = replaceInPlainText(loc.type);
-      }
-      if (loc.description && isSelected('description')) {
-        loc.description = replaceInPlainText(loc.description);
-      }
-      if (loc.history && isSelected('history')) {
-        loc.history = replaceInPlainText(loc.history);
+    for (const loc of data.locations as any[]) {
+      const lid = String(loc.id);
+      for (const field of ["name", "type", "description", "history"]) {
+        const s = pick("location", lid, field);
+        if (s && typeof loc[field] === "string") loc[field] = replacePlain(loc[field], s);
       }
     }
   }
 
-  // 4. Replace in Notes
+  // 4. Notes
   if (data.notes) {
     for (const [sceneId, noteContent] of Object.entries(data.notes)) {
-      const isSelected = Array.from(selectedResultIds).some(id => id.includes(`note-${sceneId}-note`));
-      if (isSelected && noteContent) {
-        data.notes[sceneId] = replaceInPlainText(noteContent);
-      }
+      const s = pick("note", sceneId, "note");
+      if (s && noteContent) data.notes[sceneId] = replacePlain(noteContent, s);
     }
   }
 
-  // 5. Replace in Story Bible
+  // 5. Story Bible
   if (data.storyBible) {
     const bible = data.storyBible as any;
     for (const key of Object.keys(bible)) {
-      const isSelected = Array.from(selectedResultIds).some(id => id.includes(`bible-${key}-${key}`));
-      if (isSelected && typeof bible[key] === 'string') {
-        bible[key] = replaceInPlainText(bible[key]);
-      }
+      const s = pick("bible", key, key);
+      if (s && typeof bible[key] === "string") bible[key] = replacePlain(bible[key], s);
     }
   }
 
-  // Persist the updated data
   storage.saveProjectData(projectId, data);
-
-  return { updatedCount, projectData: data };
+  return { updatedCount, projectData: data, previousData };
 }
