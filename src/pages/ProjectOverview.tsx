@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-import { storage } from "@/lib/storage";
+import { storage, type StudioTask } from "@/lib/storage";
 import { ExportModal } from "@/components/ExportModal";
 import { fileToOptimizedDataUrl } from "@/lib/imageUtils";
 import {
@@ -13,6 +13,7 @@ import {
   IconDownload,
   IconImage,
   IconSpinner,
+  IconTick,
   IconTrash,
 } from "@/components/brand/ocean-ui";
 
@@ -104,7 +105,54 @@ export default function ProjectOverview() {
   const plotProgressPct =
     plannedEventsCount > 0 ? Math.min(100, Math.round((completedEventsCount / plannedEventsCount) * 100)) : wordPct;
 
-  const openStudio = () => navigate(`/project/${id || "1"}/workspace/studio`);
+  // Same velocity the Dashboard stats use (~900 words per hour), so both pages agree
+  const draftingTime = `${Math.floor(totalWords / 900)}h ${Math.round((totalWords % 900) / 15)}m`;
+
+  const openStudio = (sceneId?: string) =>
+    navigate(`/project/${id || "1"}/workspace/studio${sceneId ? `?scene=${sceneId}` : ""}`);
+
+  // Chapters in manuscript order, with their words and first scene to jump into
+  const sceneWords = (html?: string) => {
+    const text = (html || "").replace(/<[^>]*>/g, " ").trim();
+    return text ? text.split(/\s+/).filter(Boolean).length : 0;
+  };
+  const chapters: Array<{ id: string; title: string; words: number; scenes: number; firstSceneId?: string }> = [];
+  const collectChapters = (items: any[] = []) => {
+    for (const item of items) {
+      if (item.type === "chapter") {
+        const scenes: any[] = [];
+        const gather = (xs: any[] = []) =>
+          xs.forEach((x) => {
+            if (x.type === "scene") scenes.push(x);
+            if (x.children) gather(x.children);
+          });
+        gather(item.children);
+        chapters.push({
+          id: item.id,
+          title: item.title || "Untitled chapter",
+          words: scenes.reduce((sum, s) => sum + sceneWords(s.content), 0),
+          scenes: scenes.length,
+          firstSceneId: scenes[0]?.id,
+        });
+      } else if (item.children) {
+        collectChapters(item.children);
+      }
+    }
+  };
+  collectChapters(projectData?.manuscript || []);
+  const maxChapterWords = Math.max(1, ...chapters.map((c) => c.words));
+
+  // Open tasks for this book (plus untagged ones), most urgent first
+  const [tasks, setTasks] = useState<StudioTask[]>(() => storage.getTasks(id));
+  const urgencyRank = { high: 0, medium: 1, low: 2 } as const;
+  const nextTasks = tasks
+    .filter((t) => !t.completed)
+    .sort((a, b) => urgencyRank[a.urgency] - urgencyRank[b.urgency] || b.createdAt - a.createdAt)
+    .slice(0, 3);
+  const completeTask = (task: StudioTask) => {
+    storage.saveTask({ ...task, completed: true });
+    setTasks(storage.getTasks(id));
+  };
 
   const glance = [
     { label: "Characters", value: projectData?.characters?.length ?? 0, href: `/project/${id}/characters` },
@@ -208,13 +256,12 @@ export default function ProjectOverview() {
                 />
               </div>
               <p className="mt-2 text-[12px] text-[#0E1D26]/45">
-                {actualChaptersCount} {actualChaptersCount === 1 ? "chapter" : "chapters"} · about{" "}
-                {totalWords > 0 ? Math.max(1, Math.round(totalWords / 250)) : 0}h of drafting
+                {actualChaptersCount} {actualChaptersCount === 1 ? "chapter" : "chapters"} · about {draftingTime} of writing
               </p>
             </div>
 
             <button
-              onClick={openStudio}
+              onClick={() => openStudio(projectData?.lastActiveSceneId)}
               className="group mt-7 h-12 pl-6 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[14px] font-bold inline-flex items-center gap-3 transition-colors cursor-pointer"
             >
               Continue Writing
@@ -228,54 +275,124 @@ export default function ProjectOverview() {
           </div>
         </motion.section>
 
-        {/* Quiet details */}
+        {/* At a glance — one quiet line of links */}
+        <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-[#0E1D26]/55">
+          {glance.map((g) => (
+            <button key={g.label} onClick={() => navigate(g.href)} className="hover:text-[#0E1D26] transition-colors cursor-pointer">
+              <strong className="text-[#0E1D26] font-bold">{g.value}</strong> {g.label.toLowerCase()}
+            </button>
+          ))}
+        </div>
+
         <motion.section
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.08 }}
-          className="mt-12 grid grid-cols-1 lg:grid-cols-5 gap-4"
+          className="mt-4 grid grid-cols-1 lg:grid-cols-5 gap-4"
         >
-          <div className="lg:col-span-3 rounded-3xl bg-white border border-[#E9E2D4] p-6">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">At a glance</p>
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {glance.map((g) => (
-                <button
-                  key={g.label}
-                  onClick={() => navigate(g.href)}
-                  className="text-left p-3 rounded-2xl hover:bg-[#F8F5EE] transition-colors cursor-pointer"
-                >
-                  <p className="text-[26px] font-extrabold leading-none">{g.value}</p>
-                  <p className="mt-1.5 text-[12px] text-[#0E1D26]/55">{g.label}</p>
-                </button>
-              ))}
+          {/* Chapters */}
+          <div className="lg:col-span-3 rounded-3xl bg-white border border-[#E9E2D4] p-6 flex flex-col">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Chapters</p>
+              <span className="text-[12px] text-[#0E1D26]/40">{chapters.length}</span>
             </div>
+
+            {chapters.length === 0 ? (
+              <p className="mt-4 text-[14px] text-[#0E1D26]/55">No chapters yet — start one in the Writing Studio.</p>
+            ) : (
+              <ol className="mt-3 -mx-2 max-h-[320px] overflow-y-auto custom-scrollbar">
+                {chapters.map((c, i) => (
+                  <li key={c.id}>
+                    <button
+                      onClick={() => openStudio(c.firstSceneId)}
+                      className="group w-full flex items-center gap-4 px-2 py-2.5 rounded-2xl hover:bg-[#F8F5EE] text-left transition-colors cursor-pointer"
+                    >
+                      <span className="w-6 text-[12px] font-semibold text-[#0E1D26]/35 tabular-nums">{String(i + 1).padStart(2, "0")}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[14px] font-semibold truncate">{c.title}</span>
+                        <span className="mt-1.5 block h-1 rounded-full bg-[#F1ECE2] overflow-hidden">
+                          <span
+                            className={cn("block h-full rounded-full", c.words > 0 ? "bg-[#0E1D26]/70" : "bg-transparent")}
+                            style={{ width: `${Math.round((c.words / maxChapterWords) * 100)}%` }}
+                          />
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block text-[13px] font-semibold tabular-nums">{c.words.toLocaleString()}</span>
+                        <span className="block text-[11px] text-[#0E1D26]/40">
+                          {c.scenes} {c.scenes === 1 ? "scene" : "scenes"}
+                        </span>
+                      </span>
+                      <IconArrow className="w-4 h-4 shrink-0 text-[#0E1D26]/25 group-hover:text-[#E8561F] transition-colors" />
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
 
-          <div className="lg:col-span-2 rounded-3xl bg-white border border-[#E9E2D4] p-6 flex items-center gap-5">
-            <div className="relative w-[72px] h-[72px] shrink-0">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="#EFE9DE" strokeWidth="8" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  fill="none"
-                  stroke="#0E1D26"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={263.9}
-                  strokeDashoffset={263.9 * (1 - plotProgressPct / 100)}
-                />
-              </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-[16px] font-extrabold">{plotProgressPct}%</span>
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            {/* Next up */}
+            <div className="rounded-3xl bg-white border border-[#E9E2D4] p-6">
+              <div className="flex items-baseline justify-between">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Next up</p>
+                <button
+                  onClick={() => navigate("/dashboard")}
+                  className="text-[12px] text-[#0E1D26]/45 hover:text-[#0E1D26] transition-colors cursor-pointer"
+                >
+                  All tasks
+                </button>
+              </div>
+
+              {nextTasks.length === 0 ? (
+                <p className="mt-4 text-[14px] text-[#0E1D26]/55">Nothing pending for this book.</p>
+              ) : (
+                <ul className="mt-3 space-y-1">
+                  {nextTasks.map((t) => (
+                    <li key={t.id} className="flex items-center gap-3 py-1.5">
+                      <button
+                        onClick={() => completeTask(t)}
+                        title="Mark as done"
+                        className="group w-5 h-5 rounded-full border-2 border-[#0E1D26]/20 hover:border-[#E8561F] flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                      >
+                        <IconTick className="w-3 h-3 text-[#E8561F] opacity-0 group-hover:opacity-100" />
+                      </button>
+                      <span className="flex-1 min-w-0 text-[14px] truncate">{t.title}</span>
+                      {t.urgency === "high" && <span className="w-1.5 h-1.5 rounded-full bg-[#E8561F] shrink-0" title="High priority" />}
+                      <span className="shrink-0 text-[11px] text-[#0E1D26]/40">{t.type === "worldbuilding" ? "world" : t.type}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <div className="min-w-0">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Plot coverage</p>
-              <p className="mt-1.5 text-[14px] leading-snug text-[#0E1D26]/70">
-                {plannedEventsCount > 0
-                  ? `${completedEventsCount} of ${plannedEventsCount} planned events reached.`
-                  : "No plot events yet — plan them in Plot & Timeline."}
-              </p>
+
+            {/* Plot coverage */}
+            <div className="rounded-3xl bg-white border border-[#E9E2D4] p-6 flex items-center gap-5">
+              <div className="relative w-[64px] h-[64px] shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="#EFE9DE" strokeWidth="9" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="42"
+                    fill="none"
+                    stroke="#0E1D26"
+                    strokeWidth="9"
+                    strokeLinecap="round"
+                    strokeDasharray={263.9}
+                    strokeDashoffset={263.9 * (1 - plotProgressPct / 100)}
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-[14px] font-extrabold">{plotProgressPct}%</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Plot coverage</p>
+                <p className="mt-1.5 text-[13px] leading-snug text-[#0E1D26]/65">
+                  {plannedEventsCount > 0
+                    ? `${completedEventsCount} of ${plannedEventsCount} planned events reached.`
+                    : "No plot events yet — plan them in Plot & Timeline."}
+                </p>
+              </div>
             </div>
           </div>
         </motion.section>
