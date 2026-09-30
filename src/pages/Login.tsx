@@ -24,6 +24,9 @@ import {
   sendEmailVerification,
   updateProfile,
   onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
 } from "firebase/auth";
 import { storage } from "@/lib/storage";
 import { adminService } from "@/lib/adminService";
@@ -58,6 +61,17 @@ export default function Login() {
     setCaptchaQuestion({ num1: n1, num2: n2, answer: n1 + n2 });
     setCaptchaInput("");
   };
+
+  const switchMode = (next: "signin" | "signup") => {
+    setMode(next);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    if (next === "signup") refreshCaptcha();
+  };
+
+  // Honour "Keep me signed in": persist across browser restarts, or only for this tab session
+  const applyPersistence = () =>
+    setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
 
   // Status & Feedback
   const [isLoading, setIsLoading] = useState(false);
@@ -143,6 +157,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
+      await applyPersistence();
       if (mode === "signup") {
         const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         const nameToUse = penName.trim() || email.split("@")[0] || "Author";
@@ -159,7 +174,7 @@ export default function Login() {
           } catch (err) {
             console.warn("Verification email note:", err);
           }
-          setSuccessMsg("Author profile created. Entering your Studio...");
+          setSuccessMsg("Account created — we've sent a verification link to your inbox. Opening your studio…");
           await handlePostAuthSync(userCred.user, nameToUse);
         }
       } else {
@@ -199,6 +214,8 @@ export default function Login() {
     setIsGoogleLoading(true);
 
     try {
+      // Not awaited: the popup must open synchronously within the click gesture or browsers block it
+      applyPersistence().catch((e) => console.warn("Persistence note:", e));
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
       const result = await signInWithPopup(auth, provider);
@@ -247,126 +264,114 @@ export default function Login() {
 
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#FAF8F5] font-sans selection:bg-[#8C503C] selection:text-white overflow-x-hidden">
-      
-      {/* ================= LEFT COLUMN: CLEAN EDITORIAL SHOWCASE ================= */}
-      <div className="w-full lg:w-[46%] xl:w-[42%] bg-[#17100B] text-[#F4EFE6] p-8 sm:p-12 lg:p-16 xl:p-20 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-[#2C1C13] min-h-[420px] lg:min-h-screen shrink-0">
-        
+
+      {/* ================= LEFT COLUMN: WRITER'S DESK SHOWCASE (desktop) ================= */}
+      <div className="hidden lg:flex lg:w-[50%] xl:w-[52%] bg-[#17100B] text-[#F4EFE6] px-14 py-12 xl:px-20 flex-col justify-between relative overflow-hidden min-h-screen shrink-0">
+
         {/* Atmospheric ambient glows */}
-        <div className="absolute top-0 right-0 w-[420px] h-[420px] bg-[#8C503C]/12 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[360px] h-[360px] bg-[#C89D66]/8 rounded-full blur-[90px] pointer-events-none" />
-        
-        {/* 1. Header & Brand Identity */}
+        <div className="absolute -top-24 right-0 w-[520px] h-[520px] bg-[#8C503C]/15 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-0 -left-20 w-[420px] h-[420px] bg-[#C89D66]/10 rounded-full blur-[110px] pointer-events-none" />
+
+        {/* Brand */}
         <div className="relative z-10">
-          <span className="font-serif text-2xl font-bold tracking-tight text-[#FAF7F2] block leading-none">
-            Ocean Novel
-          </span>
-          <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#C89D66] mt-1.5 block">
-            Novel Architecture Studio
-          </span>
+          <BrandMark tone="dark" />
         </div>
 
-        {/* 2. Focused Editorial Narrative */}
-        <div className="relative z-10 my-8 lg:my-0 space-y-6 max-w-md">
-          <div className="space-y-3">
-            <h1 className="font-serif text-3xl sm:text-4xl xl:text-[44px] font-bold text-[#FCFAF5] leading-[1.15] tracking-tight">
-              Build characters.<br />Architect universes.
+        {/* Headline + product composition */}
+        <div className="relative z-10 space-y-8 my-8">
+          <div className="space-y-5 max-w-lg">
+            <h1 className="font-serif text-4xl xl:text-[44px] font-bold text-[#FCFAF5] leading-[1.12] tracking-tight">
+              Every great novel<br />
+              <span className="italic font-medium text-[#E0B98A]">begins with a world.</span>
             </h1>
-
-            <p className="font-serif text-sm sm:text-base text-[#C8B8A6] leading-relaxed">
-              Design deep character arcs, plot dynamic relationship webs, and write with seamless cloud sync.
+            <p className="font-serif text-[15px] text-[#C8B8A6] leading-relaxed max-w-md">
+              Characters, lore, plot threads and manuscript — organised in one private studio that remembers everything so you can keep writing.
             </p>
+            {/* Feature list stands in for the desk vignette on narrower desktops */}
+            <ul className="space-y-2.5 pt-2 xl:hidden">
+              {[
+                "Character dossiers & relationship maps",
+                "Story Bible for lore, factions and world rules",
+                "Continuity checks across your whole manuscript",
+              ].map((line) => (
+                <li key={line} className="flex items-start gap-2.5 text-sm text-[#DCCFBF]">
+                  <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#C89D66]" />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          {/* Clean typographic highlights without any icons */}
-          <div className="grid grid-cols-3 gap-3 pt-5 border-t border-[#2A1B12]">
-            <div>
-              <span className="text-[11px] uppercase font-bold tracking-wider text-[#C89D66] block">
-                Characters
-              </span>
-              <p className="text-xs text-stone-400 mt-1 font-serif leading-snug">
-                Flaws, desires & relationship webs
-              </p>
-            </div>
-            <div>
-              <span className="text-[11px] uppercase font-bold tracking-wider text-[#C89D66] block">
-                Story Bible
-              </span>
-              <p className="text-xs text-stone-400 mt-1 font-serif leading-snug">
-                Lore, factions & world rules
-              </p>
-            </div>
-            <div>
-              <span className="text-[11px] uppercase font-bold tracking-wider text-[#C89D66] block">
-                Cloud Vault
-              </span>
-              <p className="text-xs text-stone-400 mt-1 font-serif leading-snug">
-                Private, real-time synchronization
-              </p>
-            </div>
-          </div>
+          <DeskComposition />
         </div>
 
-        {/* 3. Footer Editorial Quote */}
-        <div className="relative z-10 pt-6 border-t border-[#2C1C13] flex items-center justify-between text-xs text-[#A69584] font-serif">
-          <span>&ldquo;A novel is a world born from words.&rdquo;</span>
-          <span className="font-mono text-[10px] text-[#C89D66] tracking-wider uppercase">
-            Encrypted & Synced
-          </span>
+        {/* Footer: ocean line + quote */}
+        <div className="relative z-10 space-y-4">
+          <svg viewBox="0 0 600 24" className="w-full h-5 text-[#3A2619]" preserveAspectRatio="none" aria-hidden="true">
+            <path
+              d="M0 12 Q 25 2 50 12 T 100 12 T 150 12 T 200 12 T 250 12 T 300 12 T 350 12 T 400 12 T 450 12 T 500 12 T 550 12 T 600 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+          </svg>
+          <div className="flex items-center justify-between text-xs text-[#A69584] font-serif">
+            <span className="italic">&ldquo;A novel is a world born from words.&rdquo;</span>
+            <span className="flex items-center gap-1.5 text-[11px] text-[#C89D66]">
+              <Lock className="w-3 h-3" /> Private & cloud-synced
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* ================= RIGHT COLUMN: FLUID AUTHENTICATION PANE ================= */}
-      <div className="flex-1 bg-[#FAF8F5] p-6 sm:p-10 lg:p-14 xl:p-20 flex flex-col justify-center items-center relative overflow-y-auto">
-        <div className="w-full max-w-md space-y-6">
-          
+      {/* ================= RIGHT COLUMN: AUTHENTICATION PANE ================= */}
+      <div className="flex-1 bg-[#FAF8F5] px-5 py-10 sm:p-10 lg:p-14 flex flex-col justify-center items-center relative overflow-y-auto">
+        <div className="w-full max-w-[400px] space-y-6">
+
+          {/* Compact brand for mobile/tablet */}
+          <div className="lg:hidden pb-2">
+            <BrandMark tone="light" />
+          </div>
+
           {/* Header & Mode Switcher with Smooth Sliding Indicator */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <h2 className="font-serif text-3xl font-bold text-[#2A1B14] tracking-tight">
-                {mode === "signin" ? "Welcome Back" : "Create Author Profile"}
+              <h2 className="font-serif text-[28px] sm:text-3xl font-bold text-[#2A1B14] tracking-tight leading-tight">
+                {mode === "signin" ? "Welcome back" : "Start your studio"}
               </h2>
-              <p className="text-xs sm:text-sm font-serif text-stone-500 mt-1">
+              <p className="text-sm font-serif text-stone-500 mt-1.5">
                 {mode === "signin"
-                  ? "Sign in to access your manuscript archives and story bible"
-                  : "Begin crafting your characters and story universe today"}
+                  ? "Pick up right where your story left off."
+                  : "Create your author profile — it takes under a minute."}
               </p>
             </div>
 
             {/* Fluid Mode Switcher */}
-            <div className="p-1 bg-[#ECE5D8] rounded-xl flex items-center border border-[#DFD6C7] relative">
+            <div className="p-1 bg-[#EFE9DE] rounded-xl flex items-center relative">
               <button
                 type="button"
-                onClick={() => {
-                  setMode("signin");
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
+                onClick={() => switchMode("signin")}
                 className={cn(
-                  "flex-1 py-2 text-xs font-bold tracking-wider rounded-lg transition-colors duration-200 cursor-pointer text-center relative z-10",
+                  "flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200 cursor-pointer text-center relative z-10",
                   mode === "signin" ? "text-[#2A1B14]" : "text-stone-500 hover:text-stone-800"
                 )}
               >
-                Sign In
+                Sign in
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setMode("signup");
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                  refreshCaptcha();
-                }}
+                onClick={() => switchMode("signup")}
                 className={cn(
-                  "flex-1 py-2 text-xs font-bold tracking-wider rounded-lg transition-colors duration-200 cursor-pointer text-center relative z-10",
+                  "flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200 cursor-pointer text-center relative z-10",
                   mode === "signup" ? "text-[#2A1B14]" : "text-stone-500 hover:text-stone-800"
                 )}
               >
-                Register
+                Create account
               </button>
 
               {/* Smooth Animated Indicator */}
               <motion.div
-                className="absolute top-1 bottom-1 bg-white rounded-lg shadow-sm border border-[#D8CEBE]"
+                className="absolute top-1 bottom-1 bg-white rounded-lg shadow-sm"
                 layoutId="authTabIndicator"
                 initial={false}
                 transition={{ type: "spring", stiffness: 450, damping: 35 }}
@@ -414,7 +419,7 @@ export default function Login() {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={isGoogleLoading || isLoading}
-            className="w-full h-11 px-4 bg-white hover:bg-stone-50 text-stone-700 border border-[#DCD5C9] hover:border-[#BFAF9C] rounded-xl font-medium text-xs sm:text-sm flex items-center justify-center gap-3 shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-60"
+            className="w-full h-11 px-4 bg-white hover:bg-stone-50 text-stone-700 border border-[#DCD5C9] hover:border-[#BFAF9C] rounded-xl font-medium text-sm flex items-center justify-center gap-3 shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-60"
           >
             {isGoogleLoading ? (
               <RefreshCw className="w-4 h-4 animate-spin text-[#8C503C]" />
@@ -442,11 +447,10 @@ export default function Login() {
           </motion.button>
 
           {/* Divider */}
-          <div className="relative flex items-center justify-center">
-            <div className="border-t border-[#EAE3D6] w-full" />
-            <span className="bg-[#FAF8F5] px-3.5 text-[10px] font-mono text-stone-400 uppercase tracking-widest relative">
-              or continue with email
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-[#E6DECF]" />
+            <span className="text-xs text-stone-400 whitespace-nowrap">or with email</span>
+            <div className="h-px flex-1 bg-[#E6DECF]" />
           </div>
 
           {/* Input Form */}
@@ -462,8 +466,8 @@ export default function Login() {
                   transition={{ duration: 0.25, ease: "easeOut" }}
                   className="space-y-1.5 overflow-hidden"
                 >
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-700">
-                    Author Pen Name / Full Name
+                  <label className="block text-[13px] font-medium text-stone-700">
+                    Pen name
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -473,7 +477,7 @@ export default function Login() {
                       placeholder="e.g. Brandon Sanderson"
                       value={penName}
                       onChange={(e) => setPenName(e.target.value)}
-                      className="w-full h-11 pl-10 pr-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-xs sm:text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans shadow-2xs"
+                      className="w-full h-11 pl-10 pr-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans"
                     />
                   </div>
                 </motion.div>
@@ -482,8 +486,8 @@ export default function Login() {
 
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-700">
-                Email Address
+              <label className="block text-[13px] font-medium text-stone-700">
+                Email
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -493,7 +497,7 @@ export default function Login() {
                   placeholder="author@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-11 pl-10 pr-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-xs sm:text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans shadow-2xs"
+                  className="w-full h-11 pl-10 pr-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans"
                 />
               </div>
             </div>
@@ -501,7 +505,7 @@ export default function Login() {
             {/* Password */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold uppercase tracking-wider text-stone-700">
+                <label className="block text-[13px] font-medium text-stone-700">
                   Password
                 </label>
                 {mode === "signin" && (
@@ -525,7 +529,7 @@ export default function Login() {
                   placeholder="At least 6 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-11 pl-10 pr-10 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-xs sm:text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans shadow-2xs"
+                  className="w-full h-11 pl-10 pr-10 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans"
                 />
                 <button
                   type="button"
@@ -537,7 +541,7 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Confirm Password (Signup only) */}
+            {/* Confirm password (Signup only) */}
             <AnimatePresence initial={false}>
               {mode === "signup" && (
                 <motion.div
@@ -547,8 +551,8 @@ export default function Login() {
                   transition={{ duration: 0.25, ease: "easeOut" }}
                   className="space-y-1.5 overflow-hidden"
                 >
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-700">
-                    Confirm Password
+                  <label className="block text-[13px] font-medium text-stone-700">
+                    Confirm password
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -558,7 +562,7 @@ export default function Login() {
                       placeholder="Re-enter your password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full h-11 pl-10 pr-10 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-xs sm:text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans shadow-2xs"
+                      className="w-full h-11 pl-10 pr-10 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans"
                     />
                     <button
                       type="button"
@@ -592,17 +596,12 @@ export default function Login() {
                   transition={{ duration: 0.25, ease: "easeOut" }}
                   className="space-y-1.5 overflow-hidden"
                 >
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-700">
-                      Security Verification (Math Captcha)
-                    </label>
-                    <span className="text-[10px] font-mono text-stone-400 uppercase tracking-wider">
-                      Human Check
-                    </span>
-                  </div>
+                  <label className="block text-[13px] font-medium text-stone-700">
+                    Quick check — solve the sum
+                  </label>
 
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center gap-2 px-3.5 h-11 bg-[#F4EFE6] border border-[#DDD5C7] rounded-xl font-mono text-sm font-bold text-[#2A1B14] select-none shrink-0 shadow-2xs">
+                    <div className="flex items-center justify-center gap-2 px-3.5 h-11 bg-[#F4EFE6] border border-[#E6DECF] rounded-xl font-mono text-sm font-bold text-[#2A1B14] select-none shrink-0">
                       <span>{captchaQuestion.num1}</span>
                       <span className="text-[#8C503C]">+</span>
                       <span>{captchaQuestion.num2}</span>
@@ -626,7 +625,7 @@ export default function Login() {
                         placeholder="Result"
                         value={captchaInput}
                         onChange={(e) => setCaptchaInput(e.target.value)}
-                        className="w-full h-11 px-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-xs sm:text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-mono shadow-2xs"
+                        className="w-full h-11 px-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-mono"
                       />
                     </div>
                   </div>
@@ -635,17 +634,15 @@ export default function Login() {
             </AnimatePresence>
 
             {/* Remember checkbox */}
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-[#DCD5C9] text-[#8C503C] focus:ring-[#8C503C] w-4 h-4 accent-[#8C503C]"
-                />
-                <span className="text-xs font-serif text-stone-600">Keep author session active</span>
-              </label>
-            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none pt-1 w-fit">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded border-[#DCD5C9] w-4 h-4 accent-[#8C503C] cursor-pointer"
+              />
+              <span className="text-sm text-stone-600">Keep me signed in</span>
+            </label>
 
             {/* Submit CTA */}
             <motion.button
@@ -653,29 +650,38 @@ export default function Login() {
               whileTap={{ scale: 0.99 }}
               type="submit"
               disabled={isLoading || isGoogleLoading}
-              className="w-full h-11 bg-gradient-to-r from-[#8C503C] to-[#753D2C] hover:from-[#7C4432] hover:to-[#683324] text-white rounded-xl font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-60 mt-3"
+              className="w-full h-12 bg-[#8C503C] hover:bg-[#7A4332] text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-[0_6px_20px_-8px_rgba(140,80,60,0.7)] transition-colors cursor-pointer disabled:opacity-60 mt-2"
             >
               {isLoading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Entering Studio...</span>
+                  <span>Opening your studio…</span>
                 </>
               ) : (
                 <>
-                  <span>{mode === "signin" ? "Open Studio Archives" : "Create Author Profile"}</span>
+                  <span>{mode === "signin" ? "Sign in" : "Create account"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </motion.button>
           </form>
 
-          {/* Security & Cloud Badge */}
-          <div className="text-center pt-3 border-t border-[#EAE3D6] flex items-center justify-center gap-2 text-stone-400">
-            <BookOpen className="w-3.5 h-3.5 text-[#8C503C]" />
-            <p className="text-[11px] font-serif">
-              Private Author Vault • Real-Time Cloud Synchronization
-            </p>
-          </div>
+          {/* Mode hint */}
+          <p className="text-center text-sm text-stone-500">
+            {mode === "signin" ? "New to Ocean Novel? " : "Already have an account? "}
+            <button
+              type="button"
+              onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
+              className="font-semibold text-[#8C503C] hover:underline cursor-pointer"
+            >
+              {mode === "signin" ? "Create an account" : "Sign in"}
+            </button>
+          </p>
+
+          <p className="flex items-center justify-center gap-1.5 text-[11px] text-stone-400">
+            <BookOpen className="w-3.5 h-3.5 text-[#8C503C]/70" />
+            Your manuscripts stay private to your account.
+          </p>
 
         </div>
       </div>
@@ -758,6 +764,112 @@ export default function Login() {
           </div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function BrandMark({ tone }: { tone: "dark" | "light" }) {
+  const onDark = tone === "dark";
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={cn(
+          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+          onDark ? "bg-[#C89D66]/15 text-[#E0B98A]" : "bg-[#8C503C]/10 text-[#8C503C]"
+        )}
+      >
+        <BookOpen className="w-5 h-5" />
+      </div>
+      <div>
+        <span className={cn("font-serif text-xl font-bold tracking-tight block leading-none", onDark ? "text-[#FAF7F2]" : "text-[#2A1B14]")}>
+          Ocean Novel
+        </span>
+        <span className={cn("text-[10px] uppercase font-semibold tracking-[0.2em] mt-1 block", onDark ? "text-[#C89D66]" : "text-[#8C503C]")}>
+          Novel Architecture Studio
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Illustrative product vignette: a character dossier, a chapter in progress and a relationship web
+function DeskComposition() {
+  const float = (delay: number) => ({
+    initial: { opacity: 0, y: 16 },
+    animate: { opacity: 1, y: [0, -6, 0] },
+    transition: {
+      opacity: { duration: 0.6, delay },
+      y: { duration: 7, delay, repeat: Infinity, ease: "easeInOut" as const },
+    },
+  });
+
+  return (
+    <div className="relative h-[250px] w-full max-w-[560px] hidden xl:block" aria-hidden="true">
+      {/* Character dossier */}
+      <motion.div
+        {...float(0.1)}
+        className="absolute top-0 left-0 w-[240px] rounded-2xl bg-[#FAF6EE] text-[#2A1B14] p-4 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] -rotate-3"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#8C503C] to-[#C89D66] flex items-center justify-center text-white font-serif font-bold">
+            EV
+          </div>
+          <div>
+            <p className="font-serif font-bold text-[15px] leading-tight">Elara Voss</p>
+            <p className="text-[11px] text-stone-500">Protagonist · Tidecaller</p>
+          </div>
+        </div>
+        <div className="mt-3 space-y-1.5 text-[11px]">
+          <div className="flex justify-between"><span className="text-stone-500">Desire</span><span className="font-medium">Raise the drowned city</span></div>
+          <div className="flex justify-between"><span className="text-stone-500">Flaw</span><span className="font-medium">Trusts no one</span></div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {["Stubborn", "Loyal", "Haunted"].map((t) => (
+            <span key={t} className="px-2 py-0.5 rounded-full bg-[#8C503C]/10 text-[#8C503C] text-[10px] font-semibold">{t}</span>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Chapter progress */}
+      <motion.div
+        {...float(0.35)}
+        className="absolute top-4 right-0 w-[230px] rounded-2xl bg-[#241810] border border-[#3A2619] p-4 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)] rotate-2"
+      >
+        <p className="text-[10px] uppercase tracking-[0.18em] text-[#C89D66] font-semibold">Chapter 12</p>
+        <p className="font-serif text-[15px] font-semibold text-[#FAF7F2] mt-1">The Drowned Library</p>
+        <p className="font-serif italic text-[11px] text-[#A69584] mt-2 leading-relaxed">
+          &ldquo;The shelves still breathed salt, and every page remembered the sea…&rdquo;
+        </p>
+        <div className="mt-3">
+          <div className="flex justify-between text-[10px] text-[#A69584] mb-1">
+            <span>3,412 / 5,000 words</span><span>68%</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-[#3A2619] overflow-hidden">
+            <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-[#8C503C] to-[#E0B98A]" />
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Relationship web */}
+      <motion.div
+        {...float(0.6)}
+        className="absolute -bottom-2 left-[42%] w-[190px] rounded-2xl bg-[#FAF6EE] p-3 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] -rotate-1"
+      >
+        <p className="text-[10px] uppercase tracking-[0.18em] text-[#8C503C] font-semibold mb-1">Relationships</p>
+        <svg viewBox="0 0 180 90" className="w-full h-[84px]">
+          <g stroke="#C9B79F" strokeWidth="1.2">
+            <line x1="90" y1="45" x2="30" y2="20" />
+            <line x1="90" y1="45" x2="150" y2="22" />
+            <line x1="90" y1="45" x2="40" y2="75" strokeDasharray="3 3" />
+            <line x1="90" y1="45" x2="145" y2="72" />
+          </g>
+          <circle cx="90" cy="45" r="11" fill="#8C503C" />
+          <circle cx="30" cy="20" r="7" fill="#C89D66" />
+          <circle cx="150" cy="22" r="7" fill="#C89D66" />
+          <circle cx="40" cy="75" r="7" fill="#A8A29E" />
+          <circle cx="145" cy="72" r="7" fill="#C89D66" />
+        </svg>
+      </motion.div>
     </div>
   );
 }
