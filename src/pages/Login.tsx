@@ -18,7 +18,6 @@ import {
 import { storage } from "@/lib/storage";
 import { adminService } from "@/lib/adminService";
 import { cn } from "@/lib/utils";
-import { CHARACTER_PRESETS } from "@/data/characterPresets";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -249,61 +248,112 @@ export default function Login() {
     }
   };
 
-  const labelCls = "block text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600 mb-2";
+  const labelCls = "block pl-5 mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#0E1D26]/60";
   const inputCls =
-    "w-full h-[52px] px-4 bg-white border border-[#E6DFD3] rounded-xl text-[15px] text-stone-900 placeholder:text-stone-400 outline-none transition shadow-[0_1px_2px_rgba(42,27,20,0.04)] focus:border-[#2A1B14]/40 focus:ring-4 focus:ring-[#2A1B14]/5";
+    "w-full h-[52px] px-5 bg-white border border-[#E4DAC8] rounded-full text-[15px] text-[#0E1D26] placeholder:text-[#0E1D26]/35 outline-none transition focus:border-[#E8561F] focus:ring-4 focus:ring-[#E8561F]/12";
   const isSignup = mode === "signup";
 
   return (
-    <div className="min-h-screen w-full flex bg-[#FAF8F4] font-sans text-[#2A1B14] selection:bg-[#8C503C] selection:text-white">
-      {/* ================= LEFT: EDITORIAL PANEL ================= */}
-      <aside className="hidden lg:flex relative w-[56%] overflow-hidden border-r border-[#ECE6DB] bg-[#FBF9F5]">
-        <Aura />
+    <div className="min-h-screen w-full flex bg-[#F6F1E7] font-['Outfit'] text-[#0E1D26] selection:bg-[#E8561F] selection:text-white">
+      {/* ================= LEFT: NAVY HERO ================= */}
+      <aside className="hidden lg:flex relative w-[58%] overflow-hidden bg-[#0E1D26] text-[#F6F1E7]">
+        {/* Geometric décor */}
+        <div className="absolute -left-24 -bottom-28 w-[340px] h-[420px] rounded-t-full bg-[#F0B54B] rotate-[18deg]" aria-hidden="true" />
+        <div className="absolute right-0 top-0 h-full w-[120px] bg-[#132631]" aria-hidden="true" />
+        <div className="absolute right-[60px] top-[14%] w-[120px] h-[120px] rounded-full border-[18px] border-[#E8561F]/90" aria-hidden="true" />
 
-        <div className="relative z-10 m-auto w-full max-w-[660px] px-10 xl:px-14 py-8 flex flex-col gap-7">
-          {/* Brand row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <GlyphTile small />
-              <span className="font-['Cormorant_Garamond'] text-[22px] font-semibold text-[#1E140E]">Ocean Novel</span>
+        <div className="relative z-10 m-auto w-full max-w-[760px] px-12 xl:px-16 py-10 flex flex-col gap-10">
+          {/* Brand */}
+          <div className="flex items-center gap-2.5">
+            <IconBookWave className="w-7 h-7 text-[#F0B54B]" />
+            <span className="text-[18px] font-bold tracking-tight">Ocean Novel</span>
+          </div>
+
+          {/* Book + headline */}
+          <div className="flex items-center gap-10 xl:gap-14">
+            <BookMockup />
+
+            <div className="min-w-0">
+              <span className="inline-block px-3 py-1 border border-[#F6F1E7]/70 text-[10px] font-bold uppercase tracking-[0.22em]">
+                Novel Writing Studio
+              </span>
+              <h1 className="mt-4 text-[46px] xl:text-[58px] font-extrabold leading-[0.98] tracking-[-0.02em]">
+                Write Your
+                <br />
+                <span className="text-[#E8561F]">Story World.</span>
+              </h1>
+              <p className="mt-5 text-[15px] leading-relaxed text-[#F6F1E7]/75 max-w-[360px]">
+                Characters, lore, plot and manuscript in one private studio — with a clear path from first idea to finished book.
+              </p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-white/60 border border-white/80 backdrop-blur text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-              Novel Architecture Studio
-            </span>
           </div>
 
-          <div>
-            <h1 className="font-['Cormorant_Garamond'] text-[48px] xl:text-[56px] leading-[1.02] font-medium tracking-tight text-[#1E140E]">
-              Build worlds <span className="italic text-[#8C503C]">worth reading.</span>
-            </h1>
-            <p className="mt-4 text-[16px] leading-relaxed text-stone-600 max-w-[480px]">
-              Characters, lore, plot and manuscript — one private studio for your novel.
-            </p>
+          {/* Playbook-style feature cards */}
+          <div className="grid grid-cols-3 gap-3">
+            {FEATURES.map((f, i) => (
+              <motion.div
+                key={f.tag}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, delay: 0.15 + i * 0.1, ease: "easeOut" }}
+                whileHover={{ y: -3 }}
+                className="group flex items-stretch h-[92px] rounded-xl bg-[#F6F1E7] text-[#0E1D26] overflow-hidden"
+              >
+                <FeatureThumb variant={i} />
+                <div className="flex-1 min-w-0 px-3 py-2.5 flex flex-col justify-between">
+                  <span className="self-start px-1.5 py-0.5 border border-[#0E1D26]/30 rounded text-[8.5px] font-bold uppercase tracking-[0.14em]">
+                    {f.tag}
+                  </span>
+                  <p className="text-[13px] font-semibold leading-snug">{f.title}</p>
+                </div>
+                <div className="pr-2.5 hidden 2xl:flex items-center">
+                  <span className="w-7 h-7 rounded-full border border-[#0E1D26]/15 flex items-center justify-center transition group-hover:bg-[#E8561F] group-hover:border-[#E8561F] group-hover:text-white">
+                    <IconArrow className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </motion.div>
+            ))}
           </div>
-
-          <StudioBento />
         </div>
       </aside>
 
       {/* ================= RIGHT: FORM ================= */}
-      <main className="flex-1 flex items-center justify-center px-6 py-12 sm:px-10">
+      <main className="flex-1 flex items-center justify-center px-6 py-10 sm:px-10">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="w-full max-w-[440px]"
+          className="w-full max-w-[400px]"
         >
           {/* Mobile brand */}
-          <div className="lg:hidden mb-10 flex items-center gap-3">
-            <GlyphTile small />
-            <span className="font-['Cormorant_Garamond'] text-2xl font-semibold">Ocean Novel</span>
+          <div className="lg:hidden mb-10 relative overflow-hidden rounded-3xl bg-[#0E1D26] text-[#F6F1E7] px-6 py-7">
+            <div className="absolute -right-10 -top-10 w-36 h-36 rounded-full bg-[#E8561F]" aria-hidden="true" />
+            <div className="absolute -left-8 -bottom-16 w-28 h-36 rounded-t-full bg-[#F0B54B] rotate-[18deg]" aria-hidden="true" />
+            <div className="relative flex items-center gap-2">
+              <IconBookWave className="w-6 h-6 text-[#F0B54B]" />
+              <span className="text-[16px] font-bold tracking-tight">Ocean Novel</span>
+            </div>
+            <p className="relative mt-5 pl-16 text-[30px] font-extrabold leading-[1] tracking-[-0.02em]">
+              Write Your <span className="text-[#E8561F]">Story World.</span>
+            </p>
           </div>
 
-          <h2 className="font-['Cormorant_Garamond'] text-[34px] leading-tight font-medium text-[#1E140E]">
-            {isSignup ? "Create your studio" : "Welcome back"}
+          <span className="inline-block px-3 py-1 border border-[#0E1D26]/70 text-[10px] font-bold uppercase tracking-[0.22em]">
+            {isSignup ? "New Author" : "Member Access"}
+          </span>
+          <h2 className="mt-4 text-[40px] font-extrabold leading-[1] tracking-[-0.02em]">
+            {isSignup ? (
+              <>
+                Start your <span className="text-[#E8561F]">studio.</span>
+              </>
+            ) : (
+              <>
+                Welcome <span className="text-[#E8561F]">back.</span>
+              </>
+            )}
           </h2>
-          <p className="mt-2 text-[15px] text-stone-500">
-            {isSignup ? "Set up your author profile in under a minute." : "Sign in to access your manuscripts and story bible."}
+          <p className="mt-3 text-[15px] text-[#0E1D26]/65">
+            {isSignup ? "Set up your author profile in under a minute." : "Sign in to open your manuscripts and story bible."}
           </p>
 
           {/* Feedback */}
@@ -316,8 +366,8 @@ export default function Login() {
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.18 }}
                 className={cn(
-                  "mt-6 px-3.5 py-3 rounded-xl flex items-start gap-2.5 text-[13px] leading-snug",
-                  errorMsg ? "bg-rose-50 text-rose-800" : "bg-emerald-50 text-emerald-800"
+                  "mt-6 px-4 py-3 rounded-2xl flex items-start gap-2.5 text-[13px] leading-snug",
+                  errorMsg ? "bg-[#E8561F]/10 text-[#A33A10]" : "bg-emerald-50 text-emerald-800"
                 )}
               >
                 {errorMsg ? <IconAlert className="w-4 h-4 mt-px shrink-0" /> : <IconCheck className="w-4 h-4 mt-px shrink-0" />}
@@ -326,7 +376,7 @@ export default function Login() {
             )}
           </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-4">
             {isSignup && (
               <div>
                 <label htmlFor="pen" className={labelCls}>Pen name</label>
@@ -340,7 +390,7 @@ export default function Login() {
             </div>
 
             <div>
-              <div className="flex items-baseline justify-between">
+              <div className="flex items-baseline justify-between pr-5">
                 <label htmlFor="pw" className={labelCls}>Password</label>
                 {!isSignup && (
                   <button
@@ -349,9 +399,9 @@ export default function Login() {
                       setResetEmail(email);
                       setIsForgotModalOpen(true);
                     }}
-                    className="text-[12px] text-stone-500 hover:text-[#2A1B14] transition cursor-pointer"
+                    className="text-[12px] font-medium text-[#E8561F] hover:underline cursor-pointer"
                   >
-                    Forgot password?
+                    Forgot?
                   </button>
                 )}
               </div>
@@ -364,13 +414,13 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={isSignup ? "At least 6 characters" : "••••••••"}
-                  className={cn(inputCls, "pr-12")}
+                  className={cn(inputCls, "pr-14")}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-stone-400 hover:text-[#2A1B14] transition cursor-pointer"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-[#0E1D26]/40 hover:text-[#E8561F] transition cursor-pointer"
                 >
                   {showPassword ? <IconEyeOff className="w-[18px] h-[18px]" /> : <IconEye className="w-[18px] h-[18px]" />}
                 </button>
@@ -388,22 +438,22 @@ export default function Login() {
                     autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={cn(inputCls, confirmPassword && password !== confirmPassword && "border-rose-300 focus:ring-rose-100")}
+                    className={cn(inputCls, confirmPassword && password !== confirmPassword && "border-[#E8561F]/60")}
                   />
                 </div>
 
                 <div>
                   <label htmlFor="sum" className={labelCls}>Quick check</label>
                   <div className="flex items-center gap-2">
-                    <span className="h-[52px] px-4 flex items-center rounded-xl bg-[#F1ECE3] font-mono text-[15px] font-semibold select-none shrink-0">
+                    <span className="h-[52px] px-5 flex items-center rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[15px] font-semibold select-none shrink-0 tabular-nums">
                       {captchaQuestion.num1} + {captchaQuestion.num2} =
                     </span>
-                    <input id="sum" type="number" required value={captchaInput} onChange={(e) => setCaptchaInput(e.target.value)} placeholder="?" className={cn(inputCls, "font-mono")} />
+                    <input id="sum" type="number" required value={captchaInput} onChange={(e) => setCaptchaInput(e.target.value)} placeholder="?" className={inputCls} />
                     <button
                       type="button"
                       onClick={refreshCaptcha}
                       aria-label="New sum"
-                      className="h-[52px] w-[52px] shrink-0 rounded-xl flex items-center justify-center text-stone-400 hover:text-[#2A1B14] hover:bg-[#F1ECE3] transition cursor-pointer"
+                      className="h-[52px] w-[52px] shrink-0 rounded-full border border-[#E4DAC8] flex items-center justify-center text-[#0E1D26]/50 hover:text-[#E8561F] hover:border-[#E8561F] transition cursor-pointer"
                     >
                       <IconRefresh className="w-[18px] h-[18px]" />
                     </button>
@@ -415,38 +465,41 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading || isGoogleLoading}
-              className="w-full h-[52px] !mt-7 bg-[#2A1B14] hover:bg-[#1E140E] text-[#FAF6EE] rounded-xl text-[13px] font-semibold uppercase tracking-[0.16em] flex items-center justify-center gap-2 shadow-[0_10px_24px_-12px_rgba(30,20,14,0.8)] transition-colors cursor-pointer disabled:opacity-60"
+              className="group w-full h-[54px] !mt-6 pl-7 pr-2 bg-[#E8561F] hover:bg-[#D44B17] text-white rounded-full text-[15px] font-bold flex items-center justify-between shadow-[0_14px_30px_-14px_rgba(232,86,31,0.9)] transition-colors cursor-pointer disabled:opacity-60"
             >
-              {isLoading ? <IconSpinner className="w-4 h-4" /> : isSignup ? "Create my studio" : "Sign in to studio"}
+              <span>{isLoading ? "Opening studio…" : isSignup ? "Create My Studio" : "Enter The Studio"}</span>
+              <span className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center transition-transform group-hover:translate-x-0.5">
+                {isLoading ? <IconSpinner className="w-4 h-4" /> : <IconArrow className="w-5 h-5" />}
+              </span>
             </button>
           </form>
 
-          <div className="my-7 flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-400">
-            <div className="h-px flex-1 bg-[#E6DFD3]" />
+          <div className="my-6 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.22em] text-[#0E1D26]/40">
+            <div className="h-px flex-1 bg-[#E4DAC8]" />
             or
-            <div className="h-px flex-1 bg-[#E6DFD3]" />
+            <div className="h-px flex-1 bg-[#E4DAC8]" />
           </div>
 
           <button
             type="button"
             onClick={handleGoogleSignIn}
             disabled={isGoogleLoading || isLoading}
-            className="w-full h-[52px] bg-white border border-[#E6DFD3] hover:border-[#CFC4B3] rounded-xl text-[15px] font-semibold text-[#1E140E] flex items-center justify-center gap-3 shadow-[0_1px_2px_rgba(42,27,20,0.04)] transition cursor-pointer disabled:opacity-60"
+            className="w-full h-[52px] bg-white border border-[#E4DAC8] hover:border-[#0E1D26]/40 rounded-full text-[15px] font-semibold flex items-center justify-center gap-3 transition cursor-pointer disabled:opacity-60"
           >
-            {isGoogleLoading ? <IconSpinner className="w-4 h-4 text-stone-500" /> : <GoogleLogo className="w-[18px] h-[18px]" />}
+            {isGoogleLoading ? <IconSpinner className="w-4 h-4 text-[#E8561F]" /> : <GoogleLogo className="w-[18px] h-[18px]" />}
             {isGoogleLoading ? "Connecting…" : "Continue with Google"}
           </button>
 
-          <p className="mt-8 text-center text-[14px] text-stone-500">
-            {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button
-              type="button"
-              onClick={() => switchMode(isSignup ? "signin" : "signup")}
-              className="font-semibold text-[#1E140E] hover:underline cursor-pointer"
-            >
-              {isSignup ? "Sign in." : "Create one here."}
-            </button>
-          </p>
+          <button
+            type="button"
+            onClick={() => switchMode(isSignup ? "signin" : "signup")}
+            className="group mt-9 flex items-center gap-3 text-[15px] font-medium text-[#E8561F] cursor-pointer"
+          >
+            {isSignup ? "I already have an account" : "Create a free account"}
+            <span className="w-9 h-9 rounded-full bg-[#E8561F] text-white flex items-center justify-center transition-transform group-hover:translate-x-1">
+              <IconArrow className="w-4 h-4" />
+            </span>
+          </button>
         </motion.div>
       </main>
 
@@ -457,7 +510,7 @@ export default function Login() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1E140E]/40 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0E1D26]/60 backdrop-blur-sm"
             onClick={() => setIsForgotModalOpen(false)}
           >
             <motion.div
@@ -466,32 +519,34 @@ export default function Login() {
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.18 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-[400px] bg-[#FAF8F4] rounded-2xl p-7 shadow-2xl"
+              className="relative w-full max-w-[400px] bg-[#F6F1E7] rounded-3xl p-7 shadow-2xl"
             >
               <button
                 type="button"
                 onClick={() => setIsForgotModalOpen(false)}
                 aria-label="Close"
-                className="absolute right-4 top-4 p-1.5 rounded-lg text-stone-400 hover:text-stone-800 hover:bg-[#F1ECE3] transition cursor-pointer"
+                className="absolute right-4 top-4 w-9 h-9 rounded-full flex items-center justify-center text-[#0E1D26]/50 hover:text-[#0E1D26] hover:bg-[#E4DAC8]/60 transition cursor-pointer"
               >
                 <IconClose className="w-4 h-4" />
               </button>
 
-              <h3 className="font-['Cormorant_Garamond'] text-[26px] font-medium text-[#1E140E]">Reset password</h3>
-              <p className="mt-1 text-[14px] text-stone-500">We'll email you a link to set a new one.</p>
+              <h3 className="text-[28px] font-extrabold tracking-[-0.02em]">
+                Reset <span className="text-[#E8561F]">password.</span>
+              </h3>
+              <p className="mt-1.5 text-[14px] text-[#0E1D26]/65">We'll email you a link to set a new one.</p>
 
               <form onSubmit={handleSendPasswordReset} className="mt-6 space-y-4">
                 <div>
                   <label htmlFor="reset" className={labelCls}>Email address</label>
                   <input id="reset" type="email" required value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className={inputCls} />
                 </div>
-                {resetStatus && <p className="text-[13px] text-[#6B3D2E] bg-[#F1ECE3] px-3 py-2 rounded-xl">{resetStatus}</p>}
+                {resetStatus && <p className="text-[13px] text-[#A33A10] bg-[#E8561F]/10 px-4 py-2.5 rounded-2xl">{resetStatus}</p>}
                 <button
                   type="submit"
                   disabled={isResetting}
-                  className="w-full h-[52px] bg-[#2A1B14] hover:bg-[#1E140E] text-[#FAF6EE] rounded-xl text-[13px] font-semibold uppercase tracking-[0.16em] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-60"
+                  className="w-full h-[52px] bg-[#E8561F] hover:bg-[#D44B17] text-white rounded-full text-[15px] font-bold flex items-center justify-center transition-colors cursor-pointer disabled:opacity-60"
                 >
-                  {isResetting ? <IconSpinner className="w-4 h-4" /> : "Send reset link"}
+                  {isResetting ? <IconSpinner className="w-4 h-4" /> : "Send Reset Link"}
                 </button>
               </form>
             </motion.div>
@@ -503,212 +558,82 @@ export default function Login() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Editorial panel pieces                                              */
+/* Hero pieces                                                         */
 /* ------------------------------------------------------------------ */
 
-// Soft, slowly drifting colour washes — sand, amber and terracotta
-function Aura() {
-  const blob = "absolute rounded-full blur-[110px]";
-  return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-      <motion.div
-        className={cn(blob, "-top-24 -left-24 w-[460px] h-[460px] bg-[#BFB5A6]/55")}
-        animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className={cn(blob, "top-1/3 -right-32 w-[420px] h-[420px] bg-[#F3D9A4]/60")}
-        animate={{ x: [0, -24, 0], y: [0, 30, 0] }}
-        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className={cn(blob, "-bottom-32 left-1/3 w-[520px] h-[420px] bg-[#EFC3B1]/55")}
-        animate={{ x: [0, 20, 0], y: [0, -24, 0] }}
-        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-      />
-    </div>
-  );
-}
+const FEATURES = [
+  { tag: "Characters", title: "Dossiers & relationships" },
+  { tag: "Story Bible", title: "Lore & world rules" },
+  { tag: "Export", title: "KDP-ready EPUB 3" },
+];
 
-function GlyphTile({ small }: { small?: boolean }) {
-  return (
-    <div
-      className={cn(
-        "flex items-center justify-center rounded-2xl bg-white/50 backdrop-blur-md border border-white/70 shadow-[0_8px_24px_-10px_rgba(42,27,20,0.35)] text-[#2A1B14]",
-        small ? "w-11 h-11" : "w-16 h-16"
-      )}
-    >
-      <IconBookWave className={small ? "w-6 h-6" : "w-8 h-8"} />
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Studio bento — miniature previews of the real app sections,         */
-/* built from the same character presets the Characters page uses.    */
-/* ------------------------------------------------------------------ */
-
-const HERO = CHARACTER_PRESETS[0]; // Elaseth Moonwhisper — protagonist
-const MENTOR = CHARACTER_PRESETS[3]; // Orion Astralveil
-const ANTAGONIST = CHARACTER_PRESETS[2]; // Empress Vespera Aurelia
-const RIVAL = CHARACTER_PRESETS[6]; // Kaelen Nightshade
-
-const firstName = (name: string) => name.replace(/^(Empress|Sir)\s+/, "").split(" ")[0];
-
-function BentoBlock({
-  className,
-  delay,
-  children,
-}: {
-  className?: string;
-  delay: number;
-  children: React.ReactNode;
-}) {
+// Hardcover book with a Bauhaus cover, tilted in 3D over an orange sun
+function BookMockup() {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay, ease: "easeOut" }}
-      whileHover={{ y: -3 }}
-      className={cn(
-        "relative rounded-2xl bg-white/65 backdrop-blur-md border border-white/80 shadow-[0_12px_32px_-18px_rgba(42,27,20,0.45)] overflow-hidden",
-        className
-      )}
+      initial={{ opacity: 0, rotate: -8, y: 16 }}
+      animate={{ opacity: 1, rotate: -5, y: 0 }}
+      transition={{ duration: 0.7, ease: "easeOut" }}
+      className="relative shrink-0 w-[190px] h-[250px] xl:w-[210px] xl:h-[276px]"
+      aria-hidden="true"
     >
-      {children}
+      <div className="absolute -right-16 top-2 w-[190px] h-[190px] rounded-full bg-[#E8561F]" />
+      {/* page block */}
+      <div className="absolute inset-y-[6px] -right-[10px] w-[14px] rounded-r-sm bg-[repeating-linear-gradient(90deg,#EFE7D6_0_1px,#D9CDB6_1px_2px)] shadow-[4px_6px_12px_rgba(0,0,0,0.35)]" />
+      {/* cover */}
+      <div className="absolute inset-0 rounded-r-md rounded-l-sm bg-[#F6F1E7] overflow-hidden shadow-[18px_24px_40px_-12px_rgba(0,0,0,0.6)]">
+        <svg viewBox="0 0 210 276" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+          <circle cx="130" cy="58" r="34" fill="#F0B54B" />
+          <rect x="164" y="0" width="22" height="276" fill="#0E1D26" />
+          <rect x="176" y="0" width="10" height="120" fill="#F6F1E7" />
+          <path d="M40 276 A 80 80 0 0 1 164 200 L 164 276 Z" fill="#E8561F" />
+          <path d="M92 276 L 164 222 L 164 276 Z" fill="#E9DCC5" />
+        </svg>
+        {/* spine shading */}
+        <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/15 to-transparent" />
+        <div className="absolute left-6 top-[42%] -translate-y-1/2">
+          <p className="text-[27px] xl:text-[30px] font-extrabold leading-[0.95] tracking-[-0.02em] text-[#0E1D26]">
+            Ocean
+            <br />
+            Novel
+          </p>
+          <p className="mt-2 text-[7px] font-bold uppercase tracking-[0.3em] text-[#0E1D26]/60">Story Studio</p>
+        </div>
+      </div>
     </motion.div>
   );
 }
 
-function BlockLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">{children}</p>;
-}
-
-function Mention({ children }: { children: React.ReactNode }) {
-  return <span className="font-bold text-[#8C503C] border-b border-[#8C503C]/25 px-0.5">{children}</span>;
-}
-
-function Portrait({ src, alt, className }: { src: string; alt: string; className?: string }) {
+// Small architectural thumbnails echoing the arches, suns and stairs of the hero
+function FeatureThumb({ variant }: { variant: number }) {
   return (
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      className={cn("rounded-full object-cover ring-2 ring-white shadow-sm", className)}
-    />
-  );
-}
-
-function StudioBento() {
-  return (
-    <div className="grid grid-cols-6 auto-rows-[80px] gap-3" aria-hidden="true">
-      {/* Character dossier */}
-      <BentoBlock delay={0.1} className="col-span-2 row-span-3 !bg-[#1E140E]">
-        <img src={HERO.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#1E140E] via-[#1E140E]/40 to-transparent" />
-        <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-white/85 text-[9px] font-bold uppercase tracking-[0.14em] text-[#8C503C]">
-          {HERO.role.toLowerCase()}
-        </div>
-        <div className="absolute bottom-0 inset-x-0 p-4 text-[#FAF6EE]">
-          <p className="font-['Cormorant_Garamond'] text-[24px] leading-none font-semibold">{HERO.name}</p>
-          <p className="mt-1 text-[11px] text-[#E0CDB6]">{HERO.title}</p>
-          <div className="mt-3 flex flex-wrap gap-1">
-            {HERO.traits.slice(0, 3).map((t) => (
-              <span key={t} className="px-2 py-0.5 rounded-full bg-white/15 backdrop-blur text-[10px]">
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      </BentoBlock>
-
-      {/* Writing studio */}
-      <BentoBlock delay={0.2} className="col-span-4 row-span-2 p-4 flex flex-col">
-        <div className="flex items-center justify-between">
-          <BlockLabel>Writing Studio · Chapter 7</BlockLabel>
-          <span className="flex items-center gap-1.5 text-[10px] text-emerald-700">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Synced
-          </span>
-        </div>
-        <p className="mt-2 font-['Cormorant_Garamond'] text-[20px] font-semibold text-[#1E140E] leading-tight">
-          The Glyphs of the First Dawn
-        </p>
-        <p className="mt-1.5 font-serif text-[12.5px] leading-relaxed text-stone-600 line-clamp-2">
-          <Mention>@{firstName(HERO.name)}</Mention> traced the fading glyph while <Mention>@{firstName(MENTOR.name)}</Mention> watched
-          from the Loom — somewhere beyond the seal, <Mention>@{firstName(ANTAGONIST.name)}</Mention> was already listening.
-        </p>
-        <div className="mt-auto flex items-center gap-3">
-          <div className="h-1.5 flex-1 rounded-full bg-[#EFE9DE] overflow-hidden">
-            <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-[#8C503C] to-[#D9A876]"
-              initial={{ width: 0 }}
-              animate={{ width: "71%" }}
-              transition={{ duration: 1.2, delay: 0.6, ease: "easeOut" }}
-            />
-          </div>
-          <span className="text-[10px] text-stone-500 tabular-nums">2,840 / 4,000 words</span>
-        </div>
-      </BentoBlock>
-
-      {/* Relationship web */}
-      <BentoBlock delay={0.3} className="col-span-2 row-span-1 px-3.5 py-3">
-        <BlockLabel>Relationships</BlockLabel>
-        <div className="mt-2 flex items-center">
-          <div className="flex -space-x-2 shrink-0">
-            {[MENTOR, ANTAGONIST, RIVAL].map((c) => (
-              <Portrait key={c.id} src={c.imageUrl} alt={c.name} className="w-8 h-8" />
-            ))}
-          </div>
-          <span className="ml-2 h-8 px-2 rounded-full bg-[#EFE9DE] flex items-center text-[10px] font-semibold text-[#8C503C]">
-            +{CHARACTER_PRESETS.length - 4}
-          </span>
-        </div>
-      </BentoBlock>
-
-      {/* Plot arc */}
-      <BentoBlock delay={0.4} className="col-span-2 row-span-1 px-3.5 py-3">
-        <BlockLabel>Plot · Act II</BlockLabel>
-        <div className="mt-3 relative flex items-center justify-between">
-          <div className="absolute inset-x-0 h-px bg-[#E2D8C8]" />
-          <motion.div
-            className="absolute left-0 h-px bg-[#8C503C]"
-            initial={{ width: 0 }}
-            animate={{ width: "55%" }}
-            transition={{ duration: 1, delay: 0.8, ease: "easeOut" }}
-          />
-          {["I", "II", "III"].map((act, i) => (
-            <span
-              key={act}
-              className={cn(
-                "relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold",
-                i === 0 && "bg-[#8C503C] text-white",
-                i === 1 && "bg-white text-[#8C503C] ring-2 ring-[#8C503C]",
-                i === 2 && "bg-white text-stone-400 ring-1 ring-[#E2D8C8]"
-              )}
-            >
-              {act}
-            </span>
+    <svg viewBox="0 0 80 92" className="w-[56px] 2xl:w-[72px] h-full shrink-0" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      {variant === 0 && (
+        <>
+          <rect width="80" height="92" fill="#E8561F" />
+          <rect x="44" width="36" height="92" fill="#C8461A" />
+          <path d="M16 92 V48 A 18 18 0 0 1 52 48 V92 Z" fill="#E9DCC5" />
+          <path d="M24 92 V52 A 10 10 0 0 1 44 52 V92 Z" fill="#9C3512" />
+        </>
+      )}
+      {variant === 1 && (
+        <>
+          <rect width="80" height="92" fill="#E9DCC5" />
+          <circle cx="22" cy="58" r="30" fill="#E8561F" />
+          <path d="M40 92 V40 A 22 22 0 0 1 80 40 V92 Z" fill="#D8C7A9" />
+          <path d="M50 92 V46 A 12 12 0 0 1 74 46 V92 Z" fill="#0E1D26" />
+        </>
+      )}
+      {variant === 2 && (
+        <>
+          <rect width="80" height="92" fill="#D8C7A9" />
+          <circle cx="60" cy="20" r="14" fill="#F0B54B" />
+          {[0, 1, 2, 3, 4].map((s) => (
+            <rect key={s} x={s * 12} y={92 - (s + 1) * 9} width={80 - s * 12} height="9" fill={s % 2 ? "#E9DCC5" : "#CDB999"} />
           ))}
-        </div>
-      </BentoBlock>
-
-      {/* Export */}
-      <BentoBlock delay={0.5} className="col-span-6 row-span-1 !bg-[#2A1B14] px-4 py-3 flex items-center gap-4 text-[#FAF6EE]">
-        <div className="flex items-end gap-[3px] shrink-0" aria-hidden="true">
-          {[40, 52, 46, 56].map((h, i) => (
-            <span
-              key={i}
-              style={{ height: h }}
-              className={cn("w-3 rounded-sm", ["bg-[#8C503C]", "bg-[#D9A876]", "bg-[#6B3D2E]", "bg-[#EFC3B1]"][i])}
-            />
-          ))}
-        </div>
-        <div className="min-w-0">
-          <p className="font-['Cormorant_Garamond'] text-[20px] leading-tight font-semibold">Export to EPUB 3</p>
-          <p className="text-[11px] text-[#CDBBA5]">KDP-ready manuscript in one click · {CHARACTER_PRESETS.length} character presets included</p>
-        </div>
-      </BentoBlock>
-    </div>
+        </>
+      )}
+    </svg>
   );
 }
 
