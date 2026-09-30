@@ -236,6 +236,7 @@ export default function Dashboard() {
       if (selectedProjectId === proj.id) {
         setSelectedProjectId(updated.length > 0 ? updated[0].id : null);
       }
+      if (shelfOpenId === proj.id) setShelfOpenId(undefined);
       setProjectToDelete(null);
     } catch (err) {
       console.error("Error deleting book project:", err);
@@ -252,6 +253,20 @@ export default function Dashboard() {
     }
     return savedProjects.length > 0 ? savedProjects[0] : null;
   }, [savedProjects, selectedProjectId]);
+
+  // Which book lies open on the shelf. Separate from the selected book so a book
+  // can be closed again; undefined = default to the selected book.
+  const [shelfOpenId, setShelfOpenId] = useState<string | null | undefined>(undefined);
+  const openShelfId = shelfOpenId === undefined ? activeProject?.id ?? null : shelfOpenId;
+
+  useEffect(() => {
+    if (!openShelfId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.querySelector('[role="dialog"], .fixed.inset-0')) setShelfOpenId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openShelfId]);
 
   // Project Data for active project (for actual manuscript & entities)
   const activeProjectData = useMemo(() => {
@@ -863,7 +878,7 @@ export default function Dashboard() {
 
                 {savedProjects.map((proj, index) => {
                   const palette = coverPaletteFor(proj.genre || "", proj.id, proj.themeColor);
-                  const isSelected = activeProject?.id === proj.id;
+                  const isSelected = openShelfId === proj.id;
                   const ratio = Math.min(1, Math.max(0, (proj.currentWords || 0) / (proj.wordGoal || 75000)));
                   const pct = Math.round(ratio * 100);
                   const isComplete = ratio >= 1 && (proj.wordGoal || 0) > 0;
@@ -889,8 +904,15 @@ export default function Dashboard() {
                       animate={{ width: isSelected ? spineWidth + coverWidth : spineWidth, height: bookHeight }}
                       whileHover={isSelected ? undefined : { y: -10, rotate: -1.5 }}
                       transition={{ type: "spring", stiffness: 220, damping: 26, mass: 0.9 }}
-                      onClick={() => setSelectedProjectId(proj.id)}
-                      title={`${proj.title} • ${proj.genre || "Fiction"}`}
+                      onClick={() => {
+                        if (isSelected) {
+                          setShelfOpenId(null);
+                        } else {
+                          setShelfOpenId(proj.id);
+                          setSelectedProjectId(proj.id);
+                        }
+                      }}
+                      title={isSelected ? "Close book" : `${proj.title} • ${proj.genre || "Fiction"}`}
                       className={cn(
                         "group relative shrink-0 cursor-pointer rounded-l-[4px] rounded-r-[6px] overflow-hidden origin-bottom",
                         isSelected
@@ -975,10 +997,20 @@ export default function Dashboard() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1, transition: { delay: 0.15, duration: 0.25 } }}
                             exit={{ opacity: 0, transition: { duration: 0.1 } }}
-                            className="absolute inset-y-0 right-0 p-2.5"
+                            className="absolute inset-y-0 right-0 p-2.5 cursor-default"
                             style={{ left: spineWidth }}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <div className="relative h-full rounded-[4px] bg-[#FBF8F2] px-4 py-3.5 flex flex-col text-[#0E1D26] shadow-[inset_0_0_0_1px_rgba(14,29,38,0.06),0_2px_8px_rgba(0,0,0,0.25)]">
+                              <button
+                                type="button"
+                                onClick={() => setShelfOpenId(null)}
+                                title="Close book"
+                                aria-label="Close book"
+                                className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-[#0E1D26]/35 hover:text-[#0E1D26] hover:bg-[#0E1D26]/[0.06] transition-colors cursor-pointer"
+                              >
+                                <IconClose className="w-3.5 h-3.5" />
+                              </button>
 
                               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#E8561F]">
                                 Book · {String(index + 1).padStart(2, "0")}
