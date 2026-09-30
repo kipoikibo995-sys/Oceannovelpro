@@ -12,9 +12,9 @@ const wavePath = (y: number) => {
 };
 
 const LAYERS = [
-  { y: 70, color: "#9CC3E0", opacity: 0.35, duration: 22, delay: 0 },
-  { y: 92, color: "#3F7FB3", opacity: 0.22, duration: 15, delay: -4 },
-  { y: 118, color: "#1B4B78", opacity: 0.16, duration: 10, delay: -2 },
+  { y: 64, color: "#E9DCC5", opacity: 0.9, duration: 22, delay: 0 },
+  { y: 96, color: "#F0B54B", opacity: 0.55, duration: 15, delay: -4 },
+  { y: 136, color: "#0E1D26", opacity: 1, duration: 10, delay: -2 },
 ];
 
 export default function WaveLoader({ label = "Opening your library…" }: { label?: string }) {
@@ -22,7 +22,7 @@ export default function WaveLoader({ label = "Opening your library…" }: { labe
     <div
       role="status"
       aria-live="polite"
-      className="relative min-h-screen w-full overflow-hidden bg-[#F4F1EA] flex flex-col items-center justify-center select-none p-6 ocean-fade-in"
+      className="relative min-h-screen w-full overflow-hidden bg-[#F8F5EE] flex flex-col items-center justify-center select-none p-6 ocean-fade-in"
     >
       {/* Rolling sea along the bottom */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[34vh] min-h-[180px]" aria-hidden="true">
@@ -52,8 +52,8 @@ export default function WaveLoader({ label = "Opening your library…" }: { labe
           <path
             d="M0,10 C20,0 30,0 40,10 C50,20 60,20 80,10 C100,0 110,0 120,10 C130,20 140,20 160,10"
             fill="none"
-            stroke="#2E6FA3"
-            strokeOpacity="0.18"
+            stroke="#0E1D26"
+            strokeOpacity="0.12"
             strokeWidth="2"
             strokeLinecap="round"
           />
@@ -61,13 +61,13 @@ export default function WaveLoader({ label = "Opening your library…" }: { labe
             className="ocean-line"
             d="M0,10 C20,0 30,0 40,10 C50,20 60,20 80,10 C100,0 110,0 120,10 C130,20 140,20 160,10"
             fill="none"
-            stroke="#1B4B78"
+            stroke="#E8561F"
             strokeWidth="2"
             strokeLinecap="round"
             pathLength={100}
           />
         </svg>
-        <span className="mt-3 text-[13px] tracking-wide text-[#1B4B78]/60 font-serif">{label}</span>
+        <span className="mt-3 text-[13px] tracking-wide text-[#0E1D26]/55 font-['Outfit']">{label}</span>
       </div>
     </div>
   );
