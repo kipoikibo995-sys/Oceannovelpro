@@ -12,6 +12,7 @@ import GlobalSearchModal from "@/components/GlobalSearchModal";
 import AIPromptModal from "@/components/AIPromptModal";
 import UpgradeModal from "@/components/UpgradeModal";
 import { PLAN_LIMITS } from "@/lib/license";
+import { readEditorTypePrefs, saveEditorTypePrefs, editorFamilyFromProfile, editorSizeFromProfile } from "@/lib/editorPrefs";
 
 // Helper functions for manuscript tree
 const findFirstSceneId = (items: ManuscriptItem[]): string => {
@@ -51,14 +52,7 @@ const canContain = (parentType: ManuscriptItem['type'] | 'root', childType: Manu
 const countWords = (html?: string) =>
   html ? html.replace(/<[^>]*>?/gm, ' ').replace(/&nbsp;/g, ' ').trim().split(/\s+/).filter((w) => w.length > 0).length : 0;
 
-const TYPE_PREFS_KEY = 'ocean_studio_type';
-const readTypePrefs = () => {
-  try {
-    const raw = localStorage.getItem(TYPE_PREFS_KEY);
-    if (raw) return JSON.parse(raw) as { size?: string; family?: string };
-  } catch {}
-  return {};
-};
+
 
 const findNodeById = (items: ManuscriptItem[], id: string): ManuscriptItem | null => {
   for (const item of items) {
@@ -325,16 +319,15 @@ export default function WritingStudio() {
 
 
   // Typography Settings
-  const [fontSize, setFontSize] = useState<'text-base' | 'text-lg' | 'text-xl' | 'text-2xl'>(() => {
-    const v = readTypePrefs().size;
-    return v === 'text-base' || v === 'text-xl' || v === 'text-2xl' ? v : 'text-lg';
-  });
-  const [fontFamily, setFontFamily] = useState<'font-serif' | 'font-sans' | 'font-mono'>(() => {
-    const v = readTypePrefs().family;
-    return v === 'font-sans' || v === 'font-mono' ? v : 'font-serif';
-  });
+  // Last choice from the Aa menu, else the defaults from Settings
+  const [fontSize, setFontSize] = useState<'text-base' | 'text-lg' | 'text-xl' | 'text-2xl'>(
+    () => readEditorTypePrefs().size || editorSizeFromProfile(userProfile?.fontSize)
+  );
+  const [fontFamily, setFontFamily] = useState<'font-serif' | 'font-sans' | 'font-mono'>(
+    () => readEditorTypePrefs().family || editorFamilyFromProfile(userProfile?.defaultFont)
+  );
   useEffect(() => {
-    try { localStorage.setItem(TYPE_PREFS_KEY, JSON.stringify({ size: fontSize, family: fontFamily })); } catch {}
+    saveEditorTypePrefs(fontFamily, fontSize);
   }, [fontSize, fontFamily]);
   const [showTypeSettings, setShowTypeSettings] = useState(false);
 

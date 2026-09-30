@@ -58,7 +58,8 @@ export default function AIPromptModal({
   const [selectedLocId, setSelectedLocId] = useState<string>('');
   const [customConflict, setCustomConflict] = useState<string>('');
   const [targetWordCount, setTargetWordCount] = useState<string>('900 - 1300');
-  const [sceneTone, setSceneTone] = useState<string>('Atmospheric, high tension, sensory-rich');
+  const authorDefaults = storage.getUserProfile();
+  const [sceneTone, setSceneTone] = useState<string>(() => authorDefaults.defaultTone?.trim() || 'Atmospheric, high tension, sensory-rich');
   const [includeBible, setIncludeBible] = useState(true);
 
   // The scene as clean paragraphs — never send editor HTML or mention markup to the AI
@@ -254,7 +255,7 @@ export default function AIPromptModal({
 - Genre: ${projectMeta?.genre || 'Fiction'}
 - Scene: ${activeSceneTitle || 'Untitled Scene'}${sceneWords > 0 ? ` (already ${sceneWords.toLocaleString()} words)` : ''}
 - Length to write: ~${targetWordCount} words
-- Tone & Mood: ${sceneTone}
+- Tone & Mood: ${sceneTone}${!bible?.pov?.trim() && authorDefaults.defaultPov?.trim() ? `\n- Point of View: ${authorDefaults.defaultPov.trim()}` : ''}
 ${sceneCanonBlock}
 [LOCATION & SETTING]
 ${locBlock}
@@ -270,7 +271,7 @@ ${customConflict.trim() || '- Establish immediate tension between the characters
 2. Clean Prose: The @[Name] tags above are for reference only. NEVER use tags or brackets in the story text — write natural, publication-ready prose with plain names.
 3. Cadence: Keep dialogue sharp and purposeful. Vary sentence length and avoid repeating words close together.${languageRule}
 Reply with the scene text only — no headings, notes or commentary.`;
-  }, [projectMeta, activeSceneTitle, targetWordCount, sceneTone, selectedLocation, selectedCharacters, activeSceneNotes, customConflict, sceneCanonBlock, sceneParagraphs, sceneWords, languageRule]);
+  }, [projectMeta, activeSceneTitle, targetWordCount, sceneTone, selectedLocation, selectedCharacters, activeSceneNotes, customConflict, sceneCanonBlock, sceneParagraphs, sceneWords, languageRule, bible]);
 
   // 2. System / setup prompt
   const generatedSystemPrompt = useMemo(() => {
