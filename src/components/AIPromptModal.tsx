@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Copy, Check, ExternalLink, X, BookOpen, Layers, Compass, Feather, Info, ArrowRight } from 'lucide-react';
-import { ProjectMeta } from '@/lib/storage';
+import { ProjectMeta, StoryBibleData, storage } from '@/lib/storage';
 
 interface AIPromptModalProps {
   isOpen: boolean;
@@ -36,6 +36,7 @@ export default function AIPromptModal({
   const [customConflict, setCustomConflict] = useState<string>('');
   const [targetWordCount, setTargetWordCount] = useState<string>('900 - 1300');
   const [sceneTone, setSceneTone] = useState<string>('Atmospheric, high tension, sensory-rich');
+  const [includeBible, setIncludeBible] = useState(true);
 
   // Copy helper with visual feedback
   const handleCopy = (text: string, key: string) => {
@@ -51,6 +52,84 @@ export default function AIPromptModal({
   const selectedLocation = useMemo(() => {
     return locations.find(l => String(l.id) === selectedLocId);
   }, [locations, selectedLocId]);
+
+  // Story Bible canon for this book — injected into every prompt so the AI writes within the book's rules
+  const bible = useMemo<StoryBibleData | undefined>(() => {
+    if (!projectMeta?.id) return undefined;
+    return storage.getProjectData(projectMeta.id)?.storyBible;
+  }, [projectMeta?.id, isOpen]);
+
+  const hasBible = !!bible && Object.values(bible).some((v) => typeof v === 'string' && v.trim());
+
+  // Renders "- Label: value" lines for the fields that are filled in
+  const bibleLines = (fields: Array<[string, string | undefined]>) =>
+    fields
+      .filter(([, v]) => v && v.trim())
+      .map(([label, v]) => `- ${label}: ${v!.trim()}`)
+      .join('\n');
+
+  const sceneCanonBlock = useMemo(() => {
+    if (!includeBible || !hasBible || !bible) return '';
+    const lines = bibleLines([
+      ['Narrative POV', bible.pov],
+      ['Book tone', bible.tone],
+      ['Premise', bible.premise],
+      ['Main conflict', bible.mainConflict],
+      ['Setting', [bible.timePeriod, bible.primarySetting].filter(Boolean).join(' · ')],
+      ['World rules (never break these)', bible.importantRules],
+      ['Narrative style', bible.narrativeStyle],
+      ['Dialogue', bible.dialogueStyle],
+      ['Author rules', bible.aiInstructions],
+    ]);
+    return lines ? `\n[STORY BIBLE CANON]\n${lines}\n` : '';
+  }, [includeBible, hasBible, bible]);
+
+  const fullBibleBlock = useMemo(() => {
+    if (!includeBible || !hasBible || !bible) return '';
+    const sections = [
+      ['Book', bibleLines([
+        ['Genre', [bible.genre, bible.subgenre].filter(Boolean).join(' / ')],
+        ['Target audience', bible.targetAudience],
+        ['Narrative POV', bible.pov],
+        ['Tone & mood', bible.tone],
+      ])],
+      ['Story core', bibleLines([
+        ['Premise', bible.premise],
+        ['Main conflict', bible.mainConflict],
+        ['Story goal', bible.storyGoal],
+        ['Key themes', bible.themes],
+      ])],
+      ['World & rules', bibleLines([
+        ['Time period', bible.timePeriod],
+        ['Primary setting', bible.primarySetting],
+        ['World description', bible.worldDescription],
+        ['Rules that must never be broken', bible.importantRules],
+      ])],
+      ['Writing style', bibleLines([
+        ['Narrative style', bible.narrativeStyle],
+        ['Dialogue conventions', bible.dialogueStyle],
+        ['Pacing', bible.pacing],
+        ['Author rules', bible.aiInstructions],
+      ])],
+    ].filter(([, body]) => body);
+    return sections.map(([title, body]) => `${title}:\n${body}`).join('\n\n');
+  }, [includeBible, hasBible, bible]);
+
+  // Short cast & atlas list for the system prompt (full dossiers go in scene prompts)
+  const castAndAtlas = useMemo(() => {
+    if (!includeBible) return '';
+    const cast = characters
+      .filter((c) => c?.name)
+      .slice(0, 15)
+      .map((c) => `- @[${c.name}] — ${c.role || 'Character'}${c.archetype ? `, ${c.archetype}` : ''}`)
+      .join('\n');
+    const atlas = locations
+      .filter((l) => l?.name)
+      .slice(0, 15)
+      .map((l) => `- @[${l.name}] — ${l.type || 'Location'}${l.region ? ` (${l.region})` : ''}`)
+      .join('\n');
+    return [cast && `Main characters:\n${cast}`, atlas && `Key locations:\n${atlas}`].filter(Boolean).join('\n\n');
+  }, [includeBible, characters, locations]);
 
   // 1. Scene Prompt Generation
   const generatedScenePrompt = useMemo(() => {
@@ -93,7 +172,7 @@ export default function AIPromptModal({
 - Scene Title: ${activeSceneTitle || 'Untitled Scene'}
 - Target Length: ~${targetWordCount} words
 - Tone & Mood: ${sceneTone}
-
+${sceneCanonBlock}
 [LOCATION & SETTING]
 ${locBlock}
 
@@ -107,7 +186,7 @@ ${customConflict.trim() || '- Establish immediate tension between the characters
 1. Show, Don't Tell: Avoid summarizing feelings with dry adjectives; ground emotional stakes in micro-gestures, physical reactions, and environmental details.
 2. Clean Manuscript Prose & Entity Tag Rule: Use entity tags (@[Name]) ONLY in metadata, outlines, summaries, or hidden system context. NEVER use entity tags or brackets (@[Name]) in the reader-facing manuscript prose, dialogue, or story text. Write natural, publication-ready prose using clean names.
 3. Cadence & Prose: Keep dialogue sharp and purposeful. Avoid monotonous sentence structures and nearby repeating words (echoes).`;
-  }, [projectMeta, activeSceneTitle, targetWordCount, sceneTone, selectedLocation, selectedCharacters, activeSceneNotes, customConflict]);
+  }, [projectMeta, activeSceneTitle, targetWordCount, sceneTone, selectedLocation, selectedCharacters, activeSceneNotes, customConflict, sceneCanonBlock]);
 
   // 2. System / Worldbuilding Prompt
   const generatedSystemPrompt = useMemo(() => {
@@ -129,9 +208,19 @@ I am drafting a novel using Ocean Novel's Story Bible, Relationship Graphs, and 
    - Title: ${projectMeta?.title || 'Ocean Novel'}
    - Genre: ${projectMeta?.genre || 'Fiction'}
    - Target Manuscript Word Count: ${projectMeta?.wordGoal ? Number(projectMeta.wordGoal).toLocaleString() : '80,000'} words
+${fullBibleBlock ? `
+4. Story Bible (canon — treat as ground truth; never contradict it):
 
-Acknowledge that you understand these standards, and ask me for the Story Bible parameters (Characters, Locations, and Plot Event) to begin.`;
-  }, [projectMeta]);
+${fullBibleBlock}
+` : ''}${castAndAtlas ? `
+${fullBibleBlock ? '5' : '4'}. Cast & World Atlas:
+
+${castAndAtlas}
+` : ''}
+${fullBibleBlock || castAndAtlas
+  ? 'Acknowledge that you understand these standards and this canon in two sentences, then wait for my first scene request.'
+  : 'Acknowledge that you understand these standards, and ask me for the Story Bible parameters (Characters, Locations, and Plot Event) to begin.'}`;
+  }, [projectMeta, fullBibleBlock, castAndAtlas]);
 
   // 3. Polish & Consistency Prompt
   const generatedPolishPrompt = useMemo(() => {
@@ -153,10 +242,13 @@ Acknowledge that you understand these standards, and ask me for the Story Bible 
 
 4. Stylistic Tightening:
    - Pinpoint filter words (e.g., "she saw," "he felt," "she heard"), weak adverbs, and passive constructions that can be revised into active, immersive prose.
-
+${sceneCanonBlock ? `
+5. Canon Compliance:
+   - Flag any line that breaks the POV, tone, world rules or style defined in the Story Bible canon below, and suggest a fix.
+${sceneCanonBlock}` : ''}
 [MANUSCRIPT EXCERPT]
 ${textSnippet}`;
-  }, [activeSceneContent]);
+  }, [activeSceneContent, sceneCanonBlock]);
 
   if (!isOpen) return null;
 
@@ -269,6 +361,23 @@ ${textSnippet}`;
             <Compass className="w-3.5 h-3.5" />
             <span>Editorial & Polish Review</span>
           </button>
+
+          {/* Story Bible context toggle */}
+          <label
+            className="ml-auto mb-2 flex items-center gap-2 cursor-pointer select-none"
+            title={hasBible ? 'Adds your Story Bible (POV, tone, premise, world rules, style) and cast to the prompts' : 'Fill in the Story Bible to add its canon to these prompts'}
+          >
+            <input
+              type="checkbox"
+              checked={includeBible && hasBible}
+              disabled={!hasBible}
+              onChange={(e) => setIncludeBible(e.target.checked)}
+              className="w-3.5 h-3.5 accent-[#8C503C] cursor-pointer disabled:cursor-not-allowed"
+            />
+            <span className={`text-[11px] font-semibold ${hasBible ? 'text-stone-700' : 'text-stone-400'}`}>
+              {hasBible ? 'Include Story Bible' : 'Story Bible empty'}
+            </span>
+          </label>
         </div>
 
         {/* Modal Body */}
