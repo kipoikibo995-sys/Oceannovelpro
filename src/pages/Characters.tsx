@@ -43,6 +43,27 @@ import ImagePickerModal from "@/components/ImagePickerModal";
 import CharacterPresetPickerModal from "@/components/CharacterPresetPickerModal";
 import { CharacterPreset } from "@/data/characterPresets";
 import { FANTASY_PRESET_PORTRAITS } from "@/lib/imageUtils";
+import { cn } from "@/lib/utils";
+import {
+  IconCopy,
+  IconEdit,
+  IconFilter,
+  IconFolder,
+  IconGallery,
+  IconHelp,
+  IconImage,
+  IconLink,
+  IconLock,
+  IconMinus,
+  IconOverview,
+  IconPlus,
+  IconScissors,
+  IconSearch,
+  IconSort,
+  IconTick,
+  IconTrash,
+  IconUsers,
+} from "@/components/brand/ocean-ui";
 
 // Define exact mock characters based on the provided image
 const CATALOG_CHARACTERS: any[] = [];
@@ -1487,102 +1508,134 @@ ${backstoryText}`;
     );
   }
 
-  return (
-    <div className="flex-1 flex flex-col w-full h-full overflow-hidden relative bg-[#3d261d]">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-[80%] h-[80%] bg-[#8c503c] rounded-full mix-blend-color-dodge blur-[150px] opacity-20" />
-        <div className="absolute bottom-0 left-0 w-[60%] h-[60%] bg-[#d49a89] rounded-full mix-blend-overlay blur-[120px] opacity-10" />
-      </div>
+  const traitsOf = (char: any): string[] =>
+    Array.isArray(char.traits)
+      ? char.traits.filter(Boolean)
+      : typeof char.traits === "string" && char.traits.trim()
+        ? [char.traits.trim()]
+        : [];
 
-      <div className="flex-1 relative z-10 flex flex-col [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] overflow-hidden">
-        {/* Top Header */}
-        <div className={`flex flex-col shrink-0 ${viewMode === "registry" ? "p-6 lg:p-10 pb-6 max-w-[1600px] mx-auto w-full" : "p-4 border-b border-[#5d3f32] bg-[#2a1a14]/80 backdrop-blur-md"}`}>
+  const iconBtn = (active = false) =>
+    cn(
+      "w-10 h-10 rounded-full flex items-center justify-center border transition-colors cursor-pointer",
+      active ? "bg-[#0E1D26] border-[#0E1D26] text-[#F6F1E7]" : "bg-white border-[#E9E2D4] text-[#0E1D26]/55 hover:text-[#0E1D26] hover:border-[#0E1D26]/30"
+    );
+
+  return (
+    <div className="flex-1 flex flex-col w-full h-full overflow-hidden relative bg-[#F8F5EE] text-[#0E1D26] font-['Outfit']">
+      <div className="flex-1 relative flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className={cn("shrink-0 w-full", viewMode === "registry" ? "max-w-[1400px] mx-auto px-6 lg:px-10 pt-8 lg:pt-10 pb-5" : "px-5 py-3 border-b border-[#E9E2D4] bg-[#F8F5EE]")}>
           {viewMode === "registry" && (
-            <h1 className="text-4xl lg:text-5xl font-serif text-[#fcfaf5] tracking-wide mb-6 uppercase drop-shadow-md">
-              Character Sheets
-            </h1>
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Cast</p>
+                <h1 className="mt-2 text-[34px] lg:text-[40px] font-extrabold leading-none tracking-[-0.02em]">
+                  Characters <span className="text-[#0E1D26]/30 font-bold text-[24px] align-middle">{characters.length}</span>
+                </h1>
+              </div>
+              <button
+                onClick={handleOpenEditorNew}
+                className="h-11 pl-5 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[13px] font-bold flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                {isCharacterLimitReached ? "Unlock more characters" : "New Character"}
+                <span className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                  {isCharacterLimitReached ? <IconLock className="w-4 h-4" /> : <IconPlus className="w-4 h-4" />}
+                </span>
+              </button>
+            </div>
           )}
 
           {/* Toolbar */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             {viewMode === "registry" ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex items-center bg-[#2a1a14]/60 rounded-sm px-4 py-2 border border-[#5d3f32] w-64 backdrop-blur-sm shadow-inner">
-                  <Search className="w-4 h-4 text-[#d49a89]/60 mr-2 shrink-0" />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative w-64 max-w-full">
+                  <IconSearch className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[#0E1D26]/35" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="SEARCH..."
-                    className="bg-transparent border-none outline-none text-xs text-[#fcfaf5] placeholder:text-[#d49a89]/40 font-medium tracking-wider w-full uppercase"
+                    placeholder="Search characters"
+                    className="w-full h-10 pl-10 pr-4 bg-white border border-[#E9E2D4] rounded-full text-[14px] placeholder:text-[#0E1D26]/35 outline-none focus:border-[#0E1D26]/35 transition-colors"
                   />
                 </div>
-                
+
                 <div className="relative">
-                  <button 
-                    onClick={() => setShowFilterMenu(!showFilterMenu)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-sm transition-all border backdrop-blur-sm shadow-sm ${filterRole !== 'ALL' || filterStatus !== 'ALL' ? 'bg-[#b8785e] text-[#fcfaf5] border-[#b8785e]' : 'bg-[#2a1a14]/60 hover:bg-[#3d261d] text-[#d49a89] border-[#5d3f32]'}`}
-                  >
-                    <Filter className="w-4 h-4" />
+                  <button onClick={() => setShowFilterMenu(!showFilterMenu)} className={iconBtn(filterRole !== "ALL" || filterStatus !== "ALL")} title="Filter">
+                    <IconFilter className="w-4 h-4" />
                   </button>
                   {showFilterMenu && (
-                    <div className="absolute top-full mt-2 w-48 bg-white rounded-sm shadow-xl border border-stone-200 z-50 py-2">
-                      <div className="px-3 pb-2 mb-2 border-b border-stone-100">
-                        <label className="text-[9px] font-bold text-stone-400 tracking-widest uppercase block mb-1">Role</label>
-                        <select 
-                          value={filterRole} 
-                          onChange={(e) => setFilterRole(e.target.value)}
-                          className="w-full text-xs text-stone-600 bg-transparent outline-none cursor-pointer"
-                        >
-                          <option value="ALL">All Roles</option>
+                    <div className="absolute top-full mt-2 w-52 bg-white rounded-2xl shadow-[0_16px_40px_-16px_rgba(14,29,38,0.35)] border border-[#E9E2D4] z-50 p-3 space-y-3">
+                      <label className="block">
+                        <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/45 mb-1">Role</span>
+                        <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full h-9 px-3 rounded-full bg-[#F8F5EE] text-[13px] outline-none cursor-pointer">
+                          <option value="ALL">All roles</option>
                           <option value="PROTAGONIST">Protagonist</option>
                           <option value="ANTAGONIST">Antagonist</option>
                           <option value="SUPPORTING">Supporting</option>
                         </select>
-                      </div>
-                      <div className="px-3">
-                        <label className="text-[9px] font-bold text-stone-400 tracking-widest uppercase block mb-1">Status</label>
-                        <select 
-                          value={filterStatus} 
-                          onChange={(e) => setFilterStatus(e.target.value)}
-                          className="w-full text-xs text-stone-600 bg-transparent outline-none cursor-pointer"
-                        >
-                          <option value="ALL">All Status</option>
+                      </label>
+                      <label className="block">
+                        <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/45 mb-1">Status</span>
+                        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full h-9 px-3 rounded-full bg-[#F8F5EE] text-[13px] outline-none cursor-pointer">
+                          <option value="ALL">All status</option>
                           <option value="ALIVE">Alive</option>
                           <option value="DECEASED">Deceased</option>
                           <option value="UNKNOWN">Unknown</option>
                         </select>
-                      </div>
+                      </label>
                     </div>
                   )}
                 </div>
 
                 <div className="relative">
-                  <button 
-                    onClick={() => setShowSortMenu(!showSortMenu)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors border backdrop-blur-sm ${sortBy !== 'name_asc' ? 'bg-[#b8785e] text-white border-[#b8785e]' : 'bg-white/10 hover:bg-white/20 text-white/70 border-white/5'}`}
-                  >
-                    <ArrowDownUp className="w-4 h-4" />
+                  <button onClick={() => setShowSortMenu(!showSortMenu)} className={iconBtn(sortBy !== "name_asc")} title="Sort">
+                    <IconSort className="w-4 h-4" />
                   </button>
                   {showSortMenu && (
-                    <div className="absolute top-full mt-2 w-32 bg-white rounded-sm shadow-xl border border-stone-200 z-50 py-1">
-                      <button onClick={() => { setSortBy('name_asc'); setShowSortMenu(false); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${sortBy === 'name_asc' ? 'text-[#b8785e] bg-stone-50' : 'text-stone-500 hover:text-[#b8785e] hover:bg-stone-50'}`}>A to Z</button>
-                      <button onClick={() => { setSortBy('name_desc'); setShowSortMenu(false); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${sortBy === 'name_desc' ? 'text-[#b8785e] bg-stone-50' : 'text-stone-500 hover:text-[#b8785e] hover:bg-stone-50'}`}>Z to A</button>
-                      <button onClick={() => { setSortBy('recent'); setShowSortMenu(false); }} className={`w-full text-left px-4 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${sortBy === 'recent' ? 'text-[#b8785e] bg-stone-50' : 'text-stone-500 hover:text-[#b8785e] hover:bg-stone-50'}`}>Newest</button>
+                    <div className="absolute top-full mt-2 w-36 bg-white rounded-2xl shadow-[0_16px_40px_-16px_rgba(14,29,38,0.35)] border border-[#E9E2D4] z-50 p-1.5">
+                      {([
+                        ["name_asc", "A to Z"],
+                        ["name_desc", "Z to A"],
+                        ["recent", "Newest"],
+                      ] as const).map(([key, label]) => (
+                        <button
+                          key={key}
+                          onClick={() => {
+                            setSortBy(key);
+                            setShowSortMenu(false);
+                          }}
+                          className={cn(
+                            "w-full text-left px-3 py-2 rounded-xl text-[13px] transition-colors cursor-pointer",
+                            sortBy === key ? "bg-[#F8F5EE] font-semibold" : "text-[#0E1D26]/65 hover:bg-[#F8F5EE]"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center bg-white/10 rounded-full p-1 border border-white/5 backdrop-blur-sm ml-4">
-                  <button onClick={() => setRegistryView("grid")} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${registryView === "grid" ? "bg-[#b8785e] text-white shadow-sm" : "text-white/50 hover:text-white/80"}`} title="Grid View">
-                    <Grid className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setRegistryView("gallery")} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${registryView === "gallery" ? "bg-[#b8785e] text-white shadow-sm" : "text-white/50 hover:text-white/80"}`} title="Gallery View">
-                    <LayoutGrid className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setRegistryView("folder")} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${registryView === "folder" ? "bg-[#b8785e] text-white shadow-sm" : "text-white/50 hover:text-white/80"}`} title="Folder View">
-                    <Folder className="w-4 h-4" />
-                  </button>
+                <div className="flex items-center gap-0.5 p-1 rounded-full bg-[#EFE9DE]">
+                  {([
+                    ["grid", IconOverview, "Cards"],
+                    ["gallery", IconGallery, "Gallery"],
+                    ["folder", IconFolder, "Folders"],
+                  ] as const).map(([key, Ico, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setRegistryView(key)}
+                      title={label}
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer",
+                        registryView === key ? "bg-white text-[#0E1D26] shadow-[0_1px_2px_rgba(14,29,38,0.08)]" : "text-[#0E1D26]/45 hover:text-[#0E1D26]"
+                      )}
+                    >
+                      <Ico className="w-4 h-4" />
+                    </button>
+                  ))}
                 </div>
 
                 <button
@@ -1594,65 +1647,54 @@ ${backstoryText}`;
                       setShowPortraitGalleryModal(true);
                     }
                   }}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#5d3f32]/40 hover:bg-[#5d3f32]/70 text-[#d49a89] hover:text-[#fcfaf5] border border-[#8c503c]/50 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all shadow-sm ml-2 cursor-pointer"
-                  title={hasImageLibrary ? "Browse Character Portrait Library (25 presets)" : "Portrait Library (Ocean Novel Pro Feature)"}
+                  title={hasImageLibrary ? "Browse the portrait library" : "Portrait Library (Pro feature)"}
+                  className="h-10 px-4 rounded-full bg-white border border-[#E9E2D4] hover:border-[#0E1D26]/30 text-[13px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  <ImageIcon className="w-3.5 h-3.5 text-[#d49a89]" />
-                  <span className="hidden sm:inline">Portrait Library</span>
-                  {!hasImageLibrary ? (
-                    <span className="flex items-center gap-0.5 bg-[#8C503C] text-white text-[8px] px-1.5 py-0.5 rounded-full font-sans font-bold">
-                      <Lock className="w-2.5 h-2.5" /> PRO
-                    </span>
-                  ) : (
-                    <span className="bg-[#b8785e] text-white text-[9px] px-1.5 py-0.2 rounded-full font-sans font-semibold">25</span>
-                  )}
+                  <IconImage className="w-4 h-4 text-[#0E1D26]/55" />
+                  <span className="hidden sm:inline">Portraits</span>
+                  {!hasImageLibrary && <IconLock className="w-3.5 h-3.5 text-[#0E1D26]/40" />}
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                {graphs.map(g => (
-                  <button 
+              <div className="flex items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                {graphs.map((g) => (
+                  <button
                     key={g.id}
                     onClick={() => setActiveGraphId(g.id)}
-                    className={`px-4 py-1.5 text-[10px] font-bold rounded-sm flex items-center gap-2 uppercase tracking-widest transition-all ${activeGraphId === g.id ? 'bg-[#c17a7a] text-white shadow-sm' : 'text-white/60 hover:text-white/90'}`}
+                    className={cn(
+                      "h-9 px-4 rounded-full text-[13px] font-semibold whitespace-nowrap transition-colors cursor-pointer",
+                      activeGraphId === g.id ? "bg-white text-[#0E1D26] shadow-[0_1px_2px_rgba(14,29,38,0.08)]" : "text-[#0E1D26]/55 hover:text-[#0E1D26]"
+                    )}
                   >
-                    {activeGraphId === g.id ? <Home className="w-3.5 h-3.5" /> : null}
                     {g.name}
                   </button>
                 ))}
-                
-                <button 
-                  onClick={() => setShowNewGraphModal(true)}
-                  className="px-4 py-1.5 text-white/40 hover:text-white/80 text-[10px] font-bold rounded-sm flex items-center gap-1.5 uppercase tracking-widest transition-colors ml-4"
-                >
-                  <Plus className="w-3.5 h-3.5" /> NEW GRAPH
-                </button>
                 <button
-                  type="button"
-                  onClick={() => setShowCharacterGuideModal(true)}
-                  className="w-7 h-7 rounded-full bg-[#5d3f32]/50 hover:bg-[#5d3f32]/80 border border-[#8c503c]/50 hover:border-[#8c503c]/90 text-[#d49a89] hover:text-[#fcfaf5] flex items-center justify-center transition-all shadow-sm group hover:scale-105 ml-1 shrink-0"
-                  title="Character & Relationship Guide & AI Prompt"
-                  aria-label="Character Guide & AI Prompt"
+                  onClick={() => setShowNewGraphModal(true)}
+                  className="h-9 px-3 rounded-full text-[13px] font-semibold text-[#0E1D26]/45 hover:text-[#0E1D26] flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer"
                 >
-                  <HelpCircle className="w-4 h-4 transition-transform group-hover:rotate-12" />
+                  <IconPlus className="w-4 h-4" /> New graph
                 </button>
               </div>
             )}
 
             <div className="flex items-center gap-2">
-              <div className="flex bg-black/20 rounded-full p-1 border border-white/5 backdrop-blur-sm w-fit">
-                <button
-                  onClick={() => setViewMode("registry")}
-                  className={`px-6 py-1.5 text-[10px] font-bold tracking-widest rounded-full uppercase transition-all shadow-sm ${viewMode === "registry" ? "bg-[#b8785e] text-white" : "text-white/50 hover:text-white/80"}`}
-                >
-                  Registry
-                </button>
-                <button
-                  onClick={() => setViewMode("connections")}
-                  className={`px-6 py-1.5 text-[10px] font-bold tracking-widest rounded-full uppercase transition-all shadow-sm ${viewMode === "connections" ? "bg-[#b8785e] text-white" : "text-white/50 hover:text-white/80"}`}
-                >
-                  Connections
-                </button>
+              <div className="flex items-center gap-0.5 p-1 rounded-full bg-[#EFE9DE]">
+                {([
+                  ["registry", "Registry"],
+                  ["connections", "Connections"],
+                ] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setViewMode(key)}
+                    className={cn(
+                      "h-8 px-4 rounded-full text-[13px] font-semibold transition-colors cursor-pointer",
+                      viewMode === key ? "bg-[#0E1D26] text-[#F6F1E7]" : "text-[#0E1D26]/55 hover:text-[#0E1D26]"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
 
               <button
@@ -1661,240 +1703,149 @@ ${backstoryText}`;
                   setPresetModalMode("registry");
                   setShowPresetModal(true);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#b8785e] hover:bg-[#a66850] text-white text-[10px] font-bold tracking-widest uppercase transition-all shadow-sm border border-[#d49a89]/30 hover:scale-105"
-                title="Browse 50 Premade Character Archetypes"
+                title="Browse 50 premade character archetypes"
+                className="h-10 px-4 rounded-full bg-white border border-[#E9E2D4] hover:border-[#0E1D26]/30 text-[13px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
               >
-                <Users className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">50 Premade Archetypes</span>
-                <span className="sm:hidden">50 Archetypes</span>
+                <IconUsers className="w-4 h-4 text-[#0E1D26]/55" />
+                <span className="hidden sm:inline">50 Archetypes</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setShowCharacterGuideModal(true)}
-                className="w-7 h-7 rounded-full bg-[#5d3f32]/50 hover:bg-[#5d3f32]/80 border border-[#8c503c]/50 hover:border-[#8c503c]/90 text-[#d49a89] hover:text-[#fcfaf5] flex items-center justify-center transition-all shadow-sm group hover:scale-105"
-                title="Character Guide & AI Prompt"
-                aria-label="Character Guide & AI Prompt"
-              >
-                <HelpCircle className="w-4 h-4 transition-transform group-hover:rotate-12" />
+              <button type="button" onClick={() => setShowCharacterGuideModal(true)} className={iconBtn()} title="Character guide & AI prompt" aria-label="Character guide & AI prompt">
+                <IconHelp className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
 
         {viewMode === "registry" ? (
-          <div className="p-6 lg:p-10 pt-4 max-w-[1600px] mx-auto w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8 pb-20 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {/* New Character Card */}
-            <div 
-              onClick={handleOpenEditorNew}
-              className={`relative group h-[420px] rounded-sm backdrop-blur-sm border-2 border-dashed transition-all flex flex-col items-center justify-center p-6 text-center cursor-pointer mt-4 ${
-                isCharacterLimitReached
-                  ? "bg-[#5d3f32]/10 border-amber-600/40 hover:border-amber-500"
-                  : "bg-[#5d3f32]/20 border-[#8c503c]/40 hover:bg-[#5d3f32]/35 hover:border-[#8c503c]/70 hover:-translate-y-1"
-              }`}
-            >
-              <div className="w-14 h-14 rounded-full border-2 border-dashed border-[#d49a89]/40 flex items-center justify-center mb-4 text-[#d49a89]/60 group-hover:text-[#d49a89] group-hover:border-[#d49a89]/60 transition-all duration-300">
-                {isCharacterLimitReached ? <Lock className="w-6 h-6 stroke-[1.5] text-amber-300" /> : <Plus className="w-6 h-6 stroke-[1.5]" />}
-              </div>
-              <span className="text-[11px] tracking-widest uppercase font-bold text-[#d49a89]/80 group-hover:text-[#fcfaf5] transition-colors">
-                {isCharacterLimitReached ? "Unlock Unlimited (Quota Reached)" : "+ New Character"}
-              </span>
-              <span className="text-[9px] font-mono font-semibold text-stone-400 mt-1">
-                {characters.length} / {maxCharacters === Infinity ? "∞" : maxCharacters} Dossiers
-              </span>
-            </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="max-w-[1400px] mx-auto px-6 lg:px-10 pb-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {/* New character */}
+              <button
+                onClick={handleOpenEditorNew}
+                className={cn(
+                  "group rounded-3xl border-2 border-dashed flex flex-col items-center justify-center p-6 text-center transition-colors cursor-pointer",
+                  registryView === "gallery" ? "min-h-[300px]" : "min-h-[260px]",
+                  isCharacterLimitReached ? "border-[#E8561F]/40 hover:border-[#E8561F]" : "border-[#0E1D26]/15 hover:border-[#0E1D26]/35"
+                )}
+              >
+                <span className="w-12 h-12 rounded-full bg-white border border-[#E9E2D4] flex items-center justify-center text-[#0E1D26]/50 group-hover:text-[#0E1D26] transition-colors">
+                  {isCharacterLimitReached ? <IconLock className="w-5 h-5" /> : <IconPlus className="w-5 h-5" />}
+                </span>
+                <span className="mt-3 text-[14px] font-semibold">{isCharacterLimitReached ? "Plan limit reached" : "New character"}</span>
+                <span className="mt-1 text-[12px] text-[#0E1D26]/45">
+                  {characters.length} / {maxCharacters === Infinity ? "∞" : maxCharacters} characters
+                </span>
+              </button>
 
-            {/* Folder View vs Grid/List View */}
-            {registryView === "folder" ? (
-              // Group by folders
-              Object.entries(
-                filteredAndSortedCharacters.reduce((acc, char) => {
-                  const group = char.group || "none";
-                  if (!acc[group]) acc[group] = [];
-                  acc[group].push(char);
-                  return acc;
-                }, {} as Record<string, any[]>)
-              ).map(([groupName, groupChars]: [string, any[]]) => (
-                <div key={groupName} className="bg-[#fcfaf5] rounded-sm shadow-[2px_4px_12px_rgba(0,0,0,0.2)] flex flex-col relative h-[420px] cursor-pointer group mt-4 border border-[#e5e0d5]">
-                  {/* Fake Folder Tab */}
-                  <div
-                    className={`absolute -top-4 left-0 w-[140px] h-5 ${groupName === 'none' ? 'bg-[#a39486]' : 'bg-[#b8785e]'}`}
-                    style={{ clipPath: "polygon(0 0, 85% 0, 100% 100%, 0 100%)" }}
-                  />
-                  <div className="absolute -top-1 left-1 right-1 h-2 bg-[#f4efe6] rounded-t-sm z-0 shadow-inner" />
-                      
-                  <div className="flex-1 flex flex-col z-10 relative bg-[#fcfaf5] p-6 border border-[#e5e0d5] rounded-sm shadow-sm hover:shadow-[4px_8px_24px_rgba(0,0,0,0.3)] transition-shadow">
-                    <h2 className="font-serif text-2xl font-bold text-[#4a3225] uppercase tracking-widest mb-4 border-b border-stone-200/50 pb-2">
-                      {groupName === 'none' ? 'UNGROUPED' : groupName}
-                    </h2>
-                    <p className="text-[12px] font-serif italic text-[#5d3f32] leading-relaxed line-clamp-3">
-                      {groupChars.length} characters assigned to this folder.
+              {registryView === "folder" ? (
+                Object.entries(
+                  filteredAndSortedCharacters.reduce((acc, char) => {
+                    const group = char.group || "none";
+                    if (!acc[group]) acc[group] = [];
+                    acc[group].push(char);
+                    return acc;
+                  }, {} as Record<string, any[]>)
+                ).map(([groupName, groupChars]: [string, any[]]) => (
+                  <div key={groupName} className="rounded-3xl bg-white border border-[#E9E2D4] p-6 min-h-[260px] flex flex-col">
+                    <div className="flex items-center gap-2 text-[#0E1D26]/45">
+                      <IconFolder className="w-4 h-4" />
+                      <span className="text-[11px] font-bold uppercase tracking-[0.16em]">Folder</span>
+                    </div>
+                    <h2 className="mt-3 text-[22px] font-extrabold leading-tight truncate">{groupName === "none" ? "Ungrouped" : groupName}</h2>
+                    <p className="mt-1 text-[13px] text-[#0E1D26]/55">
+                      {groupChars.length} {groupChars.length === 1 ? "character" : "characters"}
                     </p>
-
-                    <div className="mt-auto flex items-center justify-between pt-4 border-t border-stone-200/50">
-                      <div className="flex flex-col gap-2">
-                        <span className="text-[9px] font-bold text-[#b8785e] tracking-widest uppercase">
-                          {groupChars.length} File{groupChars.length !== 1 ? 's' : ''}
-                        </span>
-                        <div className="flex -space-x-2">
-                          {groupChars.slice(0, 4).map((c, i) => (
-                            <img
-                              key={i}
-                              src={c.imageUrl}
-                              className="w-8 h-8 rounded-full border-[2px] border-[#fcfaf5] shadow-sm object-cover grayscale-[30%] sepia-[20%]"
-                            />
-                          ))}
+                    <div className="mt-auto flex -space-x-2">
+                      {groupChars.slice(0, 6).map((c) => (
+                        <img key={c.id} src={c.imageUrl} alt={c.name} title={c.name} className="w-9 h-9 rounded-full ring-2 ring-white object-cover" />
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : registryView === "gallery" ? (
+                filteredAndSortedCharacters.map((char) => (
+                  <button key={char.id} onClick={() => handleOpenEditorEdit(char)} className="group text-left cursor-pointer">
+                    <div className="aspect-[3/4] rounded-3xl overflow-hidden bg-[#EFE9DE]">
+                      <img src={char.imageUrl} alt={char.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+                    </div>
+                    <p className="mt-3 px-1 text-[15px] font-bold truncate">{char.name}</p>
+                    <p className="px-1 text-[12px] text-[#0E1D26]/50 truncate capitalize">{(char.role || "").toLowerCase()}</p>
+                  </button>
+                ))
+              ) : (
+                filteredAndSortedCharacters.map((char) => {
+                  const traits = traitsOf(char);
+                  return (
+                    <div
+                      key={char.id}
+                      onClick={() => handleOpenEditorEdit(char)}
+                      className="group rounded-3xl bg-white border border-[#E9E2D4] hover:border-[#0E1D26]/25 p-5 min-h-[260px] flex flex-col transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setQuickImageChar(char);
+                          }}
+                          title="Change portrait"
+                          className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden bg-[#EFE9DE] cursor-pointer"
+                        >
+                          <img src={char.imageUrl} alt={char.name} className="w-full h-full object-cover" />
+                        </button>
+                        <div className="min-w-0">
+                          <h3 className="text-[17px] font-bold leading-tight truncate">{char.name}</h3>
+                          <p className="mt-1 text-[12px] text-[#0E1D26]/50 truncate">
+                            <span className="capitalize">{(char.role || "").toLowerCase()}</span>
+                            {char.age ? ` · ${char.age}` : ""}
+                          </p>
+                          {char.group && char.group !== "none" && (
+                            <span className="mt-1.5 inline-block px-2 py-0.5 rounded-full bg-[#F1ECE2] text-[11px] text-[#0E1D26]/60">{char.group}</span>
+                          )}
                         </div>
                       </div>
-                      <div className="w-8 h-8 rounded-full bg-[#f4efe6] border border-[#e5e0d5] flex items-center justify-center text-[#8c503c] group-hover:bg-[#b8785e] group-hover:text-white transition-colors">
-                        <Folder className="w-4 h-4" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : registryView === "gallery" ? (
-              // Gallery View
-              filteredAndSortedCharacters.map((char) => (
-                <div
-                  key={char.id}
-                  onClick={() => handleOpenEditorEdit(char)}
-                  className="group cursor-pointer relative bg-[#fcfaf5] p-3 pb-4 rounded-sm shadow-[2px_4px_12px_rgba(0,0,0,0.2)] hover:shadow-[4px_8px_24px_rgba(0,0,0,0.3)] transition-all hover:-translate-y-1 mt-4 border border-[#e5e0d5] flex flex-col"
-                >
-                  {/* Pin Decoration */}
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[#8c503c] shadow-md z-10 opacity-80" />
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#d49a89] z-20" />
 
-                  <div className="relative w-full aspect-[3/4] overflow-hidden rounded-sm border border-stone-200 shrink-0">
-                    <img
-                      src={char.imageUrl}
-                      alt={char.name}
-                      className="w-full h-full object-cover grayscale-[30%] sepia-[20%] transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0 group-hover:sepia-0"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#3d261d]/80 via-transparent to-transparent opacity-40 group-hover:opacity-20 transition-opacity" />
-                  </div>
-                  
-                  <div className="mt-3 flex-1 flex items-center justify-center min-h-[32px]">
-                    <h3 className="font-serif text-base sm:text-lg font-bold text-[#4a3225] uppercase tracking-widest truncate text-center w-full px-1">
-                      {char.name}
-                    </h3>
-                  </div>
-                </div>
-              ))
-            ) : (
-              // Grid View
-              filteredAndSortedCharacters.map((char) => (
-                <div
-                  key={char.id}
-                  onClick={() => handleOpenEditorEdit(char)}
-                  className="bg-[#fcfaf5] mt-4 rounded-sm shadow-[2px_4px_12px_rgba(0,0,0,0.2)] flex flex-col p-6 h-[420px] group border border-[#e5e0d5] hover:-translate-y-1 hover:shadow-[4px_8px_24px_rgba(0,0,0,0.3)] transition-all cursor-pointer relative"
-                >
-                  {/* Pin/Tape Decoration */}
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-12 h-4 bg-white/40 backdrop-blur-sm shadow-sm rotate-2 z-10 opacity-70 group-hover:opacity-100 transition-opacity" style={{ clipPath: 'polygon(5% 0, 95% 5%, 100% 95%, 0 100%)' }} />
-
-                  {/* Header (Portrait + Info) */}
-                  <div className="flex gap-5 mb-5 relative z-0">
-                    {/* Polaroid-style Portrait */}
-                    <div 
-                      className="w-[85px] shrink-0 cursor-pointer"
-                      onClick={(e) => { e.stopPropagation(); setQuickImageChar(char); }}
-                      title="Click to change portrait (Upload / URL / Library)"
-                    >
-                      <div className="bg-white p-1.5 pb-4 shadow-sm rounded-sm border border-stone-200 rotate-[-3deg] group-hover:rotate-0 transition-transform origin-bottom-left relative">
-                        <img
-                          src={char.imageUrl}
-                          alt={char.name}
-                          className="w-full aspect-[3/4] object-cover grayscale-[30%] sepia-[20%] group-hover:grayscale-0 group-hover:sepia-0 transition-all duration-500"
-                        />
-                      </div>
-                    </div>
-                          
-                    <div className="flex-1 min-w-0 flex flex-col pt-2 justify-center">
-                      <h3 className="font-serif text-2xl font-bold text-[#4a3225] uppercase tracking-widest truncate drop-shadow-sm">
-                        {char.name}
-                      </h3>
-                      <div className="flex items-center gap-1.5 flex-wrap mt-1.5 mb-0.5">
-                        <p className="text-[10px] font-bold text-[#b8785e] tracking-widest uppercase">
-                          {char.role}
-                        </p>
-                        {char.group && char.group !== "none" && (
-                          <span className="text-[9px] font-semibold text-stone-600 bg-[#f4efe6] px-1.5 py-0.5 rounded border border-[#e5e0d5] tracking-wider uppercase">
-                            {char.group}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] font-serif italic text-stone-500 mb-2 uppercase">
-                        Age: {char.age}
+                      <p className="mt-4 text-[13px] leading-relaxed text-[#0E1D26]/60 line-clamp-3">
+                        {char.backstory || char.description || char.shortBio || "No backstory yet."}
                       </p>
-                    </div>
-                  </div>
 
-                  {/* Backstory */}
-                  <div className="mb-4 mt-2 flex-1 relative z-0">
-                    <p className="text-[9px] font-bold text-stone-400 tracking-widest uppercase mb-1.5">
-                      Backstory:
-                    </p>
-                    <p className="font-serif text-[12px] leading-relaxed text-[#5d3f32] italic line-clamp-4">
-                      {char.backstory || char.description || char.shortBio || "No backstory recorded."}
-                    </p>
-                  </div>
-
-                  {/* Traits & Actions Footer */}
-                  <div className="mt-auto flex flex-col relative z-0">
-                    <div className="mb-4 border-t border-stone-200/50 pt-4">
-                      <p className="text-[9px] font-bold text-stone-400 tracking-widest uppercase mb-2">
-                        Traits:
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {Array.isArray(char.traits) && char.traits.length > 0 ? (
-                          char.traits.map((trait: string, traitIdx: number) => (
-                            <span
-                              key={`char-trait-${char.id}-${trait}-${traitIdx}`}
-                              className="px-2 py-1 text-[#8c503c] text-[8px] font-bold tracking-widest uppercase bg-[#f4efe6] rounded-sm border border-[#e5e0d5]"
-                            >
+                      <div className="mt-auto pt-4 flex items-end justify-between gap-2">
+                        <div className="flex flex-wrap gap-1 min-w-0">
+                          {traits.slice(0, 3).map((trait, i) => (
+                            <span key={`${char.id}-${trait}-${i}`} className="px-2 py-0.5 rounded-full bg-[#F1ECE2] text-[11px] text-[#0E1D26]/65">
                               {trait}
                             </span>
-                          ))
-                        ) : typeof char.traits === 'string' && char.traits.trim() ? (
-                          <span className="px-2 py-1 text-[#8c503c] text-[8px] font-bold tracking-widest uppercase bg-[#f4efe6] rounded-sm border border-[#e5e0d5]">
-                            {char.traits}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] italic text-stone-400 font-serif">No traits added</span>
-                        )}
+                          ))}
+                          {traits.length > 3 && <span className="px-1 text-[11px] text-[#0E1D26]/40">+{traits.length - 3}</span>}
+                        </div>
+                        <div className="flex items-center shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={(e) => handleCopyText(char, e)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/40 hover:text-[#0E1D26] hover:bg-[#F8F5EE] cursor-pointer" title="Copy info for AI">
+                            {copiedCharId === char.id ? <IconTick className="w-4 h-4 text-emerald-600" /> : <IconCopy className="w-4 h-4" />}
+                          </button>
+                          <button onClick={(e) => handleDuplicateCharacter(char, e)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/40 hover:text-[#0E1D26] hover:bg-[#F8F5EE] cursor-pointer" title="Duplicate">
+                            <IconPlus className="w-4 h-4" />
+                          </button>
+                          <button onClick={(e) => handleDeleteCharacter(char.id, e)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/40 hover:text-[#C2410C] hover:bg-[#C2410C]/[0.06] cursor-pointer" title="Delete">
+                            <IconTrash className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Action Icons */}
-                    <div className="flex items-center justify-end gap-1 text-stone-400 shrink-0" onClick={e => e.stopPropagation()}>
-                      <button onClick={(e) => handleCopyText(char, e)} className="p-1.5 hover:text-[#b8785e] transition-colors" title="Copy Info (For ChatGPT)">
-                        {copiedCharId === char.id ? <Check className="w-4 h-4 text-green-600" /> : <FileText className="w-4 h-4" />}
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleOpenEditorEdit(char); }} className="p-1.5 hover:text-[#b8785e] transition-colors" title="Edit">
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button onClick={(e) => handleDuplicateCharacter(char, e)} className="p-1.5 hover:text-[#b8785e] transition-colors" title="Duplicate">
-                        <Copy className="w-4 h-4" />
-                      </button>
-                      <button onClick={(e) => handleDeleteCharacter(char.id, e)} className="p-1.5 hover:text-[#c17a7a] transition-colors" title="Delete">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col h-full bg-black/20 overflow-hidden">
-            <div className="flex-1 flex overflow-hidden">
-              {/* Left Sidebar (CAST) */}
-              <div className="w-72 border-r border-[#5d3f32] bg-[#2a1a14]/80 backdrop-blur-md flex flex-col z-20">
-                <div className="p-4 text-[10px] font-bold text-[#b8785e] tracking-widest uppercase flex items-center gap-2 border-b border-[#5d3f32]">
-                  <Users className="w-3.5 h-3.5" /> CAST
-                </div>
-                <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] p-3 space-y-2">
-                  {characters.map((char) => (
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+          <div className="flex-1 flex overflow-hidden">
+            {/* Cast sidebar */}
+            <div className="w-64 border-r border-[#E9E2D4] bg-[#F8F5EE] flex flex-col z-20">
+              <p className="px-5 pt-4 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/45">Cast · drag onto the board</p>
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-3 pb-3 space-y-1">
+                {characters.map((char) => {
+                  const onBoard = !!nodes.find((n) => n.id === char.id);
+                  return (
                     <div
                       key={char.id}
                       draggable
@@ -1902,488 +1853,353 @@ ${backstoryText}`;
                         e.dataTransfer.setData("application/char-id", char.id);
                         e.dataTransfer.effectAllowed = "copy";
                       }}
-                      className="flex items-center gap-3 p-2.5 bg-[#3d261d]/50 hover:bg-[#5d3f32]/60 rounded-sm cursor-grab border border-[#5d3f32]/50 transition-colors group shadow-inner"
+                      className="group flex items-center gap-3 p-2 rounded-2xl hover:bg-white cursor-grab transition-colors"
                       title={char.name}
                     >
-                      <img
-                        src={char.imageUrl}
-                        className="w-9 h-9 shrink-0 rounded-full object-cover border border-[#8c503c]/40 group-hover:border-[#d49a89] grayscale-[20%] sepia-[10%] group-hover:grayscale-0 group-hover:sepia-0 transition-all"
-                      />
-                      <div className="min-w-0 flex-1 pr-1">
-                        <div className="text-[11px] font-bold text-[#fcfaf5] uppercase line-clamp-2 leading-tight tracking-wider group-hover:text-white transition-colors">
-                          {char.name}
-                        </div>
-                        <div className="text-[8.5px] font-bold text-[#d49a89]/70 uppercase truncate mt-0.5">
-                          {char.role}
-                        </div>
+                      <img src={char.imageUrl} alt="" className={cn("w-9 h-9 shrink-0 rounded-full object-cover", !onBoard && "opacity-60")} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold leading-tight truncate">{char.name}</p>
+                        <p className="text-[11px] text-[#0E1D26]/45 truncate capitalize">{(char.role || "").toLowerCase()}</p>
                       </div>
-                      <button 
-                        className="ml-auto shrink-0 opacity-0 group-hover:opacity-100 text-[#d49a89]/50 hover:text-[#fcfaf5] transition-all"
+                      <button
+                        className={cn(
+                          "w-7 h-7 shrink-0 rounded-full flex items-center justify-center transition-colors cursor-pointer",
+                          onBoard ? "text-emerald-600" : "text-[#0E1D26]/35 opacity-0 group-hover:opacity-100 hover:text-[#0E1D26] hover:bg-[#F8F5EE]"
+                        )}
                         onClick={() => {
-                          const existingNode = nodes.find(n => n.id === char.id);
-                          if (!existingNode) {
-                            setNodes(prev => [...prev, { id: char.id, x: 200 - (pan.x / scale), y: 200 - (pan.y / scale) }]);
+                          if (!onBoard) {
+                            setNodes((prev) => [...prev, { id: char.id, x: 200 - pan.x / scale, y: 200 - pan.y / scale }]);
                           }
                         }}
-                        title={nodes.find(n => n.id === char.id) ? "Already on board" : "Add to board"}
+                        title={onBoard ? "Already on the board" : "Add to board"}
                       >
-                        {nodes.find(n => n.id === char.id) ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                        {onBoard ? <IconTick className="w-3.5 h-3.5" /> : <IconPlus className="w-3.5 h-3.5" />}
                       </button>
                     </div>
-                  ))}
-                  <button 
-                    onClick={handleOpenEditorNew}
-                    className="w-full mt-2 py-3 border border-dashed border-[#8c503c]/30 rounded-sm text-[#d49a89]/60 text-[10px] font-bold uppercase tracking-widest hover:bg-[#5d3f32]/40 hover:border-[#8c503c]/60 hover:text-[#fcfaf5] transition-all flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-3 h-3" /> Add Character
-                  </button>
-                </div>
-              </div>
-
-              {/* Canvas Area */}
-              <div
-                ref={canvasRef}
-                className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing bg-[#3d261d]"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "copy";
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const charId = e.dataTransfer.getData("application/char-id");
-                  if (charId && !nodes.find(n => n.id === charId) && canvasRef.current) {
-                    const rect = canvasRef.current.getBoundingClientRect();
-                    const dropX = (e.clientX - rect.left - pan.x) / scale;
-                    const dropY = (e.clientY - rect.top - pan.y) / scale;
-                    setNodes(prev => [...prev, { id: charId, x: dropX, y: dropY }]);
-                  }
-                }}
-                onPointerDown={handleCanvasPointerDown}
-                onPointerMove={(e) => {
-                  if (drawingEdge) handleCanvasPointerMove(e);
-                  else if (isPanning) handleCanvasPointerMove(e);
-                  else if (draggingNode) handleNodePointerMove(e);
-                }}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-                onWheel={(e) => {
-                  if (e.deltaY < 0) handleZoomIn();
-                  else handleZoomOut();
-                }}
-              >
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <div className="absolute top-0 right-0 w-[80%] h-[80%] bg-[#8c503c] rounded-full mix-blend-color-dodge blur-[150px] opacity-20" />
-                  <div className="absolute bottom-0 left-0 w-[60%] h-[60%] bg-[#d49a89] rounded-full mix-blend-overlay blur-[120px] opacity-10" />
-                </div>
-                
-                <div
-                  className="absolute inset-0 w-full h-full origin-top-left"
-                  style={{
-                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-                  }}
+                  );
+                })}
+                <button
+                  onClick={handleOpenEditorNew}
+                  className="w-full mt-2 h-10 rounded-full border border-dashed border-[#0E1D26]/20 hover:border-[#0E1D26]/40 text-[13px] font-semibold text-[#0E1D26]/55 hover:text-[#0E1D26] flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
-                  {/* SVG Edges */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
-                    {edges.map((edge) => {
-                      const sourceNode = nodes.find(
-                        (n) => n.id === edge.source,
-                      );
-                      const targetNode = nodes.find(
-                        (n) => n.id === edge.target,
-                      );
-                      if (!sourceNode || !targetNode) return null;
+                  <IconPlus className="w-4 h-4" /> Add character
+                </button>
+              </div>
+            </div>
 
-                      // Safeguard: Ensure both source and target characters exist in the current project
-                      const sourceChar = characters.find((c) => c.id === edge.source);
-                      const targetChar = characters.find((c) => c.id === edge.target);
-                      if (!sourceChar || !targetChar) return null;
+            {/* Board */}
+            <div
+              ref={canvasRef}
+              className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing bg-[#FBF9F5]"
+              style={{ backgroundImage: "radial-gradient(rgba(14,29,38,0.09) 1px, transparent 1px)", backgroundSize: `${22 * scale}px ${22 * scale}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const charId = e.dataTransfer.getData("application/char-id");
+                if (charId && !nodes.find((n) => n.id === charId) && canvasRef.current) {
+                  const rect = canvasRef.current.getBoundingClientRect();
+                  const dropX = (e.clientX - rect.left - pan.x) / scale;
+                  const dropY = (e.clientY - rect.top - pan.y) / scale;
+                  setNodes((prev) => [...prev, { id: charId, x: dropX, y: dropY }]);
+                }
+              }}
+              onPointerDown={handleCanvasPointerDown}
+              onPointerMove={(e) => {
+                if (drawingEdge) handleCanvasPointerMove(e);
+                else if (isPanning) handleCanvasPointerMove(e);
+                else if (draggingNode) handleNodePointerMove(e);
+              }}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              onWheel={(e) => {
+                if (e.deltaY < 0) handleZoomIn();
+                else handleZoomOut();
+              }}
+            >
+              {nodes.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <p className="text-[14px] text-[#0E1D26]/40">Drag characters from the left, then pull a wire between two portraits.</p>
+                </div>
+              )}
 
-                      // Coordinates now map exactly to the avatar's center point
-                      const sx = sourceNode.x;
-                      const sy = sourceNode.y + 20;
-                      const tx = targetNode.x;
-                      const ty = targetNode.y + 20;
-                      
-                      const dist = Math.sqrt(Math.pow(tx - sx, 2) + Math.pow(ty - sy, 2));
-                      const sag = dist * 0.15; // Gravity sag
-                      const cx = (sx + tx) / 2;
-                      const cy = (sy + ty) / 2 + sag;
-                      
-                      const mx = (sx + tx) / 2;
-                      const my = (sy + ty) / 2 + (sag * 0.5);
+              <div className="absolute inset-0 w-full h-full origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}>
+                {/* Wires */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+                  {edges.map((edge) => {
+                    const sourceNode = nodes.find((n) => n.id === edge.source);
+                    const targetNode = nodes.find((n) => n.id === edge.target);
+                    if (!sourceNode || !targetNode) return null;
 
-                      const EdgeIcon = getEdgeIconComponent(edge);
+                    // Safeguard: Ensure both source and target characters exist in the current project
+                    const sourceChar = characters.find((c) => c.id === edge.source);
+                    const targetChar = characters.find((c) => c.id === edge.target);
+                    if (!sourceChar || !targetChar) return null;
 
-                      return (
-                        <g key={edge.id}>
-                          <path
-                            d={`M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`}
-                            stroke={edge.color}
-                            strokeWidth="2.5"
-                            opacity="0.9"
-                            fill="none"
-                            strokeDasharray="4 2"
-                            strokeLinecap="round"
-                            className="drop-shadow-sm"
-                          />
+                    // Coordinates map to the avatar's center point
+                    const sx = sourceNode.x;
+                    const sy = sourceNode.y + 20;
+                    const tx = targetNode.x;
+                    const ty = targetNode.y + 20;
 
-                          {/* Badge for relation (Paper Label style) */}
-                          <g
-                            transform={`translate(${mx}, ${my})`}
-                            className="pointer-events-auto cursor-pointer group"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPendingEdge({ source: edge.source, target: edge.target, edgeId: edge.id });
-                            }}
-                          >
-                            {/* Tape decoration */}
-                            <rect x="-15" y="-14" width="30" height="6" fill="white" opacity="0.4" transform="rotate(-5)" />
-                            
-                            <rect
-                              x="-35"
-                              y="-10"
-                              width="70"
-                              height="20"
-                              fill="#f4efe6"
-                              stroke="#e5e0d5"
-                              strokeWidth="1"
-                              rx="1"
-                              className="shadow-sm group-hover:stroke-[#d49a89] transition-colors"
-                            />
-                            <foreignObject
-                              x="-32"
-                              y="-7"
-                              width="14"
-                              height="14"
+                    const dist = Math.sqrt(Math.pow(tx - sx, 2) + Math.pow(ty - sy, 2));
+                    const sag = dist * 0.12;
+                    const cx = (sx + tx) / 2;
+                    const cy = (sy + ty) / 2 + sag;
+                    const mx = (sx + tx) / 2;
+                    const my = (sy + ty) / 2 + sag * 0.5;
+
+                    const EdgeIcon = getEdgeIconComponent(edge);
+                    const labelWidth = Math.max(64, (edge.label || "").length * 6.2 + 34);
+
+                    return (
+                      <g key={edge.id}>
+                        <path d={`M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`} stroke={edge.color} strokeWidth="2" opacity="0.75" fill="none" strokeLinecap="round" />
+                        <g
+                          transform={`translate(${mx}, ${my})`}
+                          className="pointer-events-auto cursor-pointer group"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPendingEdge({ source: edge.source, target: edge.target, edgeId: edge.id });
+                          }}
+                        >
+                          <rect x={-labelWidth / 2} y="-11" width={labelWidth} height="22" rx="11" fill="#FFFFFF" stroke="#E9E2D4" strokeWidth="1" className="group-hover:stroke-[#0E1D26]/40 transition-colors" />
+                          <foreignObject x={-labelWidth / 2 + 7} y="-7" width="14" height="14">
+                            <div className="w-full h-full flex items-center justify-center">
+                              <EdgeIcon className="w-3 h-3" style={{ color: edge.color }} />
+                            </div>
+                          </foreignObject>
+                          <text x={-labelWidth / 2 + 25} y="1" fontSize="10" fontWeight="600" fill="#0E1D26" dominantBaseline="middle" fontFamily="Outfit, sans-serif">
+                            {edge.label}
+                          </text>
+                          <foreignObject x={labelWidth / 2 + 2} y="-10" width="20" height="20" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              className="w-5 h-5 bg-white border border-[#E9E2D4] rounded-full flex items-center justify-center text-[#C2410C] hover:bg-[#C2410C]/10"
+                              title="Cut this relationship"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEdges((prev) => prev.filter((eItem) => eItem.id !== edge.id));
+                              }}
                             >
-                              <div className="w-full h-full flex items-center justify-center">
-                                <EdgeIcon
-                                  className="w-3 h-3"
-                                  style={{ color: edge.color }}
-                                />
-                              </div>
-                            </foreignObject>
-                            <text
-                              x="-14"
-                              y="3"
-                              fontSize="8"
-                              fontWeight="800"
-                              fill="#4a3225"
-                              alignmentBaseline="middle"
-                              letterSpacing="0.5"
-                            >
-                              {edge.label}
-                            </text>
-                            
-                            {/* Hover Scissors Icon */}
-                            <foreignObject x="35" y="-12" width="20" height="20" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
-                                className="w-5 h-5 bg-white border border-rose-200 rounded-full flex items-center justify-center text-rose-500 hover:bg-rose-50 hover:scale-110 shadow-sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEdges(prev => prev.filter(eItem => eItem.id !== edge.id));
-                                }}
-                              >
-                                <Scissors className="w-2.5 h-2.5" />
-                              </button>
-                            </foreignObject>
-                          </g>
+                              <IconScissors className="w-3 h-3" />
+                            </button>
+                          </foreignObject>
                         </g>
-                      );
-                    })}
-                    
-                    {/* Drawing Edge */}
-                    {drawingEdge && (() => {
+                      </g>
+                    );
+                  })}
+
+                  {/* Wire being drawn */}
+                  {drawingEdge &&
+                    (() => {
                       const sourceNode = nodes.find((n) => n.id === drawingEdge.source);
                       if (!sourceNode) return null;
                       const sx = sourceNode.x;
                       const sy = sourceNode.y + 20;
                       const tx = drawingEdge.currentX;
                       const ty = drawingEdge.currentY;
-                      
                       const dist = Math.sqrt(Math.pow(tx - sx, 2) + Math.pow(ty - sy, 2));
-                      const sag = dist * 0.15;
+                      const sag = dist * 0.12;
                       const cx = (sx + tx) / 2;
                       const cy = (sy + ty) / 2 + sag;
-                      
-                      return (
-                        <path
-                          d={`M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`}
-                          stroke="#ef4444"
-                          strokeWidth="3"
-                          opacity="0.8"
-                          fill="none"
-                          strokeDasharray="4 4"
-                          strokeLinecap="round"
-                          className="drop-shadow-sm animate-pulse"
-                        />
-                      );
+                      return <path d={`M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`} stroke="#E8561F" strokeWidth="2" fill="none" strokeDasharray="5 5" strokeLinecap="round" />;
                     })()}
-                  </svg>
+                </svg>
 
-                  {/* HTML Nodes */}
-                  {nodes.map((node) => {
-                    const char = characters.find((c) => c.id === node.id);
-                    if (!char) return null;
-                    
-                    // Generate a stable random rotation based on ID string
-                    const charCodeSum = node.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-                    const rotation = (charCodeSum % 7) - 3; // -3 to +3 degrees
+                {/* Portrait nodes */}
+                {nodes.map((node) => {
+                  const char = characters.find((c) => c.id === node.id);
+                  if (!char) return null;
+                  const nodeTraits = traitsOf(char);
+                  const relations = edges.filter((e) => e.source === char.id || e.target === char.id);
 
-                    return (
-                      <div
-                        key={node.id}
-                        className="absolute flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing hover:z-20 group"
-                        style={{
-                          left: node.x,
-                          top: node.y,
-                          transform: `translate(-50%, -44px) rotate(${rotation}deg)`,
-                          touchAction: "none",
-                        }}
-                        onPointerDown={(e) => handleNodePointerDown(e, node.id)}
-                        onPointerMove={handleNodePointerMove}
-                        onPointerUp={handlePointerUp}
-                        onPointerCancel={handlePointerUp}
-                      >
-                        {/* Hover Full Name Tooltip */}
-                        <div className="absolute -top-11 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 z-40 transform translate-y-1 group-hover:translate-y-0 shadow-lg">
-                          <div className="bg-[#241610] text-[#fcfaf5] text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-xs border border-[#8c503c]/70 whitespace-nowrap flex items-center gap-1.5 shadow-md">
-                            <span>{char.name}</span>
-                            {char.role && (
-                              <span className="text-[9px] text-[#d49a89] font-normal tracking-normal capitalize">
-                                • {char.role}
-                              </span>
-                            )}
-                          </div>
-                          <div className="w-1.5 h-1.5 bg-[#241610] border-r border-b border-[#8c503c]/70 rotate-45 mx-auto -mt-1" />
-                        </div>
-
-                        <div 
-                          className="w-[114px] h-[142px] shrink-0 bg-[#fcfaf5] p-1.5 pb-8 rounded-sm border border-[#e5e0d5] shadow-[2px_4px_14px_rgba(0,0,0,0.35)] hover:shadow-[3px_6px_18px_rgba(0,0,0,0.45)] transition-shadow relative"
-                          title={char.name}
+                  return (
+                    <div
+                      key={node.id}
+                      className="absolute flex flex-col items-center cursor-grab active:cursor-grabbing hover:z-20 group"
+                      style={{ left: node.x, top: node.y, transform: "translate(-50%, -24px)", touchAction: "none" }}
+                      onPointerDown={(e) => handleNodePointerDown(e, node.id)}
+                      onPointerMove={handleNodePointerMove}
+                      onPointerUp={handlePointerUp}
+                      onPointerCancel={handlePointerUp}
+                    >
+                      <div className="relative" title={char.name}>
+                        <img
+                          src={char.imageUrl}
+                          alt=""
+                          className={cn(
+                            "w-[88px] h-[88px] rounded-full object-cover bg-white ring-4 shadow-[0_10px_24px_-12px_rgba(14,29,38,0.55)] pointer-events-none transition-shadow",
+                            selectedCharId === node.id ? "ring-[#E8561F]" : "ring-white"
+                          )}
+                        />
+                        {/* Wire handle */}
+                        <div
+                          className="absolute -right-1 bottom-1 w-7 h-7 bg-white border border-[#E9E2D4] rounded-full flex items-center justify-center text-[#0E1D26]/55 opacity-0 group-hover:opacity-100 hover:bg-[#0E1D26] hover:text-white transition cursor-crosshair shadow-sm z-30"
+                          onPointerDown={(e) => handleStartDrawEdge(e, node.id)}
+                          title="Pull a relationship wire"
                         >
-                          {/* Pin */}
-                          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[#8c503c] shadow-sm z-10 opacity-95" />
-                          <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#d49a89] z-20" />
-                          
-                          <img
-                            src={char.imageUrl}
-                            className="w-full h-full object-cover border border-stone-200 grayscale-[15%] sepia-[10%] pointer-events-none rounded-[1px]"
-                          />
-                          <div className="absolute bottom-1 left-1 right-1 h-7 flex items-center justify-center pointer-events-none text-center px-0.5">
-                            <span className="text-[9.5px] font-bold text-[#4a3225] uppercase tracking-wider line-clamp-2 leading-[1.15] break-words">
-                              {char.name}
-                            </span>
-                          </div>
-                          
-                          {/* Link Anchor (shows on hover) */}
-                          <div 
-                            className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-[#fcfaf5] border border-[#d49a89] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-crosshair hover:bg-[#8c503c] hover:text-white shadow-sm z-30"
-                            onPointerDown={(e) => handleStartDrawEdge(e, node.id)}
-                            title="Connect relationship wire"
-                          >
-                            <Link2 className="w-3 h-3" />
+                          <IconLink className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                      <div className="mt-2 max-w-[140px] px-2.5 py-1 rounded-full bg-white/90 border border-[#E9E2D4] text-center pointer-events-none">
+                        <p className="text-[12px] font-bold leading-tight truncate">{char.name}</p>
+                      </div>
+
+                      {/* Dossier card */}
+                      {selectedCharId === node.id && (
+                        <div
+                          className="absolute left-[calc(50%+60px)] top-0 w-72 bg-white rounded-3xl shadow-[0_24px_48px_-20px_rgba(14,29,38,0.45)] border border-[#E9E2D4] p-5 cursor-auto z-50 text-left animate-in fade-in zoom-in-95 duration-150"
+                          style={{ touchAction: "auto" }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center gap-3">
+                            <img src={char.imageUrl} alt="" className="w-14 h-14 rounded-2xl object-cover" />
+                            <div className="min-w-0">
+                              <h3 className="text-[17px] font-bold leading-tight truncate">{char.name}</h3>
+                              <p className="mt-0.5 text-[12px] text-[#0E1D26]/50 truncate">
+                                <span className="capitalize">{(char.role || "").toLowerCase()}</span>
+                                {char.age ? ` · ${char.age}` : ""}
+                              </p>
+                            </div>
                           </div>
 
-                          {/* Dossier Popup Card */}
-                          {selectedCharId === node.id && (
-                            <div 
-                              className="absolute left-[110%] top-[-20%] w-72 bg-[#fcfaf5] rounded-sm shadow-[8px_16px_32px_rgba(0,0,0,0.4)] border border-[#e5e0d5] p-5 cursor-auto z-50 animate-in fade-in zoom-in-95 duration-200 text-left"
-                              style={{ 
-                                touchAction: 'auto',
-                                transform: `rotate(${-rotation}deg)` // Counteract the polaroid rotation to make card straight
-                              }}
-                              onPointerDown={e => e.stopPropagation()} // prevent drag
-                            >
-                              {/* Tape decoration */}
-                              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-5 bg-white/60 rotate-2 opacity-70 shadow-sm border border-[#e5e0d5]/50" />
-                              
-                              <div className="flex gap-4 mb-4">
-                                <div className="w-[70px] h-[90px] shrink-0 bg-white p-1 pb-3 rounded-sm border border-[#e5e0d5] shadow-sm relative rotate-[-2deg]">
-                                  <img src={char.imageUrl} className="w-full h-full object-cover grayscale-[20%] sepia-[10%]" />
-                                </div>
-                                <div className="flex-1 min-w-0 pt-1">
-                                  <h3 className="font-serif text-xl font-bold text-[#4a3225] truncate">
-                                    {char.name}
-                                  </h3>
-                                  <div className="text-[10px] font-bold text-[#8c503c] uppercase tracking-widest mt-1 truncate">
-                                    {char.role}
-                                  </div>
-                                  <div className="text-[10px] font-medium text-stone-500 uppercase mt-0.5">
-                                    AGE: {char.age || 'Unknown'}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="mb-4">
-                                <h4 className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mb-1.5">Backstory:</h4>
-                                <p className="font-serif italic text-sm text-[#4a3225] line-clamp-4 leading-relaxed">
-                                  {char.backstory || char.description || char.shortBio || "No backstory recorded in the archives."}
-                                </p>
-                              </div>
-                              
-                              <div className="mb-4">
-                                <h4 className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mb-1.5">Traits:</h4>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {Array.isArray(char.traits) && char.traits.length > 0 ? (
-                                    char.traits.map((trait: string, tIdx: number) => (
-                                      <span key={`char-modal-trait-${char.id}-${trait}-${tIdx}`} className="px-2 py-0.5 bg-[#f4efe6] border border-[#e5e0d5] text-[#8c503c] text-[9px] font-bold uppercase tracking-widest rounded-sm">
-                                        {trait}
-                                      </span>
-                                    ))
-                                  ) : typeof char.traits === 'string' && char.traits.trim() ? (
-                                    <span className="px-2 py-0.5 bg-[#f4efe6] border border-[#e5e0d5] text-[#8c503c] text-[9px] font-bold uppercase tracking-widest rounded-sm">
-                                      {char.traits}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] italic text-stone-400 font-serif">None specified</span>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              <div className="mb-4">
-                                <h4 className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mb-1.5">Relationships:</h4>
-                                <div className="space-y-1.5">
-                                  {edges.filter(e => e.source === char.id || e.target === char.id).map(edge => {
-                                    const relatedId = edge.source === char.id ? edge.target : edge.source;
-                                    const relatedChar = characters.find(c => c.id === relatedId);
-                                    if (!relatedChar) return null;
-                                    return (
-                                      <div key={edge.id} className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-[#8c503c]" />
-                                        <span className="text-[10px] font-bold text-[#4a3225] uppercase tracking-wider">{relatedChar.name}</span>
-                                        <span className="text-[9px] font-medium text-stone-500 uppercase italic">— {edge.label || "Connected"}</span>
-                                      </div>
-                                    );
-                                  })}
-                                  {edges.filter(e => e.source === char.id || e.target === char.id).length === 0 && (
-                                    <p className="text-[10px] font-serif italic text-stone-500">No relationships recorded.</p>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#e5e0d5] mt-2 text-stone-400">
-                                <button 
-                                  className="hover:text-[#8c503c] transition-colors" 
-                                  title="Copy Info (For ChatGPT)"
-                                  onClick={(e) => handleCopyText(char, e)}
-                                >
-                                  {copiedCharId === char.id ? <Check className="w-4 h-4 text-green-600" /> : <FileText className="w-4 h-4" />}
-                                </button>
-                                <button 
-                                  className="hover:text-[#8c503c] transition-colors" 
-                                  title="Edit Profile"
-                                  onClick={(e) => { e.stopPropagation(); handleOpenEditorEdit(char); }}
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  className="hover:text-rose-600 transition-colors" 
-                                  title="Delete"
-                                  onClick={(e) => { e.stopPropagation(); setCharacterToDelete(char.id); }}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
+                          <p className="mt-4 text-[13px] leading-relaxed text-[#0E1D26]/65 line-clamp-4">
+                            {char.backstory || char.description || char.shortBio || "No backstory yet."}
+                          </p>
+
+                          {nodeTraits.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-1">
+                              {nodeTraits.map((trait, i) => (
+                                <span key={`${char.id}-dossier-${trait}-${i}`} className="px-2 py-0.5 rounded-full bg-[#F1ECE2] text-[11px] text-[#0E1D26]/65">
+                                  {trait}
+                                </span>
+                              ))}
                             </div>
                           )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
 
-                {/* Zoom Controls */}
-                <div className="absolute bottom-6 left-6 flex flex-col gap-1.5 bg-[#fcfaf5] rounded-sm p-1.5 border border-[#e5e0d5] shadow-[2px_4px_12px_rgba(0,0,0,0.2)]">
-                  <button
-                    onClick={handleZoomIn}
-                    className="w-7 h-7 flex items-center justify-center text-[#8c503c] hover:bg-[#b8785e] hover:text-white rounded-sm transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                  <div className="w-full h-px bg-stone-200" />
-                  <button
-                    onClick={handleZoomOut}
-                    className="w-7 h-7 flex items-center justify-center text-[#8c503c] hover:bg-[#b8785e] hover:text-white rounded-sm transition-colors"
-                  >
-                    <div className="w-3 h-[2px] bg-current" />
-                  </button>
-                </div>
+                          <div className="mt-4">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0E1D26]/40">Relationships</p>
+                            <div className="mt-1.5 space-y-1">
+                              {relations.map((edge) => {
+                                const relatedChar = characters.find((c) => c.id === (edge.source === char.id ? edge.target : edge.source));
+                                if (!relatedChar) return null;
+                                return (
+                                  <p key={edge.id} className="flex items-center gap-2 text-[13px]">
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: edge.color }} />
+                                    <span className="font-semibold truncate">{relatedChar.name}</span>
+                                    <span className="text-[#0E1D26]/45 truncate">{edge.label || "Connected"}</span>
+                                  </p>
+                                );
+                              })}
+                              {relations.length === 0 && <p className="text-[13px] text-[#0E1D26]/45">None yet.</p>}
+                            </div>
+                          </div>
 
-                {/* Relationship Select Modal */}
-                {pendingEdge && (
-                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
-                    <div className="bg-[#fcfaf5] p-6 rounded-sm border border-[#e5e0d5] shadow-[4px_8px_24px_rgba(0,0,0,0.4)] max-w-sm w-full mx-4">
-                      <h3 className="font-serif text-lg font-bold text-[#4a3225] mb-4 uppercase tracking-widest text-center border-b border-[#e5e0d5] pb-3">
-                        {pendingEdge.edgeId ? "Update Link" : "Establish Link"}
-                      </h3>
-                      <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                        {RELATION_OPTIONS.map(opt => {
-                          const OptIcon = opt.icon;
-                          return (
+                          <div className="mt-4 pt-3 border-t border-[#F1ECE2] flex items-center justify-end gap-1">
+                            <button className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/45 hover:text-[#0E1D26] hover:bg-[#F8F5EE] cursor-pointer" title="Copy info for AI" onClick={(e) => handleCopyText(char, e)}>
+                              {copiedCharId === char.id ? <IconTick className="w-4 h-4 text-emerald-600" /> : <IconCopy className="w-4 h-4" />}
+                            </button>
                             <button
-                              key={opt.label}
-                              className="w-full flex items-center gap-3 p-3 rounded-sm border border-transparent hover:border-[#d49a89] transition-all bg-white shadow-sm hover:shadow-md"
-                              onClick={() => {
-                                if (pendingEdge.edgeId) {
-                                  setEdges(prev => prev.map(e => e.id === pendingEdge.edgeId ? { ...e, label: opt.label, color: opt.color } : e));
-                                } else {
-                                  setEdges(prev => [...prev, {
-                                    id: Date.now().toString(),
-                                    source: pendingEdge.source,
-                                    target: pendingEdge.target,
-                                    label: opt.label,
-                                    color: opt.color,
-                                  }]);
-                                }
-                                setPendingEdge(null);
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/45 hover:text-[#0E1D26] hover:bg-[#F8F5EE] cursor-pointer"
+                              title="Edit profile"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditorEdit(char);
                               }}
                             >
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center border" style={{ backgroundColor: opt.color + '15', color: opt.color, borderColor: opt.color + '40' }}>
-                                <OptIcon className="w-4 h-4" />
-                              </div>
-                              <span className="font-bold text-[#4a3225] tracking-widest text-sm">{opt.label}</span>
+                              <IconEdit className="w-4 h-4" />
                             </button>
-                          )
-                        })}
-                      </div>
-                      
-                      <div className="mt-4 pt-4 border-t border-[#e5e0d5]">
-                        <p className="text-[10px] font-bold text-[#8c503c] uppercase tracking-widest mb-2">Or type custom relation:</p>
-                        <input 
-                          type="text" 
-                          autoFocus
-                          placeholder="e.g. MASTERMIND (Press Enter)" 
-                          className="w-full bg-white border border-[#e5e0d5] rounded-sm px-3 py-2 text-sm font-bold text-[#4a3225] focus:outline-none focus:border-[#d49a89] uppercase placeholder:normal-case placeholder:font-normal placeholder:text-stone-400 shadow-inner"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                              const val = e.currentTarget.value.trim().toUpperCase();
+                            <button
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/45 hover:text-[#C2410C] hover:bg-[#C2410C]/[0.06] cursor-pointer"
+                              title="Delete"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCharacterToDelete(char.id);
+                              }}
+                            >
+                              <IconTrash className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Zoom */}
+              <div className="absolute bottom-5 left-5 flex items-center gap-1 p-1 rounded-full bg-white border border-[#E9E2D4] shadow-[0_8px_20px_-12px_rgba(14,29,38,0.4)]">
+                <button onClick={handleZoomOut} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/60 hover:bg-[#F8F5EE] cursor-pointer" title="Zoom out">
+                  <IconMinus className="w-4 h-4" />
+                </button>
+                <span className="w-10 text-center text-[12px] font-semibold tabular-nums text-[#0E1D26]/55">{Math.round(scale * 100)}%</span>
+                <button onClick={handleZoomIn} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/60 hover:bg-[#F8F5EE] cursor-pointer" title="Zoom in">
+                  <IconPlus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Relationship picker */}
+              {pendingEdge && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0E1D26]/30 backdrop-blur-sm" onPointerDown={(e) => e.stopPropagation()}>
+                  <div className="bg-[#F8F5EE] p-6 rounded-[28px] shadow-2xl max-w-sm w-full mx-4">
+                    <h3 className="text-[22px] font-extrabold tracking-[-0.02em]">{pendingEdge.edgeId ? "Change relationship" : "New relationship"}</h3>
+                    <div className="mt-4 grid grid-cols-2 gap-1.5 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                      {RELATION_OPTIONS.map((opt) => {
+                        const OptIcon = opt.icon;
+                        return (
+                          <button
+                            key={opt.label}
+                            className="flex items-center gap-2.5 p-2 rounded-2xl bg-white border border-[#E9E2D4] hover:border-[#0E1D26]/30 text-left transition-colors cursor-pointer"
+                            onClick={() => {
                               if (pendingEdge.edgeId) {
-                                setEdges(prev => prev.map(edge => edge.id === pendingEdge.edgeId ? { ...edge, label: val, color: "#8c503c" } : edge));
+                                setEdges((prev) => prev.map((e) => (e.id === pendingEdge.edgeId ? { ...e, label: opt.label, color: opt.color } : e)));
                               } else {
-                                setEdges(prev => [...prev, {
-                                  id: Date.now().toString(),
-                                  source: pendingEdge.source,
-                                  target: pendingEdge.target,
-                                  label: val,
-                                  color: "#8c503c",
-                                }]);
+                                setEdges((prev) => [
+                                  ...prev,
+                                  { id: Date.now().toString(), source: pendingEdge.source, target: pendingEdge.target, label: opt.label, color: opt.color },
+                                ]);
                               }
                               setPendingEdge(null);
-                            }
-                          }}
-                        />
-                      </div>
-
-                      <button 
-                        className="mt-4 w-full py-3 text-sm font-bold text-[#8c503c] uppercase tracking-widest hover:bg-[#8c503c]/10 rounded-sm transition-colors border border-transparent hover:border-[#8c503c]/20"
-                        onClick={() => setPendingEdge(null)}
-                      >
-                        Cancel
-                      </button>
+                            }}
+                          >
+                            <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: opt.color + "18", color: opt.color }}>
+                              <OptIcon className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="text-[12px] font-semibold truncate capitalize">{opt.label.toLowerCase()}</span>
+                          </button>
+                        );
+                      })}
                     </div>
+
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Or type your own, then press Enter"
+                      className="mt-4 w-full h-11 px-4 bg-white border border-[#E9E2D4] rounded-full text-[14px] placeholder:text-[#0E1D26]/35 outline-none focus:border-[#0E1D26]/35"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                          const val = e.currentTarget.value.trim().toUpperCase();
+                          if (pendingEdge.edgeId) {
+                            setEdges((prev) => prev.map((edge) => (edge.id === pendingEdge.edgeId ? { ...edge, label: val, color: "#0E1D26" } : edge)));
+                          } else {
+                            setEdges((prev) => [...prev, { id: Date.now().toString(), source: pendingEdge.source, target: pendingEdge.target, label: val, color: "#0E1D26" }]);
+                          }
+                          setPendingEdge(null);
+                        }
+                      }}
+                    />
+
+                    <button
+                      className="mt-3 w-full h-10 rounded-full text-[13px] font-semibold text-[#0E1D26]/55 hover:text-[#0E1D26] hover:bg-[#EFE9DE] transition-colors cursor-pointer"
+                      onClick={() => setPendingEdge(null)}
+                    >
+                      Cancel
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
               </div>
             </div>
           </div>

@@ -481,6 +481,111 @@ export function IconImage(p: IconProps) {
   );
 }
 
+export function IconFilter(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M4.5 6.5h15M7.5 12h9M10.5 17.5h3" />
+    </Icon>
+  );
+}
+
+export function IconSort(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M8 4.5v15M4.5 8 8 4.5 11.5 8M16 19.5v-15M12.5 16l3.5 3.5 3.5-3.5" />
+    </Icon>
+  );
+}
+
+export function IconGallery(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <rect x="4" y="4" width="7" height="10" rx="1.75" />
+      <rect x="13" y="4" width="7" height="10" rx="1.75" />
+      <path d="M4 18h7M13 18h7" />
+    </Icon>
+  );
+}
+
+export function IconFolder(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M3.75 7.25A2.25 2.25 0 0 1 6 5h3.5l2 2.25H18a2.25 2.25 0 0 1 2.25 2.25v7.25A2.25 2.25 0 0 1 18 19H6a2.25 2.25 0 0 1-2.25-2.25z" />
+    </Icon>
+  );
+}
+
+export function IconCopy(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2.25" />
+      <path d="M15.5 8.5V6.75A2.25 2.25 0 0 0 13.25 4.5h-6.5A2.25 2.25 0 0 0 4.5 6.75v6.5a2.25 2.25 0 0 0 2.25 2.25H8.5" />
+    </Icon>
+  );
+}
+
+export function IconEdit(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M14.5 5.5 18.5 9.5M4.5 19.5l1-4.5L15.75 4.75a1.8 1.8 0 0 1 2.5 0l1 1a1.8 1.8 0 0 1 0 2.5L9 18.5z" />
+    </Icon>
+  );
+}
+
+export function IconLock(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <rect x="5" y="10.5" width="14" height="9.5" rx="2.25" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+    </Icon>
+  );
+}
+
+export function IconHelp(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.45M12 16.75v.25" />
+    </Icon>
+  );
+}
+
+export function IconLink(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" />
+    </Icon>
+  );
+}
+
+export function IconScissors(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <circle cx="6.5" cy="7" r="2.5" />
+      <circle cx="6.5" cy="17" r="2.5" />
+      <path d="M8.7 8.3 19.5 17M8.7 15.7 19.5 7" />
+    </Icon>
+  );
+}
+
+export function IconMinus(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M5 12h14" />
+    </Icon>
+  );
+}
+
+export function IconUsers(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <circle cx="9" cy="8.5" r="3.25" />
+      <path d="M3.5 19c.7-3 2.9-4.75 5.5-4.75s4.8 1.75 5.5 4.75M15.5 5.5a3.25 3.25 0 0 1 0 6.25M17.5 14.5c1.6.6 2.6 2.1 3 4.5" />
+    </Icon>
+  );
+}
+
 export function IconSpinner({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={cn("animate-spin", className)} fill="none" aria-hidden="true">
