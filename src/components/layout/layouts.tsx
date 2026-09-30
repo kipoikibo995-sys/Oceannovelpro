@@ -1,26 +1,22 @@
-import { AnimatePresence, motion } from "motion/react";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import {
-  Book,
-  LayoutDashboard,
-  Settings,
-  FileText,
-  Users,
-  Map,
-  PenTool,
-  Edit3,
-  Grid,
-  User,
-  HelpCircle,
-  ArrowLeft,
-  Menu,
-  ChevronLeft,
-  Search,
-  ShieldCheck,
-  BookOpen,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  IconArrow,
+  IconBook,
+  IconBookWave,
+  IconChevronLeft,
+  IconGear,
+  IconMenu,
+  IconOverview,
+  IconPerson,
+  IconPin,
+  IconQuill,
+  IconSearch,
+  IconShield,
+  IconTimeline,
+  type IconProps,
+} from "@/components/brand/ocean-ui";
 
 export function AppLayout() {
   return (
@@ -32,10 +28,13 @@ export function AppLayout() {
   );
 }
 
+type NavItem = { label: string; icon: (p: IconProps) => React.ReactElement; href: string };
+
 export function ProjectLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(true);
+  const projId = location.pathname.split("/")[2] || "1";
 
   useEffect(() => {
     if (location.pathname.includes("/workspace/studio")) {
@@ -43,265 +42,132 @@ export function ProjectLayout() {
     }
   }, [location.pathname]);
 
-  const navItems = [
-    {
-      label: "Overview",
-      icon: LayoutDashboard,
-      href: `/project/${location.pathname.split("/")[2] || "1"}`,
-    },
-    {
-      label: "Story Bible",
-      icon: BookOpen,
-      href: `/project/${location.pathname.split("/")[2] || "1"}/workspace/bible`,
-    },
-    {
-      label: "Characters",
-      icon: Users,
-      href: `/project/${location.pathname.split("/")[2] || "1"}/characters`,
-    },
-    {
-      label: "Locations",
-      icon: Map,
-      href: `/project/${location.pathname.split("/")[2] || "1"}/workspace/locations`,
-    },
-    {
-      label: "Plot & Timeline",
-      icon: Book,
-      href: `/project/${location.pathname.split("/")[2] || "1"}/workspace/plot`,
-    },
+  const navItems: NavItem[] = [
+    { label: "Overview", icon: IconOverview, href: `/project/${projId}` },
+    { label: "Story Bible", icon: IconBook, href: `/project/${projId}/workspace/bible` },
+    { label: "Characters", icon: IconPerson, href: `/project/${projId}/characters` },
+    { label: "Locations", icon: IconPin, href: `/project/${projId}/workspace/locations` },
+    { label: "Plot & Timeline", icon: IconTimeline, href: `/project/${projId}/workspace/plot` },
   ];
 
-  const workspaceItems = [
-    {
-      label: "Writing Studio",
-      icon: PenTool,
-      href: `/project/${location.pathname.split("/")[2] || "1"}/workspace/studio`,
-    },
+  const toolItems: NavItem[] = [
+    { label: "Search & Replace", icon: IconSearch, href: `/project/${projId}/workspace/search` },
+    { label: "Consistency Checker", icon: IconShield, href: `/project/${projId}/workspace/consistency` },
   ];
 
-  const toolItems = [
-    {
-      label: "Search & Replace",
-      icon: Search,
-      href: `/project/${location.pathname.split("/")[2] || "1"}/workspace/search`,
-    },
-    {
-      label: "Consistency Checker",
-      icon: ShieldCheck,
-      href: `/project/${location.pathname.split("/")[2] || "1"}/workspace/consistency`,
-    },
-  ];
+  const studioHref = `/project/${projId}/workspace/studio`;
+  const isStudio = location.pathname === studioHref;
+  const inSettings = location.pathname.includes("settings");
+  const isProfile = inSettings && (location.search.includes("tab=profile") || !location.search.includes("tab="));
+  const isPrefs = inSettings && location.search.includes("tab=preferences");
+
+  const itemCls = (active: boolean) =>
+    cn(
+      "relative flex items-center rounded-full transition-colors",
+      isExpanded ? "w-full px-4 h-10 gap-3" : "w-10 h-10 justify-center mx-auto",
+      active
+        ? "bg-white text-[#0E1D26] font-semibold shadow-[0_1px_2px_rgba(14,29,38,0.08)]"
+        : "text-[#0E1D26]/60 hover:text-[#0E1D26] hover:bg-[#0E1D26]/[0.04] font-medium"
+    );
+
+  const sectionLabel = (text: string) =>
+    isExpanded && (
+      <div className="px-4 mt-4 mb-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#0E1D26]/35">{text}</div>
+    );
+
+  const renderItem = (item: NavItem) => {
+    const active = location.pathname === item.href;
+    return (
+      <Link key={item.href} to={item.href} title={!isExpanded ? item.label : undefined} className={itemCls(active)}>
+        <item.icon className={cn("w-[18px] h-[18px] shrink-0", active ? "text-[#E8561F]" : "")} />
+        {isExpanded && <span className="text-[14px] truncate">{item.label}</span>}
+      </Link>
+    );
+  };
 
   return (
-    <div className="flex flex-1 overflow-hidden h-full bg-[#F4F1EA]">
+    <div className="flex flex-1 overflow-hidden h-full bg-[#F8F5EE] font-['Outfit'] text-[#0E1D26]">
       <aside
         className={cn(
-          "bg-[#2C1D16] border-r border-[#3E291F] flex flex-col shrink-0 py-6 shadow-[4px_0_20px_rgba(0,0,0,0.3)] z-50 transition-all duration-300 ease-in-out",
-          isExpanded ? "w-64 px-4 items-stretch" : "w-16 px-0 items-center",
+          "bg-[#F1ECE2] border-r border-[#E6DFD2] flex flex-col shrink-0 py-5 z-50 transition-all duration-300 ease-in-out",
+          isExpanded ? "w-60 px-3 items-stretch" : "w-16 px-0 items-center"
         )}
       >
-        {/* Header & Toggle */}
-        <div
-          className={cn(
-            "flex items-center mb-8",
-            isExpanded ? "justify-between px-2" : "justify-center",
-          )}
-        >
+        {/* Brand & toggle */}
+        <div className={cn("flex items-center mb-5", isExpanded ? "justify-between px-3" : "justify-center")}>
           {isExpanded && (
-            <span className="text-[#FAF7F2] font-serif tracking-widest font-bold uppercase text-sm">
-              Ocean Novel
+            <span className="flex items-center gap-2">
+              <IconBookWave className="w-6 h-6 text-[#E8561F]" />
+              <span className="text-[16px] font-bold tracking-tight">Ocean Novel</span>
             </span>
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-stone-400 hover:text-white transition-colors outline-none focus:outline-none focus:ring-0"
+            aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[#0E1D26]/45 hover:text-[#0E1D26] hover:bg-[#0E1D26]/[0.05] transition-colors cursor-pointer"
           >
-            {isExpanded ? (
-              <ChevronLeft className="w-5 h-5" />
-            ) : (
-              <Menu className="w-5 h-5" />
-            )}
+            {isExpanded ? <IconChevronLeft className="w-[18px] h-[18px]" /> : <IconMenu className="w-[18px] h-[18px]" />}
           </button>
         </div>
 
-        {/* Back to All Books */}
+        {/* Back to all books */}
         <button
           onClick={() => navigate("/dashboard")}
-          className={cn(
-            "flex items-center rounded-xl transition-colors mb-4 border border-[#442E23] shadow-sm bg-[#38241B]/70",
-            isExpanded ? "w-full px-4 h-11 gap-3" : "w-11 h-11 justify-center mx-auto",
-            "text-stone-300 hover:text-white hover:bg-[#442E23] hover:border-[#5A3E30]"
-          )}
           title="All Books"
+          className={cn(
+            "flex items-center rounded-full border border-[#E0D8C9] text-[#0E1D26]/70 hover:text-[#0E1D26] hover:border-[#0E1D26]/30 transition-colors cursor-pointer",
+            isExpanded ? "w-full h-10 px-4 gap-3" : "w-10 h-10 justify-center mx-auto"
+          )}
         >
-          <Grid className="w-5 h-5 shrink-0 text-amber-500/80" />
-          {isExpanded && <span className="font-semibold text-sm">All Books</span>}
+          <IconArrow className="w-4 h-4 rotate-180 shrink-0" />
+          {isExpanded && <span className="text-[13px] font-semibold">All Books</span>}
         </button>
 
-        <nav className="flex-1 w-full flex flex-col gap-1.5 overflow-y-auto min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {isExpanded && (
-            <div className="text-stone-400 text-[10px] uppercase font-bold tracking-widest px-4 mb-1 mt-1">
-              Database
-            </div>
+        {/* Primary action: write */}
+        <Link
+          to={studioHref}
+          title={!isExpanded ? "Writing Studio" : undefined}
+          className={cn(
+            "mt-3 flex items-center rounded-full transition-colors",
+            isExpanded ? "w-full h-11 px-4 gap-3" : "w-11 h-11 justify-center mx-auto",
+            isStudio ? "bg-[#E8561F] text-white" : "bg-[#0E1D26] text-[#F6F1E7] hover:bg-[#132631]"
           )}
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                title={!isExpanded ? item.label : undefined}
-                className={cn(
-                  "flex items-center rounded-xl transition-colors",
-                  isExpanded
-                    ? "w-full px-4 h-10 gap-3"
-                    : "w-10 h-10 justify-center mx-auto",
-                  isActive
-                    ? "bg-[#8C503C] text-white shadow-md font-bold"
-                    : "text-stone-300 hover:text-white hover:bg-[#3D281E] font-medium",
-                )}
-              >
-                <item.icon className={cn("w-5 h-5 shrink-0", isActive ? "text-amber-300" : "text-stone-400")} />
-                {isExpanded && (
-                  <span className="text-sm truncate">
-                    {item.label}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        >
+          <IconQuill className={cn("w-[18px] h-[18px] shrink-0", isStudio ? "text-white" : "text-[#F0B54B]")} />
+          {isExpanded && <span className="text-[14px] font-bold">Writing Studio</span>}
+        </Link>
 
-          <div
-            className={cn(
-              "bg-[#422C21] my-3",
-              isExpanded ? "w-full h-px" : "w-8 h-px mx-auto",
-            )}
-          />
+        <nav className="flex-1 w-full flex flex-col gap-0.5 overflow-y-auto min-h-0 mt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {sectionLabel("Book")}
+          {!isExpanded && <div className="h-3" />}
+          {navItems.map(renderItem)}
 
-          {isExpanded && (
-            <div className="text-stone-400 text-[10px] uppercase font-bold tracking-widest px-4 mb-1">
-              Create
-            </div>
-          )}
-          {workspaceItems.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                title={!isExpanded ? item.label : undefined}
-                className={cn(
-                  "flex items-center rounded-2xl transition-all shadow-lg border",
-                  isExpanded
-                    ? "w-full px-4 h-12 gap-3"
-                    : "w-12 h-12 justify-center mx-auto",
-                  isActive
-                    ? "bg-[#D97706] border-[#F59E0B] text-white font-bold shadow-amber-900/30"
-                    : "bg-[#8C503C] border-[#A25D47] text-[#FAF7F2] hover:bg-[#A05C46] hover:border-[#B56B52]",
-                )}
-              >
-                <item.icon className="w-5 h-5 shrink-0 text-amber-200" />
-                {isExpanded && (
-                  <span className="font-bold text-sm truncate">
-                    {item.label}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-
-          <div
-            className={cn(
-              "bg-[#422C21] my-3",
-              isExpanded ? "w-full h-px" : "w-8 h-px mx-auto",
-            )}
-          />
-
-          {isExpanded && (
-            <div className="text-stone-400 text-[10px] uppercase font-bold tracking-widest px-4 mb-1">
-              Tools & Quality
-            </div>
-          )}
-          {toolItems.map((item) => {
-            const isActive = location.pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                title={!isExpanded ? item.label : undefined}
-                className={cn(
-                  "flex items-center rounded-xl transition-all",
-                  isExpanded
-                    ? "w-full px-4 h-10 gap-3"
-                    : "w-10 h-10 justify-center mx-auto",
-                  isActive
-                    ? "bg-[#8C503C] text-white font-bold shadow-md"
-                    : "bg-transparent text-stone-300 hover:bg-[#3D281E] hover:text-white font-medium",
-                )}
-              >
-                <item.icon className={cn("w-4 h-4 shrink-0", isActive ? "text-amber-300" : "text-stone-400")} />
-                {isExpanded && (
-                  <span className="text-xs truncate">
-                    {item.label}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+          {sectionLabel("Tools")}
+          {!isExpanded && <div className="w-6 h-px bg-[#E0D8C9] mx-auto my-3" />}
+          {toolItems.map(renderItem)}
         </nav>
 
-        <div
-          className={cn(
-            "bg-[#422C21] mb-3 mt-auto shrink-0",
-            isExpanded ? "w-full h-px" : "w-8 h-px mx-auto"
-          )}
-        />
-
-        <div className="flex flex-col gap-2 shrink-0">
+        <div className={cn("flex flex-col gap-0.5 shrink-0 pt-3 border-t border-[#E0D8C9]", isExpanded ? "mx-1" : "")}>
           <button
-            onClick={() => {
-              const projId = location.pathname.split("/")[2] || "1";
-              navigate(`/project/${projId}/workspace/settings?tab=profile`);
-            }}
-            className={cn(
-              "flex items-center rounded-xl transition-colors",
-              isExpanded
-                ? "w-full px-4 h-10 gap-3"
-                : "w-10 h-10 justify-center mx-auto",
-              location.pathname.includes("settings") && (location.search.includes("tab=profile") || !location.search.includes("tab="))
-                ? "bg-[#442E23] text-white shadow-inner border border-[#5A3E30]"
-                : "text-stone-400 hover:text-white hover:bg-[#3D281E]"
-            )}
+            onClick={() => navigate(`/project/${projId}/workspace/settings?tab=profile`)}
+            className={cn(itemCls(isProfile), "cursor-pointer")}
             title="Profile"
           >
-            <User className="w-5 h-5 shrink-0" />
-            {isExpanded && <span className="font-medium text-sm">Profile</span>}
+            <IconPerson className="w-[18px] h-[18px] shrink-0" />
+            {isExpanded && <span className="text-[14px]">Profile</span>}
           </button>
           <button
-            onClick={() => {
-              const projId = location.pathname.split("/")[2] || "1";
-              navigate(`/project/${projId}/workspace/settings?tab=preferences`);
-            }}
-            className={cn(
-              "flex items-center rounded-xl transition-colors",
-              isExpanded
-                ? "w-full px-4 h-10 gap-3"
-                : "w-10 h-10 justify-center mx-auto",
-              location.pathname.includes("settings") && location.search.includes("tab=preferences")
-                ? "bg-[#442E23] text-white shadow-inner border border-[#5A3E30]"
-                : "text-stone-400 hover:text-white hover:bg-[#3D281E]"
-            )}
+            onClick={() => navigate(`/project/${projId}/workspace/settings?tab=preferences`)}
+            className={cn(itemCls(isPrefs), "cursor-pointer")}
             title="Settings"
           >
-            <Settings className="w-5 h-5 shrink-0" />
-            {isExpanded && (
-              <span className="font-medium text-sm">Settings</span>
-            )}
+            <IconGear className="w-[18px] h-[18px] shrink-0" />
+            {isExpanded && <span className="text-[14px]">Settings</span>}
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[#F4F1EA]">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[#F8F5EE]">
         <Outlet />
       </main>
     </div>

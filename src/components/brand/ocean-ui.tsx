@@ -416,6 +416,71 @@ export function IconScenes(p: IconProps) {
   );
 }
 
+export function IconOverview(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <rect x="4" y="4" width="7" height="7" rx="1.75" />
+      <rect x="13" y="4" width="7" height="7" rx="1.75" />
+      <rect x="4" y="13" width="7" height="7" rx="1.75" />
+      <rect x="13" y="13" width="7" height="7" rx="1.75" />
+    </Icon>
+  );
+}
+
+export function IconBook(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M5 4.75h10.5a2.5 2.5 0 0 1 2.5 2.5v12H7.5A2.5 2.5 0 0 1 5 16.75z" />
+      <path d="M5 16.75a2.5 2.5 0 0 1 2.5-2.5H18M9 8.5h5" />
+    </Icon>
+  );
+}
+
+export function IconTimeline(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M3.5 12h17" />
+      <circle cx="7" cy="12" r="2" />
+      <circle cx="13" cy="12" r="2" />
+      <path d="M17.5 9.5 20 12l-2.5 2.5" />
+    </Icon>
+  );
+}
+
+export function IconMenu(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M4.5 7h15M4.5 12h15M4.5 17h15" />
+    </Icon>
+  );
+}
+
+export function IconChevronLeft(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="m14.5 6-6 6 6 6" />
+    </Icon>
+  );
+}
+
+export function IconDownload(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M12 4.5v10.5M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />
+    </Icon>
+  );
+}
+
+export function IconImage(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <rect x="3.75" y="5" width="16.5" height="14" rx="2.5" />
+      <circle cx="9" cy="10" r="1.75" />
+      <path d="m20.25 16-4.5-4.5L7 19" />
+    </Icon>
+  );
+}
+
 export function IconSpinner({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={cn("animate-spin", className)} fill="none" aria-hidden="true">
