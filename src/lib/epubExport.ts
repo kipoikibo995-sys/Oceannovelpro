@@ -28,12 +28,25 @@ export interface ChapterHeadingInfo {
   fullTitle: string;  // e.g. "Chapter 1: The Arrival" for TOC & navigation
 }
 
-interface ParsedScene {
-  title?: string;
-  paragraphs: string[];
+// Inline formatting that survives export (italics carry thoughts and emphasis in fiction)
+export interface TextRunData {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
 }
 
-interface ParsedChapter {
+// A paragraph, or a scene break (the editor's "Scene break" button inserts <hr>)
+export interface ContentBlock {
+  type: "p" | "break";
+  runs: TextRunData[];
+}
+
+interface ParsedScene {
+  title?: string;
+  blocks: ContentBlock[];
+}
+
+export interface ParsedChapter {
   id: string;
   index: number;
   title: string;
@@ -44,7 +57,7 @@ interface ParsedChapter {
   scenes: ParsedScene[];
 }
 
-interface ParsedPart {
+export interface ParsedPart {
   id: string;
   index: number;
   title: string;
@@ -64,13 +77,28 @@ export interface ManuscriptAuditResult {
   compiledChapterCount: number;
   sourceParagraphCount: number;
   compiledParagraphCount: number;
+  sourceWordCount: number;
+  compiledWordCount: number;
+  emptyChapters: string[];
   isLossless: boolean;
   warnings: string[];
+}
+
+// Book order: part dividers and chapters exactly as they sit in the manuscript
+export type BookSection =
+  | { kind: "part"; part: ParsedPart }
+  | { kind: "chapter"; chapter: ParsedChapter; inPart: boolean };
+
+export interface BookStructure {
+  parts: ParsedPart[];
+  flatChapters: ParsedChapter[];
+  order: BookSection[];
 }
 
 function escapeXml(unsafe: string): string {
   if (!unsafe) return "";
   return unsafe
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -112,6 +140,21 @@ export function cleanInternalMentionsAndTags(text: string): string {
     .replace(/^@/, "")
     .replace(/\s*data-[a-z0-9\-_]+="[^"]*"/gi, "")
     .trim();
+}
+
+const MENTION_AT = /(^|[\s\(\[\{"'“‘—–\.,;:!?-])@([A-Za-z0-9_\u00C0-\u024F\u1E00-\u1EFF]+)/g;
+
+export function safeFilename(title: string, ext: string): string {
+  const base = (title || "Untitled").trim().replace(/[^a-zA-Z0-9_\-\u00C0-\u024F\u1E00-\u1EFF]+/g, "_").replace(/^_+|_+$/g, "");
+  return `${base || "Untitled"}.${ext}`;
+}
+
+export function blockText(block: ContentBlock): string {
+  return block.runs.map((r) => r.text).join("");
+}
+
+export function countBlockWords(blocks: ContentBlock[]): number {
+  return blocks.reduce((n, b) => n + (b.type === "p" ? blockText(b).split(/\s+/).filter(Boolean).length : 0), 0);
 }
 
 /**
@@ -235,80 +278,103 @@ export function parseChapterHeading(
 }
 
 /**
- * Extracts clean paragraphs from HTML.
- * STRICT CONTENT PROTECTION:
- * Never deletes the opening paragraph unless it is an EXACT match to the Chapter Title.
+ * Converts editor HTML into paragraphs with bold/italic runs and scene breaks.
+ * STRICT CONTENT PROTECTION: only a heading, or the very first paragraph, that
+ * EXACTLY matches the chapter/scene title is dropped (to avoid a doubled title).
  */
-export function cleanContentToParagraphs(
+export function htmlToBlocks(
   html: string,
   stripMentions: boolean = true,
   exactTitlesToStrip: string[] = []
-): string[] {
+): ContentBlock[] {
   if (!html) return [];
 
   const container = document.createElement("div");
   container.innerHTML = html;
 
   if (stripMentions) {
-    const mentionElements = container.querySelectorAll(
-      'span[data-type="mention"], span.mention, [data-mention="true"]'
-    );
-    mentionElements.forEach((el) => {
-      let text = el.textContent || "";
-      if (text.startsWith("@")) {
-        text = text.substring(1);
-      }
-      el.textContent = text;
+    container.querySelectorAll('span[data-type="mention"], span.mention, [data-mention="true"]').forEach((el) => {
+      const text = el.textContent || "";
+      el.textContent = text.startsWith("@") ? text.substring(1) : text;
     });
   }
 
-  const exactTargets = exactTitlesToStrip
-    .map(normalizeForExactTitleMatch)
-    .filter((s) => s.length > 0);
+  const exactTargets = exactTitlesToStrip.map(normalizeForExactTitleMatch).filter((t) => t.length > 0);
+  container.querySelectorAll("h1, h2, h3, h4").forEach((heading) => {
+    const clean = normalizeForExactTitleMatch(heading.textContent || "");
+    if (clean && exactTargets.includes(clean)) heading.remove();
+  });
 
-  // 1. Remove ONLY heading tags (h1, h2, h3) that EXACTLY match one of the titles
-  const headingElements = container.querySelectorAll("h1, h2, h3, h4");
-  headingElements.forEach((heading) => {
-    const headingClean = normalizeForExactTitleMatch(heading.textContent || "");
-    if (headingClean.length > 0 && exactTargets.includes(headingClean)) {
-      heading.remove();
+  const blocks: ContentBlock[] = [];
+  let current: TextRunData[] = [];
+  const flush = () => {
+    if (current.length) blocks.push({ type: "p", runs: current });
+    current = [];
+  };
+  const BLOCK_TAGS = new Set(["P", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "BLOCKQUOTE", "UL", "OL", "PRE", "SECTION", "ARTICLE"]);
+
+  const walk = (node: Node, bold: boolean, italic: boolean) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      let text = (node.textContent || "").replace(/\s+/g, " ");
+      if (stripMentions) text = text.replace(MENTION_AT, "$1$2");
+      if (text) current.push({ text, bold: bold || undefined, italic: italic || undefined });
+      return;
     }
-  });
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const el = node as HTMLElement;
+    const tag = el.tagName;
+    if (tag === "BR") { flush(); return; }
+    if (tag === "HR") { flush(); blocks.push({ type: "break", runs: [] }); return; }
+    if (tag === "SCRIPT" || tag === "STYLE") return;
+    const isBlock = BLOCK_TAGS.has(tag);
+    if (isBlock) flush();
+    const b = bold || tag === "STRONG" || tag === "B" || /^H[1-6]$/.test(tag);
+    const i = italic || tag === "EM" || tag === "I";
+    el.childNodes.forEach((child) => walk(child, b, i));
+    if (isBlock) flush();
+  };
+  container.childNodes.forEach((child) => walk(child, false, false));
+  flush();
 
-  // Replace block elements with line breaks
-  const blockElements = container.querySelectorAll(
-    "p, div, h1, h2, h3, h4, h5, h6, li"
-  );
-  blockElements.forEach((el) => {
-    el.appendChild(document.createTextNode("\n"));
-  });
-
-  const brElements = container.querySelectorAll("br");
-  brElements.forEach((el) => {
-    el.replaceWith(document.createTextNode("\n"));
-  });
-
-  let rawText = container.textContent || container.innerText || "";
-
-  if (stripMentions) {
-    rawText = cleanInternalMentionsAndTags(rawText);
-  }
-
-  const rawParagraphs = rawText
-    .split("\n")
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-
-  // 2. Strict Content Protection: Check ONLY the very first paragraph (index 0).
-  // Only remove if it matches EXACTLY with one of the target titles.
-  if (rawParagraphs.length > 0 && exactTargets.length > 0) {
-    const firstParaClean = normalizeForExactTitleMatch(rawParagraphs[0]);
-    if (exactTargets.includes(firstParaClean)) {
-      rawParagraphs.shift(); // Exact duplicate removed safely
+  // Tidy runs: merge neighbours with the same style, trim paragraph edges, drop empties
+  const tidy: ContentBlock[] = [];
+  for (const block of blocks) {
+    if (block.type === "break") {
+      if (tidy.length && tidy[tidy.length - 1].type !== "break") tidy.push(block);
+      continue;
     }
+    const merged: TextRunData[] = [];
+    for (const run of block.runs) {
+      const last = merged[merged.length - 1];
+      if (last && !!last.bold === !!run.bold && !!last.italic === !!run.italic) last.text += run.text;
+      else merged.push({ ...run });
+    }
+    if (merged.length) {
+      merged[0].text = merged[0].text.replace(/^\s+/, "");
+      merged[merged.length - 1].text = merged[merged.length - 1].text.replace(/\s+$/, "");
+    }
+    const runs = merged.filter((r) => r.text.length > 0);
+    if (runs.length) tidy.push({ type: "p", runs });
   }
+  while (tidy.length && tidy[tidy.length - 1].type === "break") tidy.pop();
 
-  return rawParagraphs;
+  const firstP = tidy.findIndex((b) => b.type === "p");
+  if (firstP === 0 && exactTargets.length && exactTargets.includes(normalizeForExactTitleMatch(blockText(tidy[0])))) {
+    tidy.shift();
+  }
+  while (tidy.length && tidy[0].type === "break") tidy.shift();
+  return tidy;
+}
+
+/** Plain-text paragraphs (kept for callers that do not need formatting) */
+export function cleanContentToParagraphs(
+  html: string,
+  stripMentions: boolean = true,
+  exactTitlesToStrip: string[] = []
+): string[] {
+  return htmlToBlocks(html, stripMentions, exactTitlesToStrip)
+    .filter((b) => b.type === "p")
+    .map(blockText);
 }
 
 /**
@@ -341,136 +407,86 @@ async function loadCoverBinary(urlOrData?: string): Promise<Uint8Array | null> {
 }
 
 /**
- * Parses manuscript items into structured parts & chapters
+ * Parses the manuscript into parts and chapters in reading order.
+ * Chapters that sit outside a part are kept in place (they used to be dropped
+ * from the EPUB whenever the book also had parts).
  */
-function parseManuscriptStructure(
+export function parseManuscriptStructure(
   items: ManuscriptItem[],
   stripMentions: boolean,
   language: string = "en"
-): { parts: ParsedPart[]; flatChapters: ParsedChapter[] } {
+): BookStructure {
   const parts: ParsedPart[] = [];
   const flatChapters: ParsedChapter[] = [];
-  let globalChapterCount = 0;
+  const order: BookSection[] = [];
+  let fileIndex = 0;
+  let chapterNumber = 0; // printed number; prologues/epilogues do not consume one
   let partCount = 0;
 
-  const extractScenesFromChapter = (
-    chapItem: ManuscriptItem,
-    headingInfo: ChapterHeadingInfo
-  ): ParsedScene[] => {
-    const scenes: ParsedScene[] = [];
-    const targetsToFilter = [
-      chapItem.title,
-      headingInfo.numberText,
-      headingInfo.titleText,
-      headingInfo.fullTitle,
-    ].filter(Boolean);
-
-    if (chapItem.content && chapItem.content.trim()) {
-      scenes.push({
-        title: chapItem.title,
-        paragraphs: cleanContentToParagraphs(chapItem.content, stripMentions, targetsToFilter),
-      });
+  const makeChapter = (item: ManuscriptItem, inPart: boolean): ParsedChapter => {
+    fileIndex++;
+    const rawTitle = stripMentions ? cleanInternalMentionsAndTags(item.title) : item.title;
+    const headingInfo = parseChapterHeading(rawTitle, chapterNumber + 1, language);
+    if (headingInfo.numberText) {
+      const explicit = headingInfo.numberText.match(/(\d+)$/);
+      chapterNumber = explicit ? Number(explicit[1]) : chapterNumber + 1;
     }
-    if (chapItem.children && chapItem.children.length > 0) {
-      for (const child of chapItem.children) {
-        if (child.type === "scene" && child.content) {
-          scenes.push({
-            title: child.title,
-            paragraphs: cleanContentToParagraphs(child.content, stripMentions, [
-              ...targetsToFilter,
-              child.title,
-            ]),
-          });
-        }
+    const targets = [item.title, rawTitle, headingInfo.numberText, headingInfo.titleText, headingInfo.fullTitle].filter(Boolean);
+
+    const scenes: ParsedScene[] = [];
+    if (item.content && item.content.trim()) {
+      scenes.push({ title: item.title, blocks: htmlToBlocks(item.content, stripMentions, targets) });
+    }
+    for (const child of item.children || []) {
+      if (child.type === "scene" && child.content) {
+        const blocks = htmlToBlocks(child.content, stripMentions, [...targets, child.title]);
+        if (blocks.length) scenes.push({ title: child.title, blocks });
       }
     }
-    return scenes;
+
+    const chap: ParsedChapter = {
+      id: `chap_${padZero(fileIndex)}`,
+      index: fileIndex,
+      title: rawTitle,
+      numberText: headingInfo.numberText,
+      titleText: headingInfo.titleText,
+      fullTitle: headingInfo.fullTitle,
+      filename: `chapter_${padZero(fileIndex)}.xhtml`,
+      scenes: scenes.filter((sc) => sc.blocks.length > 0),
+    };
+    flatChapters.push(chap);
+    return chap;
   };
 
   for (const item of items) {
     if (item.type === "part") {
       partCount++;
-      const currentPartChapters: ParsedChapter[] = [];
-      const partChapters = (item.children || []).filter(
-        (c) => c.type === "chapter" || c.type === "scene"
-      );
-
-      for (const chap of partChapters) {
-        globalChapterCount++;
-        const rawTitle = stripMentions ? cleanInternalMentionsAndTags(chap.title) : chap.title;
-        const headingInfo = parseChapterHeading(rawTitle, globalChapterCount, language);
-
-        const chapObj: ParsedChapter = {
-          id: `chap_${padZero(globalChapterCount)}`,
-          index: globalChapterCount,
-          title: rawTitle,
-          numberText: headingInfo.numberText,
-          titleText: headingInfo.titleText,
-          fullTitle: headingInfo.fullTitle,
-          filename: `chapter_${padZero(globalChapterCount)}.xhtml`,
-          scenes: extractScenesFromChapter(chap, headingInfo),
-        };
-        currentPartChapters.push(chapObj);
-        flatChapters.push(chapObj);
-      }
-
-      parts.push({
+      const part: ParsedPart = {
         id: `part_${padZero(partCount)}`,
         index: partCount,
         title: stripMentions ? cleanInternalMentionsAndTags(item.title) : item.title,
         filename: `part_${padZero(partCount)}.xhtml`,
-        chapters: currentPartChapters,
-      });
-    } else if (item.type === "chapter") {
-      globalChapterCount++;
-      const rawTitle = stripMentions ? cleanInternalMentionsAndTags(item.title) : item.title;
-      const headingInfo = parseChapterHeading(rawTitle, globalChapterCount, language);
-
-      const chapObj: ParsedChapter = {
-        id: `chap_${padZero(globalChapterCount)}`,
-        index: globalChapterCount,
-        title: rawTitle,
-        numberText: headingInfo.numberText,
-        titleText: headingInfo.titleText,
-        fullTitle: headingInfo.fullTitle,
-        filename: `chapter_${padZero(globalChapterCount)}.xhtml`,
-        scenes: extractScenesFromChapter(item, headingInfo),
+        chapters: [],
       };
-      flatChapters.push(chapObj);
-    } else if (item.type === "scene" && item.content) {
-      globalChapterCount++;
-      const rawTitle = stripMentions ? cleanInternalMentionsAndTags(item.title) : item.title;
-      const headingInfo = parseChapterHeading(rawTitle, globalChapterCount, language);
-
-      const chapObj: ParsedChapter = {
-        id: `chap_${padZero(globalChapterCount)}`,
-        index: globalChapterCount,
-        title: rawTitle,
-        numberText: headingInfo.numberText,
-        titleText: headingInfo.titleText,
-        fullTitle: headingInfo.fullTitle,
-        filename: `chapter_${padZero(globalChapterCount)}.xhtml`,
-        scenes: [
-          {
-            title: item.title,
-            paragraphs: cleanContentToParagraphs(item.content, stripMentions, [
-              rawTitle,
-              headingInfo.numberText,
-              headingInfo.titleText,
-              headingInfo.fullTitle,
-            ]),
-          },
-        ],
-      };
-      flatChapters.push(chapObj);
+      parts.push(part);
+      order.push({ kind: "part", part });
+      for (const child of item.children || []) {
+        if (child.type === "chapter" || (child.type === "scene" && child.content && child.content.trim())) {
+          const chap = makeChapter(child, true);
+          part.chapters.push(chap);
+          order.push({ kind: "chapter", chapter: chap, inPart: true });
+        }
+      }
+    } else if (item.type === "chapter" || (item.type === "scene" && item.content && item.content.trim())) {
+      order.push({ kind: "chapter", chapter: makeChapter(item, false), inPart: false });
     }
   }
 
-  return { parts, flatChapters };
+  return { parts, flatChapters, order };
 }
 
 /**
- * Audits total chapter and paragraph counts before and after export to guarantee 100% content integrity
+ * Counts what goes into the book so the dialog can show an honest summary
  */
 export function auditManuscriptContent(
   items: ManuscriptItem[],
@@ -479,47 +495,80 @@ export function auditManuscriptContent(
 ): ManuscriptAuditResult {
   let sourceChapters = 0;
   let sourceParagraphs = 0;
+  let sourceWords = 0;
 
   const countItems = (arr: ManuscriptItem[]) => {
     for (const item of arr) {
-      if (item.type === "chapter" || (item.type === "scene" && item.content)) {
-        sourceChapters++;
-      }
+      if (item.type === "chapter" || (item.type === "scene" && item.content)) sourceChapters++;
       if (item.content && item.content.trim()) {
-        const rawParas = cleanContentToParagraphs(item.content, stripMentions, []);
-        sourceParagraphs += rawParas.length;
+        const blocks = htmlToBlocks(item.content, stripMentions, []);
+        sourceParagraphs += blocks.filter((b) => b.type === "p").length;
+        sourceWords += countBlockWords(blocks);
       }
-      if (item.children) {
-        countItems(item.children);
-      }
+      if (item.children) countItems(item.children);
     }
   };
-
   countItems(items);
 
-  const { parts, flatChapters } = parseManuscriptStructure(items, stripMentions, language);
-  const allChapters = parts.length > 0 ? parts.flatMap((p) => p.chapters) : flatChapters;
-
+  const { flatChapters } = parseManuscriptStructure(items, stripMentions, language);
   let compiledParagraphs = 0;
-  allChapters.forEach((ch) => {
+  let compiledWords = 0;
+  const emptyChapters: string[] = [];
+  flatChapters.forEach((ch) => {
+    let chapterWords = 0;
     ch.scenes.forEach((sc) => {
-      compiledParagraphs += sc.paragraphs.length;
+      compiledParagraphs += sc.blocks.filter((b) => b.type === "p").length;
+      chapterWords += countBlockWords(sc.blocks);
     });
+    compiledWords += chapterWords;
+    if (chapterWords === 0) emptyChapters.push(ch.fullTitle);
   });
 
   const warnings: string[] = [];
-  if (allChapters.length === 0 && sourceChapters > 0) {
-    warnings.push(`Warning: Manuscript contains ${sourceChapters} items but 0 chapters were compiled.`);
+  if (flatChapters.length === 0 && sourceChapters > 0) {
+    warnings.push(`Manuscript contains ${sourceChapters} items but no chapters could be compiled.`);
   }
 
   return {
     sourceChapterCount: sourceChapters,
-    compiledChapterCount: allChapters.length,
+    compiledChapterCount: flatChapters.length,
     sourceParagraphCount: sourceParagraphs,
     compiledParagraphCount: compiledParagraphs,
-    isLossless: allChapters.length > 0 && compiledParagraphs > 0,
+    sourceWordCount: sourceWords,
+    compiledWordCount: compiledWords,
+    emptyChapters,
+    // Only exact duplicate titles may be dropped, so words can differ by a title at most
+    isLossless: flatChapters.length > 0 && compiledWords > 0 && sourceWords - compiledWords <= flatChapters.length * 12,
     warnings,
   };
+}
+
+/** Multi-line user text (dedication, bio…) as separate paragraphs */
+function textToParagraphsHtml(text: string, attrs = ""): string {
+  return text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<p${attrs}>${escapeXml(line)}</p>`)
+    .join("\n    ");
+}
+
+function runsToXhtml(runs: TextRunData[]): string {
+  return runs
+    .map((r) => {
+      let out = escapeXml(r.text);
+      if (r.italic) out = `<em>${out}</em>`;
+      if (r.bold) out = `<strong>${out}</strong>`;
+      return out;
+    })
+    .join("");
+}
+
+function detectImageType(bytes: Uint8Array): { ext: string; mediaType: string } {
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return { ext: "png", mediaType: "image/png" };
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return { ext: "gif", mediaType: "image/gif" };
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45) return { ext: "webp", mediaType: "image/webp" };
+  return { ext: "jpg", mediaType: "image/jpeg" };
 }
 
 /**
@@ -959,17 +1008,24 @@ img.cover-img {
   // 4. Cover Image
   const coverBytes = await loadCoverBinary(coverImageUrl);
   const hasCoverImage = coverBytes !== null;
+  const coverType = coverBytes ? detectImageType(coverBytes) : { ext: "jpg", mediaType: "image/jpeg" };
+
   if (hasCoverImage) {
-    zip.file("EPUB/images/cover.jpg", coverBytes);
+    zip.file(`EPUB/images/cover.${coverType.ext}`, coverBytes);
   }
 
   // 5. Parse Manuscript Hierarchy
-  const { parts, flatChapters } = parseManuscriptStructure(
+  const { flatChapters, order } = parseManuscriptStructure(
     manuscript,
     stripInternalMentions,
     language
   );
-  const hasParts = parts.length > 0;
+
+  // Review note: inside About the Author, or on its own page when that page is off
+  const reviewHeadingText = cleanInternalMentionsAndTags(matter?.reviewCtaHeading || "A Sincere Note to the Reader");
+  const reviewBodyText = cleanInternalMentionsAndTags(matter?.reviewCtaText || "");
+  const wantsReview = includeReviewRequest !== false && (matter?.includeReviewRequest ?? true) && reviewBodyText.length > 0;
+  const hasStandaloneReview = wantsReview && !includeAboutAuthor;
 
   const manifestItems: ManifestItem[] = [
     { id: "style", href: "css/book.css", mediaType: "text/css" },
@@ -980,8 +1036,8 @@ img.cover-img {
   if (hasCoverImage) {
     manifestItems.push({
       id: "cover-image",
-      href: "images/cover.jpg",
-      mediaType: "image/jpeg",
+      href: `images/cover.${coverType.ext}`,
+      mediaType: coverType.mediaType,
       properties: "cover-image",
     });
   }
@@ -1004,7 +1060,7 @@ img.cover-img {
   <div class="cover-wrapper">
     ${
       hasCoverImage
-        ? `<img class="cover-img" src="../images/cover.jpg" alt="Cover" />`
+        ? `<img class="cover-img" src="../images/cover.${coverType.ext}" alt="Cover" />`
         : `<div style="padding-top: 30vh; color: #FAF8F5;">
              <h1 style="font-size: 2.5em; text-transform: uppercase;">${escapeXml(resolvedTitle)}</h1>
              <p style="font-size: 1.4em; font-style: italic;">By ${escapeXml(resolvedAuthor)}</p>
@@ -1102,7 +1158,7 @@ img.cover-img {
 </head>
 <body class="frontmatter" epub:type="frontmatter dedication">
   <section class="dedication-section">
-    <p class="dedication-text">${escapeXml(cleanInternalMentionsAndTags(matter.dedication))}</p>
+    ${textToParagraphsHtml(cleanInternalMentionsAndTags(matter.dedication), ' class="dedication-text"')}
     <div class="ornament">❖</div>
   </section>
 </body>
@@ -1120,16 +1176,11 @@ img.cover-img {
   // Shows only Part/Chapter and selected Back Matter. Scenes are strictly excluded!
   if (includeTocPage) {
     let tocListItemsHtml = "";
-    if (hasParts) {
-      for (const part of parts) {
-        tocListItemsHtml += `<li class="toc-part"><a href="${part.filename}">${escapeXml(part.title)}</a></li>\n`;
-        for (const chap of part.chapters) {
-          tocListItemsHtml += `<li><a href="${chap.filename}">${escapeXml(chap.fullTitle)}</a></li>\n`;
-        }
-      }
-    } else {
-      for (const chap of flatChapters) {
-        tocListItemsHtml += `<li><a href="${chap.filename}">${escapeXml(chap.fullTitle)}</a></li>\n`;
+    for (const sec of order) {
+      if (sec.kind === "part") {
+        tocListItemsHtml += `<li class="toc-part"><a href="${sec.part.filename}">${escapeXml(sec.part.title)}</a></li>\n`;
+      } else {
+        tocListItemsHtml += `<li><a href="${sec.chapter.filename}">${escapeXml(sec.chapter.fullTitle)}</a></li>\n`;
       }
     }
 
@@ -1139,6 +1190,9 @@ img.cover-img {
 
     if (includeAboutAuthor) {
       tocListItemsHtml += `<li><a href="about_author.xhtml">About the Author</a></li>\n`;
+    }
+    if (hasStandaloneReview) {
+      tocListItemsHtml += `<li><a href="note_to_reader.xhtml">${escapeXml(reviewHeadingText)}</a></li>\n`;
     }
 
     const tocPageXhtml = `<?xml version="1.0" encoding="utf-8"?>
@@ -1167,9 +1221,10 @@ img.cover-img {
     spineItemRefs.push({ idref: "toc-page" });
   }
 
-  // 11. Body Matter: Parts & Chapters
-  if (hasParts) {
-    for (const part of parts) {
+  // 11. Body Matter: parts and chapters in manuscript order
+  for (const sec of order) {
+    if (sec.kind === "part") {
+      const part = sec.part;
       const partXhtml = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${language}">
@@ -1185,31 +1240,12 @@ img.cover-img {
 </body>
 </html>`;
       zip.file(`EPUB/text/${part.filename}`, partXhtml);
-      manifestItems.push({
-        id: part.id,
-        href: `text/${part.filename}`,
-        mediaType: "application/xhtml+xml",
-      });
+      manifestItems.push({ id: part.id, href: `text/${part.filename}`, mediaType: "application/xhtml+xml" });
       spineItemRefs.push({ idref: part.id });
-
-      for (const chap of part.chapters) {
-        writeChapterFile(zip, chap, language);
-        manifestItems.push({
-          id: chap.id,
-          href: `text/${chap.filename}`,
-          mediaType: "application/xhtml+xml",
-        });
-        spineItemRefs.push({ idref: chap.id });
-      }
-    }
-  } else {
-    for (const chap of flatChapters) {
+    } else {
+      const chap = sec.chapter;
       writeChapterFile(zip, chap, language);
-      manifestItems.push({
-        id: chap.id,
-        href: `text/${chap.filename}`,
-        mediaType: "application/xhtml+xml",
-      });
+      manifestItems.push({ id: chap.id, href: `text/${chap.filename}`, mediaType: "application/xhtml+xml" });
       spineItemRefs.push({ idref: chap.id });
     }
   }
@@ -1229,9 +1265,9 @@ img.cover-img {
   <section>
     <h1 class="toc-heading">Acknowledgments</h1>
     <div class="ornament">❖</div>
-    <p style="text-indent: 0; max-width: 80%; margin: auto; line-height: 1.8;">
-      ${escapeXml(ackBody)}
-    </p>
+    <div style="max-width: 80%; margin: auto; line-height: 1.8; text-align: left;">
+    ${textToParagraphsHtml(ackBody, ' style="text-indent: 0; margin-bottom: 0.8em;"')}
+    </div>
   </section>
 </body>
 </html>`;
@@ -1248,9 +1284,7 @@ img.cover-img {
   // Bio only from user input. Never auto-generate fake bio!
   if (includeAboutAuthor) {
     const bioText = cleanInternalMentionsAndTags(matter?.authorBioText || authorBio || "");
-    const shouldIncludeReview = includeReviewRequest !== false && (matter?.includeReviewRequest ?? true);
-    const reviewHeading = cleanInternalMentionsAndTags(matter?.reviewCtaHeading || "A Sincere Note to the Reader");
-    const reviewBody = cleanInternalMentionsAndTags(matter?.reviewCtaText || "");
+
 
     const newsletterHtml = matter?.authorWebsiteOrNewsletter
       ? `<div class="author-newsletter">
@@ -1259,10 +1293,10 @@ img.cover-img {
          </div>`
       : "";
 
-    const reviewBoxHtml = (shouldIncludeReview && reviewBody)
+    const reviewBoxHtml = wantsReview
       ? `<div class="review-box">
-           <h3>${escapeXml(reviewHeading)}</h3>
-           <p>${escapeXml(reviewBody)}</p>
+           <h3>${escapeXml(reviewHeadingText)}</h3>
+           ${textToParagraphsHtml(reviewBodyText)}
          </div>`
       : "";
 
@@ -1280,7 +1314,7 @@ img.cover-img {
     <p style="font-size: 1.3em; font-weight: bold; margin-bottom: 1em; text-indent: 0;">
       ${escapeXml(resolvedAuthor)}
     </p>
-    ${bioText ? `<p style="text-indent: 0; line-height: 1.8; margin-bottom: 1.5em;">${escapeXml(bioText)}</p>` : ""}
+    ${bioText ? textToParagraphsHtml(bioText, ' style="text-indent: 0; line-height: 1.8; margin-bottom: 1em;"') : ""}
 
     ${newsletterHtml}
     ${reviewBoxHtml}
@@ -1296,22 +1330,47 @@ img.cover-img {
     spineItemRefs.push({ idref: "about-author" });
   }
 
+  if (hasStandaloneReview) {
+    const noteXhtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${language}">
+<head>
+  <title>${escapeXml(reviewHeadingText)}</title>
+  <link rel="stylesheet" type="text/css" href="../css/book.css"/>
+</head>
+<body class="backmatter" epub:type="backmatter">
+  <section style="max-width: 85%; margin: auto;">
+    <div class="review-box">
+      <h3>${escapeXml(reviewHeadingText)}</h3>
+      ${textToParagraphsHtml(reviewBodyText)}
+    </div>
+  </section>
+</body>
+</html>`;
+    zip.file("EPUB/text/note_to_reader.xhtml", noteXhtml);
+    manifestItems.push({ id: "note-to-reader", href: "text/note_to_reader.xhtml", mediaType: "application/xhtml+xml" });
+    spineItemRefs.push({ idref: "note-to-reader" });
+  }
+
   // 14. EPUB 3 Navigation Document (EPUB/nav.xhtml)
   const firstChapterFilename =
-    flatChapters.length > 0 ? `text/${flatChapters[0].filename}` : "text/titlepage.xhtml";
+    flatChapters.length > 0 ? `text/${flatChapters[0].filename}` : "text/cover.xhtml";
 
   let navOlHtml = "";
-  if (hasParts) {
-    for (const part of parts) {
-      navOlHtml += `    <li><a href="text/${part.filename}">${escapeXml(part.title)}</a>\n      <ol>\n`;
-      for (const chap of part.chapters) {
-        navOlHtml += `        <li><a href="text/${chap.filename}">${escapeXml(chap.fullTitle)}</a></li>\n`;
+  for (const sec of order) {
+    if (sec.kind === "part") {
+      const chapters = sec.part.chapters;
+      navOlHtml += `    <li><a href="text/${sec.part.filename}">${escapeXml(sec.part.title)}</a>`;
+      if (chapters.length) {
+        navOlHtml += `\n      <ol>\n`;
+        for (const chap of chapters) {
+          navOlHtml += `        <li><a href="text/${chap.filename}">${escapeXml(chap.fullTitle)}</a></li>\n`;
+        }
+        navOlHtml += `      </ol>\n    `;
       }
-      navOlHtml += `      </ol>\n    </li>\n`;
-    }
-  } else {
-    for (const chap of flatChapters) {
-      navOlHtml += `    <li><a href="text/${chap.filename}">${escapeXml(chap.fullTitle)}</a></li>\n`;
+      navOlHtml += `</li>\n`;
+    } else if (!sec.inPart) {
+      navOlHtml += `    <li><a href="text/${sec.chapter.filename}">${escapeXml(sec.chapter.fullTitle)}</a></li>\n`;
     }
   }
 
@@ -1321,6 +1380,9 @@ img.cover-img {
 
   if (includeAboutAuthor) {
     navOlHtml += `    <li><a href="text/about_author.xhtml">About the Author</a></li>\n`;
+  }
+  if (hasStandaloneReview) {
+    navOlHtml += `    <li><a href="text/note_to_reader.xhtml">${escapeXml(reviewHeadingText)}</a></li>\n`;
   }
 
   const navXhtml = `<?xml version="1.0" encoding="utf-8"?>
@@ -1342,8 +1404,7 @@ ${navOlHtml}
     <h2>Guide</h2>
     <ol>
       <li><a epub:type="cover" href="text/cover.xhtml">Cover</a></li>
-      <li><a epub:type="titlepage" href="text/titlepage.xhtml">Title Page</a></li>
-      <li><a epub:type="toc" href="text/toc.xhtml">Table of Contents</a></li>
+${includeTitlePage ? '      <li><a epub:type="titlepage" href="text/titlepage.xhtml">Title Page</a></li>\n' : ""}${includeTocPage ? '      <li><a epub:type="toc" href="text/toc.xhtml">Table of Contents</a></li>' : ""}
       <li><a epub:type="bodymatter" href="${firstChapterFilename}">Begin Reading</a></li>
     </ol>
   </nav>
@@ -1355,8 +1416,9 @@ ${navOlHtml}
   let ncxPlayOrder = 1;
   let navPointsHtml = "";
 
-  if (hasParts) {
-    for (const part of parts) {
+  for (const sec of order) {
+    if (sec.kind === "part") {
+      const part = sec.part;
       navPointsHtml += `
     <navPoint id="np_${part.id}" playOrder="${ncxPlayOrder++}">
       <navLabel><text>${escapeXml(part.title)}</text></navLabel>
@@ -1370,9 +1432,8 @@ ${navOlHtml}
       }
       navPointsHtml += `
     </navPoint>`;
-    }
-  } else {
-    for (const chap of flatChapters) {
+    } else if (!sec.inPart) {
+      const chap = sec.chapter;
       navPointsHtml += `
     <navPoint id="np_${chap.id}" playOrder="${ncxPlayOrder++}">
       <navLabel><text>${escapeXml(chap.fullTitle)}</text></navLabel>
@@ -1389,6 +1450,13 @@ ${navOlHtml}
     </navPoint>`;
   }
 
+  if (hasStandaloneReview) {
+    navPointsHtml += `
+    <navPoint id="np_note" playOrder="${ncxPlayOrder++}">
+      <navLabel><text>${escapeXml(reviewHeadingText)}</text></navLabel>
+      <content src="text/note_to_reader.xhtml"/>
+    </navPoint>`;
+  }
   if (includeAboutAuthor) {
     navPointsHtml += `
     <navPoint id="np_about" playOrder="${ncxPlayOrder++}">
@@ -1480,8 +1548,7 @@ ${spineXml}
     compressionOptions: { level: 9 },
   });
 
-  const cleanFilename = `${resolvedTitle.replace(/[^a-zA-Z0-9_\-\u00C0-\u024F\u1E00-\u1EFF]/g, "_")}.epub`;
-  saveAs(epubBlob, cleanFilename);
+  saveAs(epubBlob, safeFilename(resolvedTitle, "epub"));
 }
 
 /**
@@ -1492,17 +1559,22 @@ function writeChapterFile(zip: JSZip, chap: ParsedChapter, language: string) {
   let contentHtml = "";
 
   if (chap.scenes && chap.scenes.length > 0) {
+    let afterBreak = true;
     chap.scenes.forEach((scene, sIdx) => {
       if (sIdx > 0) {
         contentHtml += `\n    <div class="scene-break">❖ ❖ ❖</div>\n`;
+        afterBreak = true;
       }
-      scene.paragraphs.forEach((p, pIdx) => {
-        const pClass = pIdx === 0 && sIdx === 0 ? ' class="first-p"' : "";
-        contentHtml += `    <p${pClass}>${escapeXml(p)}</p>\n`;
+      scene.blocks.forEach((block) => {
+        if (block.type === "break") {
+          contentHtml += `\n    <div class="scene-break">❖ ❖ ❖</div>\n`;
+          afterBreak = true;
+          return;
+        }
+        contentHtml += `    <p${afterBreak ? ' class="first-p"' : ""}>${runsToXhtml(block.runs)}</p>\n`;
+        afterBreak = false;
       });
     });
-  } else {
-    contentHtml = `    <p class="first-p">...</p>\n`;
   }
 
   const numberHtml = chap.numberText
