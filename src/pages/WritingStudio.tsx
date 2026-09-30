@@ -1230,8 +1230,10 @@ export default function WritingStudio() {
   return (
     <div className="flex-1 flex overflow-hidden bg-[#F8F5EE] text-[#0E1D26] font-['Outfit']">
       {/* Left: manuscript binder */}
+      <AnimatePresence initial={false}>
       {isManuscriptOpen && !isFocusMode && (
-        <aside className="w-[260px] bg-[#FBF9F4] border-r border-[#E9E2D4] flex flex-col shrink-0 z-10">
+        <motion.div key="binder" initial={{ width: 0 }} animate={{ width: 260 }} exit={{ width: 0 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }} className="shrink-0 h-full overflow-hidden z-10">
+        <aside className="w-[260px] h-full bg-[#FBF9F4] border-r border-[#E9E2D4] flex flex-col">
           <div className="px-4 pt-5 pb-3 flex items-start justify-between gap-2 shrink-0">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#0E1D26]/45">Manuscript</p>
@@ -1282,7 +1284,9 @@ export default function WritingStudio() {
             )}
           </div>
         </aside>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Centre: the page */}
       <div className="flex-1 min-w-0 flex flex-col relative">
@@ -1436,8 +1440,10 @@ export default function WritingStudio() {
       </div>
 
       {/* Right: cast, places, notes */}
+      <AnimatePresence initial={false}>
       {isContextOpen && !isFocusMode && (
-        <aside className="w-[320px] bg-[#FBF9F4] border-l border-[#E9E2D4] flex flex-col shrink-0 h-full relative z-20">
+        <motion.div key="context" initial={{ width: 0 }} animate={{ width: 320 }} exit={{ width: 0 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }} className="shrink-0 h-full overflow-hidden relative z-20">
+        <aside className="w-[320px] bg-[#FBF9F4] border-l border-[#E9E2D4] flex flex-col h-full relative">
           <div className="p-3 shrink-0 flex items-center gap-2">
             <div className="flex-1 flex items-center gap-0.5 p-1 rounded-full bg-[#EFE9DE]">
               {([['chars', 'Cast'], ['locs', 'Places'], ['notes', 'Notes']] as const).map(([tab, label]) => (
@@ -1537,7 +1543,9 @@ export default function WritingStudio() {
             </div>
           )}
         </aside>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       <GlobalSearchModal
         isOpen={isSearchModalOpen}
