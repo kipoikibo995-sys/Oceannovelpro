@@ -1,19 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  Mail,
-  Lock,
-  User,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  AlertCircle,
-  CheckCircle2,
-  RefreshCw,
-  KeyRound,
-  BookOpen,
-} from "lucide-react";
 import { auth } from "@/lib/firebase";
 import {
   signInWithEmailAndPassword,
@@ -44,7 +31,6 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [penName, setPenName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
   // Security Math Captcha (For Register)
@@ -262,614 +248,435 @@ export default function Login() {
     }
   };
 
+  const inputCls =
+    "w-full h-11 px-3.5 bg-white border border-[#E3DACB] rounded-xl text-sm text-stone-800 placeholder:text-stone-400 outline-none transition focus:border-[#8C503C] focus:ring-4 focus:ring-[#8C503C]/10";
+
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#FAF8F5] font-sans selection:bg-[#8C503C] selection:text-white overflow-x-hidden">
+    <div className="relative min-h-screen w-full flex items-center justify-center px-4 py-10 bg-[#140E0A] overflow-hidden font-sans selection:bg-[#8C503C] selection:text-white">
+      <Backdrop />
 
-      {/* ================= LEFT COLUMN: WRITER'S DESK SHOWCASE (desktop) ================= */}
-      <div className="hidden lg:flex lg:w-[50%] xl:w-[52%] bg-[#17100B] text-[#F4EFE6] px-14 py-12 xl:px-20 flex-col justify-between relative overflow-hidden min-h-screen shrink-0">
-
-        {/* Atmospheric ambient glows */}
-        <div className="absolute -top-24 right-0 w-[520px] h-[520px] bg-[#8C503C]/15 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-0 -left-20 w-[420px] h-[420px] bg-[#C89D66]/10 rounded-full blur-[110px] pointer-events-none" />
-
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: "easeOut" }}
+        className="relative w-full max-w-[380px]"
+      >
         {/* Brand */}
-        <div className="relative z-10">
-          <BrandMark tone="dark" />
+        <div className="flex flex-col items-center text-center mb-6">
+          <LogoMark className="w-12 h-12" />
+          <h1 className="mt-3 font-serif text-2xl font-bold text-[#FAF6EE] tracking-tight">Ocean Novel</h1>
+          <p className="mt-1 font-serif italic text-[13px] text-[#B8A68F]">Where stories find their shape.</p>
         </div>
 
-        {/* Headline + product composition */}
-        <div className="relative z-10 space-y-8 my-8">
-          <div className="space-y-5 max-w-lg">
-            <h1 className="font-serif text-4xl xl:text-[44px] font-bold text-[#FCFAF5] leading-[1.12] tracking-tight">
-              Every great novel<br />
-              <span className="italic font-medium text-[#E0B98A]">begins with a world.</span>
-            </h1>
-            <p className="font-serif text-[15px] text-[#C8B8A6] leading-relaxed max-w-md">
-              Characters, lore, plot threads and manuscript — organised in one private studio that remembers everything so you can keep writing.
-            </p>
-            {/* Feature list stands in for the desk vignette on narrower desktops */}
-            <ul className="space-y-2.5 pt-2 xl:hidden">
-              {[
-                "Character dossiers & relationship maps",
-                "Story Bible for lore, factions and world rules",
-                "Continuity checks across your whole manuscript",
-              ].map((line) => (
-                <li key={line} className="flex items-start gap-2.5 text-sm text-[#DCCFBF]">
-                  <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#C89D66]" />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <DeskComposition />
-        </div>
-
-        {/* Footer: ocean line + quote */}
-        <div className="relative z-10 space-y-4">
-          <svg viewBox="0 0 600 24" className="w-full h-5 text-[#3A2619]" preserveAspectRatio="none" aria-hidden="true">
-            <path
-              d="M0 12 Q 25 2 50 12 T 100 12 T 150 12 T 200 12 T 250 12 T 300 12 T 350 12 T 400 12 T 450 12 T 500 12 T 550 12 T 600 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
+        <div className="rounded-3xl bg-[#FAF8F5] p-6 sm:p-7 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.85)] space-y-5">
+          {/* Mode switch */}
+          <div className="grid grid-cols-2 p-1 bg-[#EFE9DE] rounded-xl relative">
+            {(["signin", "signup"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => switchMode(m)}
+                className={cn(
+                  "relative z-10 py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer",
+                  mode === m ? "text-[#2A1B14]" : "text-stone-500 hover:text-stone-800"
+                )}
+              >
+                {m === "signin" ? "Sign in" : "Sign up"}
+              </button>
+            ))}
+            <motion.div
+              className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow-sm"
+              initial={false}
+              animate={{ left: mode === "signin" ? 4 : "50%" }}
+              transition={{ type: "spring", stiffness: 450, damping: 35 }}
             />
-          </svg>
-          <div className="flex items-center justify-between text-xs text-[#A69584] font-serif">
-            <span className="italic">&ldquo;A novel is a world born from words.&rdquo;</span>
-            <span className="flex items-center gap-1.5 text-[11px] text-[#C89D66]">
-              <Lock className="w-3 h-3" /> Private & cloud-synced
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* ================= RIGHT COLUMN: AUTHENTICATION PANE ================= */}
-      <div className="flex-1 bg-[#FAF8F5] px-5 py-10 sm:p-10 lg:p-14 flex flex-col justify-center items-center relative overflow-y-auto">
-        <div className="w-full max-w-[400px] space-y-6">
-
-          {/* Compact brand for mobile/tablet */}
-          <div className="lg:hidden pb-2">
-            <BrandMark tone="light" />
           </div>
 
-          {/* Header & Mode Switcher with Smooth Sliding Indicator */}
-          <div className="space-y-5">
-            <div>
-              <h2 className="font-serif text-[28px] sm:text-3xl font-bold text-[#2A1B14] tracking-tight leading-tight">
-                {mode === "signin" ? "Welcome back" : "Start your studio"}
-              </h2>
-              <p className="text-sm font-serif text-stone-500 mt-1.5">
-                {mode === "signin"
-                  ? "Pick up right where your story left off."
-                  : "Create your author profile — it takes under a minute."}
-              </p>
-            </div>
-
-            {/* Fluid Mode Switcher */}
-            <div className="p-1 bg-[#EFE9DE] rounded-xl flex items-center relative">
-              <button
-                type="button"
-                onClick={() => switchMode("signin")}
-                className={cn(
-                  "flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200 cursor-pointer text-center relative z-10",
-                  mode === "signin" ? "text-[#2A1B14]" : "text-stone-500 hover:text-stone-800"
-                )}
-              >
-                Sign in
-              </button>
-              <button
-                type="button"
-                onClick={() => switchMode("signup")}
-                className={cn(
-                  "flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200 cursor-pointer text-center relative z-10",
-                  mode === "signup" ? "text-[#2A1B14]" : "text-stone-500 hover:text-stone-800"
-                )}
-              >
-                Create account
-              </button>
-
-              {/* Smooth Animated Indicator */}
-              <motion.div
-                className="absolute top-1 bottom-1 bg-white rounded-lg shadow-sm"
-                layoutId="authTabIndicator"
-                initial={false}
-                transition={{ type: "spring", stiffness: 450, damping: 35 }}
-                style={{
-                  width: "calc(50% - 4px)",
-                  left: mode === "signin" ? "4px" : "calc(50%)",
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Feedback Alerts with Smooth Motion */}
+          {/* Feedback */}
           <AnimatePresence mode="wait">
-            {errorMsg && (
+            {(errorMsg || successMsg) && (
               <motion.div
-                initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                transition={{ duration: 0.2 }}
-                className="p-3.5 bg-rose-50/90 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800 shadow-sm"
+                key={errorMsg ? "err" : "ok"}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18 }}
+                className={cn(
+                  "px-3 py-2.5 rounded-xl flex items-start gap-2 text-[13px] leading-snug",
+                  errorMsg ? "bg-rose-50 text-rose-800" : "bg-emerald-50 text-emerald-800"
+                )}
               >
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
-                <span className="leading-relaxed">{errorMsg}</span>
-              </motion.div>
-            )}
-
-            {successMsg && (
-              <motion.div
-                initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                transition={{ duration: 0.2 }}
-                className="p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800 shadow-sm"
-              >
-                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
-                <span className="leading-relaxed">{successMsg}</span>
+                {errorMsg ? <IconAlert className="w-4 h-4 mt-px shrink-0" /> : <IconCheck className="w-4 h-4 mt-px shrink-0" />}
+                <span>{errorMsg || successMsg}</span>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* One-Click Google Authentication */}
-          <motion.button
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
+          {/* Google */}
+          <button
             type="button"
             onClick={handleGoogleSignIn}
             disabled={isGoogleLoading || isLoading}
-            className="w-full h-11 px-4 bg-white hover:bg-stone-50 text-stone-700 border border-[#DCD5C9] hover:border-[#BFAF9C] rounded-xl font-medium text-sm flex items-center justify-center gap-3 shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-60"
+            className="w-full h-11 bg-white border border-[#E3DACB] hover:border-[#C9B79F] hover:bg-[#FFFDF9] rounded-xl text-sm font-medium text-stone-700 flex items-center justify-center gap-2.5 transition cursor-pointer disabled:opacity-60"
           >
-            {isGoogleLoading ? (
-              <RefreshCw className="w-4 h-4 animate-spin text-[#8C503C]" />
-            ) : (
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-            )}
-            <span>{isGoogleLoading ? "Connecting to Author Cloud..." : "Continue with Google"}</span>
-          </motion.button>
+            {isGoogleLoading ? <IconSpinner className="w-4 h-4 text-[#8C503C]" /> : <GoogleLogo className="w-4 h-4" />}
+            {isGoogleLoading ? "Connecting…" : "Continue with Google"}
+          </button>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 text-xs text-stone-400">
             <div className="h-px flex-1 bg-[#E6DECF]" />
-            <span className="text-xs text-stone-400 whitespace-nowrap">or with email</span>
+            or
             <div className="h-px flex-1 bg-[#E6DECF]" />
           </div>
 
-          {/* Input Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Pen Name (Signup only) with smooth height animation */}
-            <AnimatePresence initial={false}>
-              {mode === "signup" && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                  animate={{ opacity: 1, height: "auto", marginTop: 16 }}
-                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
-                  className="space-y-1.5 overflow-hidden"
-                >
-                  <label className="block text-[13px] font-medium text-stone-700">
-                    Pen name
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required={mode === "signup"}
-                      placeholder="e.g. Brandon Sanderson"
-                      value={penName}
-                      onChange={(e) => setPenName(e.target.value)}
-                      className="w-full h-11 pl-10 pr-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans"
-                    />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {mode === "signup" && (
+              <input
+                type="text"
+                aria-label="Pen name"
+                required
+                placeholder="Pen name"
+                value={penName}
+                onChange={(e) => setPenName(e.target.value)}
+                className={inputCls}
+              />
+            )}
 
-            {/* Email */}
-            <div className="space-y-1.5">
-              <label className="block text-[13px] font-medium text-stone-700">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  placeholder="author@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-11 pl-10 pr-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans"
-                />
-              </div>
+            <input
+              type="email"
+              aria-label="Email"
+              required
+              autoComplete="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputCls}
+            />
+
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                aria-label="Password"
+                required
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={cn(inputCls, "pr-11")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-stone-400 hover:text-[#8C503C] transition cursor-pointer"
+              >
+                {showPassword ? <IconEyeOff className="w-[18px] h-[18px]" /> : <IconEye className="w-[18px] h-[18px]" />}
+              </button>
             </div>
 
-            {/* Password */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="block text-[13px] font-medium text-stone-700">
-                  Password
-                </label>
-                {mode === "signin" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setResetEmail(email);
-                      setIsForgotModalOpen(true);
-                    }}
-                    className="text-xs font-serif text-[#8C503C] hover:underline cursor-pointer"
-                  >
-                    Forgot password?
-                  </button>
-                )}
-              </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            {mode === "signup" && (
+              <>
                 <input
                   type={showPassword ? "text" : "password"}
+                  aria-label="Confirm password"
                   required
-                  placeholder="At least 6 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-11 pl-10 pr-10 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans"
+                  autoComplete="new-password"
+                  placeholder="Confirm password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={cn(
+                    inputCls,
+                    confirmPassword && password !== confirmPassword && "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+                  )}
                 />
+
+                <div className="flex items-center gap-2">
+                  <span className="h-11 px-3.5 flex items-center rounded-xl bg-[#EFE9DE] font-mono text-sm font-semibold text-[#2A1B14] select-none shrink-0">
+                    {captchaQuestion.num1} + {captchaQuestion.num2} =
+                  </span>
+                  <input
+                    type="number"
+                    aria-label="Answer to the sum"
+                    required
+                    placeholder="?"
+                    value={captchaInput}
+                    onChange={(e) => setCaptchaInput(e.target.value)}
+                    className={cn(inputCls, "font-mono")}
+                  />
+                  <button
+                    type="button"
+                    onClick={refreshCaptcha}
+                    aria-label="New sum"
+                    className="h-11 w-11 shrink-0 rounded-xl flex items-center justify-center text-stone-400 hover:text-[#8C503C] hover:bg-[#EFE9DE] transition cursor-pointer"
+                  >
+                    <IconRefresh className="w-[18px] h-[18px]" />
+                  </button>
+                </div>
+              </>
+            )}
+
+            <div className="flex items-center justify-between pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-[13px] text-stone-600">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded accent-[#8C503C] cursor-pointer"
+                />
+                Keep me signed in
+              </label>
+              {mode === "signin" && (
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1 cursor-pointer"
+                  onClick={() => {
+                    setResetEmail(email);
+                    setIsForgotModalOpen(true);
+                  }}
+                  className="text-[13px] text-[#8C503C] hover:underline cursor-pointer"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  Forgot?
                 </button>
-              </div>
+              )}
             </div>
 
-            {/* Confirm password (Signup only) */}
-            <AnimatePresence initial={false}>
-              {mode === "signup" && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                  animate={{ opacity: 1, height: "auto", marginTop: 16 }}
-                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
-                  className="space-y-1.5 overflow-hidden"
-                >
-                  <label className="block text-[13px] font-medium text-stone-700">
-                    Confirm password
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      required={mode === "signup"}
-                      placeholder="Re-enter your password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full h-11 pl-10 pr-10 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-sans"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1 cursor-pointer"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {password && confirmPassword && (
-                    <p
-                      className={cn(
-                        "text-[11px] font-sans pl-1 transition-colors",
-                        password === confirmPassword ? "text-emerald-600 font-medium" : "text-rose-500 font-medium"
-                      )}
-                    >
-                      {password === confirmPassword ? "✓ Passwords match" : "✕ Passwords do not match"}
-                    </p>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Math Captcha Verification (Signup only) */}
-            <AnimatePresence initial={false}>
-              {mode === "signup" && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                  animate={{ opacity: 1, height: "auto", marginTop: 16 }}
-                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
-                  className="space-y-1.5 overflow-hidden"
-                >
-                  <label className="block text-[13px] font-medium text-stone-700">
-                    Quick check — solve the sum
-                  </label>
-
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center gap-2 px-3.5 h-11 bg-[#F4EFE6] border border-[#E6DECF] rounded-xl font-mono text-sm font-bold text-[#2A1B14] select-none shrink-0">
-                      <span>{captchaQuestion.num1}</span>
-                      <span className="text-[#8C503C]">+</span>
-                      <span>{captchaQuestion.num2}</span>
-                      <span className="text-stone-400">=</span>
-                      <span className="text-[#8C503C]">?</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={refreshCaptcha}
-                      title="Generate new calculation"
-                      className="w-11 h-11 rounded-xl border border-[#DCD5C9] bg-white hover:bg-stone-50 flex items-center justify-center text-stone-500 hover:text-stone-800 transition-colors shrink-0 shadow-2xs cursor-pointer"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-
-                    <div className="relative flex-1">
-                      <input
-                        type="number"
-                        required={mode === "signup"}
-                        placeholder="Result"
-                        value={captchaInput}
-                        onChange={(e) => setCaptchaInput(e.target.value)}
-                        className="w-full h-11 px-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-2 focus:ring-[#8C503C]/15 rounded-xl text-sm text-stone-800 outline-none transition-all placeholder:text-stone-400 font-mono"
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Remember checkbox */}
-            <label className="flex items-center gap-2 cursor-pointer select-none pt-1 w-fit">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="rounded border-[#DCD5C9] w-4 h-4 accent-[#8C503C] cursor-pointer"
-              />
-              <span className="text-sm text-stone-600">Keep me signed in</span>
-            </label>
-
-            {/* Submit CTA */}
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+            <button
               type="submit"
               disabled={isLoading || isGoogleLoading}
-              className="w-full h-12 bg-[#8C503C] hover:bg-[#7A4332] text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-[0_6px_20px_-8px_rgba(140,80,60,0.7)] transition-colors cursor-pointer disabled:opacity-60 mt-2"
+              className="group w-full h-11 mt-1 bg-[#8C503C] hover:bg-[#7A4332] text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-[0_8px_24px_-10px_rgba(140,80,60,0.9)] transition-colors cursor-pointer disabled:opacity-60"
             >
               {isLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Opening your studio…</span>
-                </>
+                <IconSpinner className="w-4 h-4" />
               ) : (
                 <>
-                  <span>{mode === "signin" ? "Sign in" : "Create account"}</span>
-                  <ArrowRight className="w-4 h-4" />
+                  {mode === "signin" ? "Sign in" : "Create account"}
+                  <IconArrow className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
-            </motion.button>
-          </form>
-
-          {/* Mode hint */}
-          <p className="text-center text-sm text-stone-500">
-            {mode === "signin" ? "New to Ocean Novel? " : "Already have an account? "}
-            <button
-              type="button"
-              onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
-              className="font-semibold text-[#8C503C] hover:underline cursor-pointer"
-            >
-              {mode === "signin" ? "Create an account" : "Sign in"}
             </button>
-          </p>
-
-          <p className="flex items-center justify-center gap-1.5 text-[11px] text-stone-400">
-            <BookOpen className="w-3.5 h-3.5 text-[#8C503C]/70" />
-            Your manuscripts stay private to your account.
-          </p>
-
+          </form>
         </div>
-      </div>
 
-      {/* PASSWORD RESET MODAL */}
+        <p className="mt-5 text-center text-[13px] text-[#A69584]">
+          {mode === "signin" ? "New to Ocean Novel?" : "Already have an account?"}{" "}
+          <button
+            type="button"
+            onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
+            className="font-semibold text-[#E0B98A] hover:underline cursor-pointer"
+          >
+            {mode === "signin" ? "Create an account" : "Sign in"}
+          </button>
+        </p>
+      </motion.div>
+
+      {/* Password reset */}
       <AnimatePresence>
         {isForgotModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsForgotModalOpen(false)}
+          >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-sm bg-[#FAF8F5] border border-[#E5E0D5] rounded-2xl p-6 shadow-2xl space-y-4"
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ duration: 0.18 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-[360px] bg-[#FAF8F5] rounded-3xl p-6 shadow-2xl space-y-4"
             >
-              <div className="flex items-center justify-between border-b border-[#EBE3D5] pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#8C503C]/10 flex items-center justify-center text-[#8C503C]">
-                    <KeyRound className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif font-bold text-sm text-[#2A1B14]">
-                      Reset Password
-                    </h3>
-                    <p className="text-[10px] font-mono text-stone-500">
-                      Author Vault Recovery
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsForgotModalOpen(false)}
-                  className="text-stone-400 hover:text-stone-700 text-xs font-bold cursor-pointer w-6 h-6 rounded-full hover:bg-stone-200 flex items-center justify-center transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsForgotModalOpen(false)}
+                aria-label="Close"
+                className="absolute right-4 top-4 p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-[#EFE9DE] transition cursor-pointer"
+              >
+                <IconClose className="w-4 h-4" />
+              </button>
 
-              <p className="text-xs font-serif text-stone-600 leading-relaxed">
-                Enter your registered email address and we will dispatch a secure link to reset your author credentials.
-              </p>
+              <div>
+                <h3 className="font-serif text-lg font-bold text-[#2A1B14]">Reset password</h3>
+                <p className="mt-1 text-[13px] text-stone-500">We'll email you a link to set a new one.</p>
+              </div>
 
               <form onSubmit={handleSendPasswordReset} className="space-y-3">
                 <input
                   type="email"
+                  aria-label="Email"
                   required
-                  placeholder="author@example.com"
+                  placeholder="Email"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  className="w-full h-10 px-3.5 bg-white border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-1 focus:ring-[#8C503C] rounded-xl text-xs text-stone-800 outline-none shadow-2xs"
+                  className={inputCls}
                 />
-
                 {resetStatus && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-[11px] font-serif text-[#8C503C] bg-[#8C503C]/10 p-2 rounded-lg"
-                  >
-                    {resetStatus}
-                  </motion.p>
+                  <p className="text-[13px] text-[#8C503C] bg-[#8C503C]/8 px-3 py-2 rounded-xl">{resetStatus}</p>
                 )}
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsForgotModalOpen(false)}
-                    className="px-3.5 py-1.5 border border-[#DCD5C9] text-stone-600 text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-stone-100 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isResetting}
-                    className="px-4 py-1.5 bg-[#8C503C] hover:bg-[#753D2C] text-white text-[11px] font-bold uppercase tracking-wider rounded-lg cursor-pointer disabled:opacity-60 shadow-xs"
-                  >
-                    {isResetting ? "Dispatching..." : "Send Reset Link"}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={isResetting}
+                  className="w-full h-11 bg-[#8C503C] hover:bg-[#7A4332] text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  {isResetting ? <IconSpinner className="w-4 h-4" /> : "Send reset link"}
+                </button>
               </form>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
 
-function BrandMark({ tone }: { tone: "dark" | "light" }) {
-  const onDark = tone === "dark";
+/* ------------------------------------------------------------------ */
+/* Backdrop & brand                                                    */
+/* ------------------------------------------------------------------ */
+
+function Backdrop() {
   return (
-    <div className="flex items-center gap-3">
-      <div
-        className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-          onDark ? "bg-[#C89D66]/15 text-[#E0B98A]" : "bg-[#8C503C]/10 text-[#8C503C]"
-        )}
-      >
-        <BookOpen className="w-5 h-5" />
-      </div>
-      <div>
-        <span className={cn("font-serif text-xl font-bold tracking-tight block leading-none", onDark ? "text-[#FAF7F2]" : "text-[#2A1B14]")}>
-          Ocean Novel
-        </span>
-        <span className={cn("text-[10px] uppercase font-semibold tracking-[0.2em] mt-1 block", onDark ? "text-[#C89D66]" : "text-[#8C503C]")}>
-          Novel Architecture Studio
-        </span>
-      </div>
+    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[720px] h-[520px] rounded-full bg-[#8C503C]/25 blur-[140px]" />
+      <div className="absolute -bottom-40 -right-20 w-[520px] h-[420px] rounded-full bg-[#C89D66]/10 blur-[120px]" />
+      <svg className="absolute bottom-0 left-0 w-full h-48 text-[#C89D66]" viewBox="0 0 1440 200" preserveAspectRatio="none" fill="none">
+        {[0, 1, 2, 3].map((i) => (
+          <motion.path
+            key={i}
+            d={`M0 ${80 + i * 30} C 240 ${50 + i * 30}, 480 ${110 + i * 30}, 720 ${80 + i * 30} S 1200 ${50 + i * 30}, 1440 ${80 + i * 30}`}
+            stroke="currentColor"
+            strokeOpacity={0.14 - i * 0.03}
+            strokeWidth="1.2"
+            animate={{ x: [0, i % 2 ? 24 : -24, 0] }}
+            transition={{ duration: 14 + i * 3, repeat: Infinity, ease: "easeInOut" }}
+          />
+        ))}
+      </svg>
     </div>
   );
 }
 
-// Illustrative product vignette: a character dossier, a chapter in progress and a relationship web
-function DeskComposition() {
-  const float = (delay: number) => ({
-    initial: { opacity: 0, y: 16 },
-    animate: { opacity: 1, y: [0, -6, 0] },
-    transition: {
-      opacity: { duration: 0.6, delay },
-      y: { duration: 7, delay, repeat: Infinity, ease: "easeInOut" as const },
-    },
-  });
-
+// Brand mark: an open book resting on a wave
+function LogoMark({ className }: { className?: string }) {
   return (
-    <div className="relative h-[250px] w-full max-w-[560px] hidden xl:block" aria-hidden="true">
-      {/* Character dossier */}
-      <motion.div
-        {...float(0.1)}
-        className="absolute top-0 left-0 w-[240px] rounded-2xl bg-[#FAF6EE] text-[#2A1B14] p-4 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] -rotate-3"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#8C503C] to-[#C89D66] flex items-center justify-center text-white font-serif font-bold">
-            EV
-          </div>
-          <div>
-            <p className="font-serif font-bold text-[15px] leading-tight">Elara Voss</p>
-            <p className="text-[11px] text-stone-500">Protagonist · Tidecaller</p>
-          </div>
-        </div>
-        <div className="mt-3 space-y-1.5 text-[11px]">
-          <div className="flex justify-between"><span className="text-stone-500">Desire</span><span className="font-medium">Raise the drowned city</span></div>
-          <div className="flex justify-between"><span className="text-stone-500">Flaw</span><span className="font-medium">Trusts no one</span></div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {["Stubborn", "Loyal", "Haunted"].map((t) => (
-            <span key={t} className="px-2 py-0.5 rounded-full bg-[#8C503C]/10 text-[#8C503C] text-[10px] font-semibold">{t}</span>
-          ))}
-        </div>
-      </motion.div>
+    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id="on-logo" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#C89D66" />
+          <stop offset="1" stopColor="#8C503C" />
+        </linearGradient>
+      </defs>
+      <rect width="48" height="48" rx="14" fill="url(#on-logo)" />
+      <g fill="none" stroke="#FFF8EE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13 15.5c3.6-1.6 7.4-1.2 11 1.5v13c-3.6-2.7-7.4-3.1-11-1.5z" />
+        <path d="M35 15.5c-3.6-1.6-7.4-1.2-11 1.5v13c3.6-2.7 7.4-3.1 11-1.5z" />
+        <path d="M11 35.5c2.2-1.6 4.4-1.6 6.5 0s4.4 1.6 6.5 0 4.4-1.6 6.5 0 4.4 1.6 6.5 0" strokeOpacity="0.85" />
+      </g>
+    </svg>
+  );
+}
 
-      {/* Chapter progress */}
-      <motion.div
-        {...float(0.35)}
-        className="absolute top-4 right-0 w-[230px] rounded-2xl bg-[#241810] border border-[#3A2619] p-4 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)] rotate-2"
-      >
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#C89D66] font-semibold">Chapter 12</p>
-        <p className="font-serif text-[15px] font-semibold text-[#FAF7F2] mt-1">The Drowned Library</p>
-        <p className="font-serif italic text-[11px] text-[#A69584] mt-2 leading-relaxed">
-          &ldquo;The shelves still breathed salt, and every page remembered the sea…&rdquo;
-        </p>
-        <div className="mt-3">
-          <div className="flex justify-between text-[10px] text-[#A69584] mb-1">
-            <span>3,412 / 5,000 words</span><span>68%</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-[#3A2619] overflow-hidden">
-            <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-[#8C503C] to-[#E0B98A]" />
-          </div>
-        </div>
-      </motion.div>
+/* ------------------------------------------------------------------ */
+/* Icon set — 24px grid, 1.75 stroke, round caps                       */
+/* ------------------------------------------------------------------ */
 
-      {/* Relationship web */}
-      <motion.div
-        {...float(0.6)}
-        className="absolute -bottom-2 left-[42%] w-[190px] rounded-2xl bg-[#FAF6EE] p-3 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] -rotate-1"
-      >
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#8C503C] font-semibold mb-1">Relationships</p>
-        <svg viewBox="0 0 180 90" className="w-full h-[84px]">
-          <g stroke="#C9B79F" strokeWidth="1.2">
-            <line x1="90" y1="45" x2="30" y2="20" />
-            <line x1="90" y1="45" x2="150" y2="22" />
-            <line x1="90" y1="45" x2="40" y2="75" strokeDasharray="3 3" />
-            <line x1="90" y1="45" x2="145" y2="72" />
-          </g>
-          <circle cx="90" cy="45" r="11" fill="#8C503C" />
-          <circle cx="30" cy="20" r="7" fill="#C89D66" />
-          <circle cx="150" cy="22" r="7" fill="#C89D66" />
-          <circle cx="40" cy="75" r="7" fill="#A8A29E" />
-          <circle cx="145" cy="72" r="7" fill="#C89D66" />
-        </svg>
-      </motion.div>
-    </div>
+type IconProps = { className?: string };
+
+function Icon({ className, children }: IconProps & { children: React.ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function IconEye(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="2.75" />
+    </Icon>
+  );
+}
+
+function IconEyeOff(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M9.9 5.8A9.7 9.7 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-2.6 3.4M6.3 7.4A15.6 15.6 0 0 0 2.5 12s3.5 6.5 9.5 6.5c1.6 0 3-.4 4.2-1" />
+      <path d="M10 10.1a2.75 2.75 0 0 0 3.9 3.9" />
+      <path d="m3.5 3.5 17 17" />
+    </Icon>
+  );
+}
+
+function IconArrow(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M4.5 12h15M13.5 6l6 6-6 6" />
+    </Icon>
+  );
+}
+
+function IconRefresh(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+      <path d="M19.5 4.5v4h-4" />
+    </Icon>
+  );
+}
+
+function IconAlert(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5v5.25M12 16.25v.25" />
+    </Icon>
+  );
+}
+
+function IconCheck(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.25 12.25 2.5 2.5 5-5.25" />
+    </Icon>
+  );
+}
+
+function IconClose(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Icon>
+  );
+}
+
+function IconSpinner({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={cn("animate-spin", className)} fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2.5" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Google's brand mark must stay in its official colours
+function GoogleLogo({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+    </svg>
   );
 }
