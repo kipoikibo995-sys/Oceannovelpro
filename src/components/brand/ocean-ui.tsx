@@ -52,8 +52,13 @@ const COVER_PALETTES = [
   { bg: "#F0B54B", a: "#0E1D26", b: "#E8561F", c: "#F6F1E7", ink: "#0E1D26" },
 ];
 
-function hashSeed(seed: string) {
+export function hashSeed(seed: string) {
   return seed.split("").reduce((acc, ch, i) => (acc * 31 + ch.charCodeAt(0) * (i + 1)) >>> 0, 7);
+}
+
+// Same palette the book's cover uses — lets spines and covers match
+export function coverPaletteFor(genre: string, seed: string) {
+  return paletteFor(genre, hashSeed(seed));
 }
 
 // Genre nudges the palette so shelves read at a glance; the seed varies the composition

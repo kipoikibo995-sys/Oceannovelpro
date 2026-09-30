@@ -1,9 +1,11 @@
-import { useMemo, useState, useEffect } from "react";
+import { Fragment, useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   BookCover,
   BookMockup,
+  coverPaletteFor,
+  hashSeed,
   IconArrow,
   IconArrowUpRight,
   IconBookWave,
@@ -616,6 +618,7 @@ export default function Dashboard() {
     return true;
   });
   const miniTopCount = Math.max(1, miniRadarItems[0]?.count || 1);
+  const recentIds = [...savedProjects].sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0)).slice(0, 2).map((p) => p.id);
 
   const openStudio = () => {
     if (!activeProject) return;
@@ -833,111 +836,257 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* ================= LIBRARY ================= */}
+        {/* ================= BOOKSHELF ================= */}
         <section>
-          <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-2">
             <div>
               <Tag>Library</Tag>
               <h2 className="mt-3 text-[30px] sm:text-[36px] font-extrabold leading-none tracking-[-0.02em]">
-                Your Books<span className="text-[#E8561F]">.</span>
+                Your Bookshelf<span className="text-[#E8561F]">.</span>
               </h2>
             </div>
             <span className="text-[13px] text-[#0E1D26]/55">
-              {savedProjects.length} of {quotaLabel} books · click a cover to focus the board
+              {savedProjects.length} of {quotaLabel} books · click a spine to open it
             </span>
           </div>
 
-          <div className="flex gap-4 sm:gap-5 overflow-x-auto pb-3 -mx-1 px-1 pt-2 snap-x custom-scrollbar">
-            {savedProjects.map((proj, i) => {
-              const isSelected = activeProject?.id === proj.id;
-              const pct = Math.min(100, Math.round(((proj.currentWords || 0) / (proj.wordGoal || 75000)) * 100));
-              return (
-                <motion.div
-                  key={proj.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}
-                  className="group snap-start shrink-0 w-[168px] sm:w-[184px] cursor-pointer"
-                  onClick={() => setSelectedProjectId(proj.id)}
-                  title={`${proj.title} • ${proj.genre || "Fiction"}`}
+          <div className="relative w-full overflow-x-auto overflow-y-hidden custom-scrollbar touch-pan-x">
+            <div className="relative min-w-full w-max pt-10">
+              {/* Shelf plank */}
+              <div className="absolute bottom-0 left-0 right-0 h-5 rounded-[6px] bg-[#0E1D26] shadow-[0_14px_24px_-10px_rgba(14,29,38,0.6)]" />
+              <div className="absolute bottom-5 left-0 right-0 h-[3px] bg-[#E9DCC5]" />
+
+              <div className="relative flex items-end gap-[3px] h-[290px] pb-[23px] px-4 sm:px-6">
+                {/* Left bookend — mustard arch */}
+                <div className="shrink-0 w-10 h-20 mr-2 rounded-t-full bg-[#F0B54B]" aria-hidden="true" />
+
+                {savedProjects.map((proj, index) => {
+                  const palette = coverPaletteFor(proj.genre || "", proj.id);
+                  const isSelected = activeProject?.id === proj.id;
+                  const ratio = Math.min(1, Math.max(0, (proj.currentWords || 0) / (proj.wordGoal || 75000)));
+                  const pct = Math.round(ratio * 100);
+                  const isComplete = ratio >= 1 && (proj.wordGoal || 0) > 0;
+                  const isRecent = recentIds.includes(proj.id);
+
+                  // Deterministic "physical" variety so each book keeps its own thickness and height
+                  const seed = hashSeed(proj.id || String(index));
+                  const spineWidth = Math.min(60, [38, 52, 42, 60, 46, 56, 40, 58, 48, 50][seed % 10] + Math.floor(ratio * 3));
+                  const baseHeight = [220, 238, 228, 214, 244][index % 5];
+                  const bookHeight = isSelected ? baseHeight + 14 : baseHeight;
+                  const coverWidth = Math.round(bookHeight * 0.72);
+                  const variant = seed % 4;
+                  const accent = isComplete ? "#F0B54B" : palette.a;
+                  const titleLen = Math.max(1, (proj.title || "").length);
+                  const titleSpace = baseHeight - 44;
+                  // Scale the spine title so the whole name fits along the spine (extra-bold uppercase Outfit ≈ 0.8em per glyph)
+                  const fontSize = Math.max(7.5, Math.min(15, Math.floor((titleSpace / (titleLen * 0.8)) * 2) / 2));
+
+                  return (
+                    <Fragment key={proj.id}>
+                    <motion.div
+                      initial={false}
+                      animate={{ width: isSelected ? spineWidth + coverWidth : spineWidth, height: bookHeight }}
+                      whileHover={isSelected ? undefined : { y: -10, rotate: -1.5 }}
+                      transition={{ type: "spring", stiffness: 220, damping: 26, mass: 0.9 }}
+                      onClick={() => setSelectedProjectId(proj.id)}
+                      title={`${proj.title} • ${proj.genre || "Fiction"}`}
+                      className={cn(
+                        "group relative shrink-0 cursor-pointer rounded-l-[4px] rounded-r-[6px] overflow-hidden origin-bottom",
+                        isSelected
+                          ? "shadow-[-6px_14px_28px_-6px_rgba(14,29,38,0.55)] z-10"
+                          : "shadow-[-3px_2px_10px_rgba(14,29,38,0.35)] hover:shadow-[-5px_12px_20px_rgba(14,29,38,0.45)]"
+                      )}
+                      style={{ background: palette.bg }}
+                    >
+                      {/* Spine */}
+                      <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: spineWidth, background: palette.bg }}>
+                        {/* Cloth weave */}
+                        <div
+                          className="absolute inset-0 opacity-[0.18] mix-blend-overlay pointer-events-none"
+                          style={{
+                            backgroundImage:
+                              'url("data:image/svg+xml,%3Csvg viewBox=%220 0 120 120%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")',
+                          }}
+                        />
+                        {/* Head & tail caps of a hardcover */}
+                        <div className="absolute top-0 inset-x-0 h-[5px] bg-black/25" />
+                        <div className="absolute bottom-0 inset-x-0 h-[5px] bg-black/25" />
+
+                        {variant === 0 && (
+                          <>
+                            <div className="absolute top-3 inset-x-0 h-[5px]" style={{ background: accent }} />
+                            <div className="absolute top-[22px] inset-x-0 h-[2px]" style={{ background: accent }} />
+                            <div className="absolute bottom-[22px] inset-x-0 h-[2px]" style={{ background: accent }} />
+                            <div className="absolute bottom-3 inset-x-0 h-[5px]" style={{ background: accent }} />
+                          </>
+                        )}
+                        {variant === 1 && (
+                          <div
+                            className="absolute left-1/2 -translate-x-1/2 top-3 rounded-full"
+                            style={{ width: spineWidth * 0.55, height: spineWidth * 0.55, background: palette.b }}
+                          />
+                        )}
+                        {variant === 2 && (
+                          <>
+                            <div className="absolute top-0 inset-x-0 h-5" style={{ background: accent }} />
+                            <div className="absolute bottom-0 inset-x-0 h-9" style={{ background: palette.c }} />
+                          </>
+                        )}
+                        {variant === 3 && (
+                          <div
+                            className="absolute bottom-0 inset-x-0 rounded-t-full"
+                            style={{ height: spineWidth * 0.9, background: accent }}
+                          />
+                        )}
+
+                        {/* Vertical title */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span
+                            className="block flex-none whitespace-nowrap overflow-hidden text-ellipsis font-extrabold uppercase text-center"
+                            style={{
+                              width: titleSpace,
+                              transform: "rotate(-90deg)",
+                              color: palette.ink,
+                              fontSize,
+                              letterSpacing: titleLen < 14 ? "0.14em" : titleLen < 22 ? "0.06em" : "0.01em",
+                            }}
+                          >
+                            {proj.title}
+                          </span>
+                        </div>
+
+                        {/* Rounded-spine shading: light catches the curve, edges fall into shadow */}
+                        <div
+                          className="absolute inset-0 pointer-events-none"
+                          style={{
+                            background:
+                              "linear-gradient(90deg, rgba(0,0,0,0.38) 0%, rgba(255,255,255,0.14) 16%, rgba(255,255,255,0.04) 38%, rgba(0,0,0,0.06) 70%, rgba(0,0,0,0.34) 100%)",
+                          }}
+                        />
+
+                        {isRecent && <div className="absolute top-0 right-1.5 w-2.5 h-8 bg-[#E8561F] rounded-b-sm shadow-sm" />}
+                      </div>
+
+                      {/* Front cover, revealed when the book is pulled from the shelf */}
+                      <AnimatePresence>
+                        {isSelected && (
+                          <motion.div
+                            initial={{ opacity: 0, x: -24 }}
+                            animate={{ opacity: 1, x: 0, transition: { delay: 0.12, duration: 0.35, ease: "easeOut" } }}
+                            exit={{ opacity: 0, x: -24, transition: { duration: 0.15 } }}
+                            className="absolute inset-y-0 right-0"
+                            style={{ left: spineWidth }}
+                          >
+                            <BookCover
+                              title={proj.title}
+                              genre={proj.genre}
+                              seed={proj.id}
+                              subtitle={proj.genre || "Fiction"}
+                              className="absolute inset-0 !rounded-l-none"
+                              titleClassName={proj.title.length > 20 ? "text-[17px]" : "text-[22px]"}
+                            />
+                            {/* hinge groove between spine and board */}
+                            <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/35 to-transparent" />
+
+                            {/* soft gloss across the board */}
+                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/15 via-transparent to-black/15" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+
+                    {/* Book card standing beside the pulled-out book */}
+                    <AnimatePresence initial={false}>
+                      {isSelected && (
+                        <motion.div
+                          key={`card-${proj.id}`}
+                          initial={{ opacity: 0, width: 0 }}
+                          animate={{ opacity: 1, width: 216, transition: { type: "spring", stiffness: 220, damping: 26 } }}
+                          exit={{ opacity: 0, width: 0, transition: { duration: 0.2 } }}
+                          className="shrink-0 self-end overflow-hidden"
+                        >
+                          <div className="ml-3 mr-2 w-[200px] rounded-2xl bg-white border border-[#E4DAC8] p-4 text-[#0E1D26] shadow-[0_14px_28px_-16px_rgba(14,29,38,0.5)]">
+                            <div className="flex items-center justify-between">
+                              <span className="px-2 py-0.5 border border-[#0E1D26]/40 text-[9px] font-bold uppercase tracking-[0.18em]">
+                                Book {String(index + 1).padStart(2, "0")}
+                              </span>
+                              {isComplete && (
+                                <span className="px-2 py-0.5 rounded-full bg-[#F0B54B] text-[9px] font-bold uppercase tracking-wider">Done</span>
+                              )}
+                            </div>
+                            <p className="mt-3 text-[17px] font-extrabold leading-[1.1] line-clamp-2 break-words">{proj.title}</p>
+                            <p className="mt-1 text-[12px] text-[#0E1D26]/55 truncate">{proj.genre || "Fiction"}</p>
+
+                            <div className="mt-4 flex items-baseline justify-between text-[11px]">
+                              <span className="text-[#0E1D26]/55">Words</span>
+                              <span className="font-bold">
+                                {(proj.currentWords || 0).toLocaleString()} · {pct}%
+                              </span>
+                            </div>
+                            <div className="mt-1.5 h-1.5 rounded-full bg-[#E4DAC8] overflow-hidden">
+                              <motion.div
+                                className={cn("h-full rounded-full", isComplete ? "bg-[#F0B54B]" : "bg-[#E8561F]")}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.max(4, pct)}%` }}
+                                transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+                              />
+                            </div>
+
+                            <div className="mt-4 flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setProjectToDelete(proj)}
+                                title={`Delete "${proj.title}"`}
+                                className="w-9 h-9 rounded-full border border-[#E4DAC8] text-[#0E1D26]/50 hover:text-[#C2410C] hover:border-[#C2410C]/40 flex items-center justify-center transition-colors cursor-pointer"
+                              >
+                                <IconTrash className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/project/${proj.id}`)}
+                                className="h-9 pl-4 pr-1 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[12px] font-bold flex items-center gap-2 cursor-pointer"
+                              >
+                                Open Book
+                                <span className="w-7 h-7 rounded-full bg-[#E8561F] flex items-center justify-center">
+                                  <IconArrow className="w-3.5 h-3.5" />
+                                </span>
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    </Fragment>
+                  );
+                })}
+
+                {/* Empty slot — new book */}
+                <button
+                  type="button"
+                  onClick={handleNewProjectClick}
+                  title={atQuota ? `Plan limit reached (${savedProjects.length}/${quotaLabel})` : "Start a new book"}
+                  className="group shrink-0 ml-2 w-[54px] h-[214px] rounded-[5px] border-2 border-dashed border-[#0E1D26]/20 hover:border-[#E8561F] flex flex-col items-center justify-center gap-3 transition-colors cursor-pointer"
                 >
-                  <div
-                    className={cn(
-                      "relative aspect-[3/4] rounded-r-md rounded-l-sm transition-all duration-300 group-hover:-translate-y-1.5",
-                      isSelected
-                        ? "ring-[3px] ring-[#E8561F] ring-offset-4 ring-offset-[#F6F1E7] shadow-[0_22px_40px_-18px_rgba(14,29,38,0.7)]"
-                        : "shadow-[0_14px_28px_-16px_rgba(14,29,38,0.55)]"
-                    )}
-                  >
-                    <BookCover
-                      title={proj.title}
-                      genre={proj.genre}
-                      seed={proj.id}
-                      subtitle={proj.genre || "Fiction"}
-                      className="absolute inset-0"
-                      titleClassName="text-[20px] sm:text-[22px]"
-                    />
-                    {/* hover actions */}
-                    <div className="absolute inset-x-2 bottom-2 flex items-center justify-between opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProjectToDelete(proj);
-                        }}
-                        title={`Delete "${proj.title}"`}
-                        className="w-8 h-8 rounded-full bg-white/90 text-[#0E1D26]/60 hover:text-[#C2410C] flex items-center justify-center shadow cursor-pointer"
-                      >
-                        <IconTrash className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/project/${proj.id}`);
-                        }}
-                        className="h-8 pl-3 pr-1 rounded-full bg-[#0E1D26] text-[#F6F1E7] text-[11px] font-bold flex items-center gap-1.5 shadow cursor-pointer"
-                      >
-                        Open
-                        <span className="w-6 h-6 rounded-full bg-[#E8561F] flex items-center justify-center">
-                          <IconArrow className="w-3.5 h-3.5" />
-                        </span>
-                      </button>
-                    </div>
-                  </div>
+                  <span className="w-9 h-9 rounded-full bg-[#E8561F] text-white flex items-center justify-center transition-transform group-hover:scale-110">
+                    <IconPlus className="w-4 h-4" />
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#0E1D26]/50 [writing-mode:vertical-rl] rotate-180">
+                    New Book
+                  </span>
+                </button>
 
-                  <div className="mt-3.5 px-0.5">
-                    <p className="text-[15px] font-bold leading-tight truncate">{proj.title}</p>
-                    <div className="mt-2 h-1 rounded-full bg-[#E4DAC8] overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full", pct >= 100 ? "bg-[#F0B54B]" : "bg-[#E8561F]")}
-                        style={{ width: `${Math.max(4, pct)}%` }}
-                      />
-                    </div>
-                    <p className="mt-1.5 text-[11px] text-[#0E1D26]/55">
-                      {(proj.currentWords || 0).toLocaleString()} words · {pct}%
-                    </p>
-                  </div>
-                </motion.div>
-              );
-            })}
+                {/* Right bookend */}
+                {savedProjects.length > 0 && (
+                  <div className="shrink-0 w-10 h-24 ml-2 rounded-tl-full bg-[#E8561F]" aria-hidden="true" />
+                )}
 
-            {/* New book tile */}
-            <button
-              type="button"
-              onClick={handleNewProjectClick}
-              className="group snap-start shrink-0 w-[168px] sm:w-[184px] text-left cursor-pointer"
-            >
-              <div className="aspect-[3/4] rounded-md border-2 border-dashed border-[#0E1D26]/20 group-hover:border-[#E8561F] flex flex-col items-center justify-center gap-3 transition-colors">
-                <span className="w-12 h-12 rounded-full bg-[#E8561F] text-white flex items-center justify-center transition-transform group-hover:scale-110">
-                  <IconPlus className="w-5 h-5" />
-                </span>
-                <span className="text-[13px] font-semibold text-[#0E1D26]/70">New Book</span>
+                {savedProjects.length === 0 && (
+                  <p className="self-center ml-4 text-[14px] text-[#0E1D26]/55">
+                    Your shelf is empty — add your first book to get started.
+                  </p>
+                )}
               </div>
-              <p className="mt-3.5 text-[11px] text-[#0E1D26]/45 px-0.5">
-                {atQuota ? `Plan limit reached (${savedProjects.length}/${quotaLabel})` : "Start a new manuscript"}
-              </p>
-            </button>
+            </div>
           </div>
         </section>
 
