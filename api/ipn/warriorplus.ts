@@ -61,6 +61,12 @@ export async function POST(request: Request): Promise<Response> {
     return new Response('OK', { status: 200 });
   } catch (error: any) {
     const status = error instanceof IpnError ? error.httpStatus : 500;
+    // WarriorPlus's 'Send Test' button signs with a different key than real sales. Answer 200 so the
+    // test shows success, but do nothing: no purchase is recorded and no plan is unlocked.
+    if (status === 401) {
+      console.warn('[WarriorPlus IPN Ignored] security key did not match — nothing was processed (expected for the Send Test button).');
+      return new Response('OK (ignored)', { status: 200 });
+    }
     console.error('[WarriorPlus IPN Error]', status, error?.message || error);
     // 5xx makes WarriorPlus retry later (e.g. a Firestore hiccup); 4xx means the request itself is bad
     return new Response(status >= 500 ? 'Temporary error' : 'Rejected', { status });
