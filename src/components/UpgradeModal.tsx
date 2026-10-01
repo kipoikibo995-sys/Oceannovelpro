@@ -91,10 +91,11 @@ export default function UpgradeModal({
       case "image_library":
         return {
           badge: "Pro Studio Asset Library",
-          heading: "Exclusive Fantasy Art & Portrait Library",
-          desc: description || "The curated 50+ high-res Fantasy Portrait and Location Art Library is exclusively available in Pro Edition. In the Regular Edition, you can still upload your own images from your device or paste web image links freely!",
+          heading: "50 Ready-Made Characters & Fantasy Art Library",
+          desc: description || "50 ready-made fantasy characters (backstory, traits and portrait) plus the curated portrait and location art library are part of Pro Edition. In the Regular Edition you can create characters yourself and upload your own images or paste image links.",
           perks: [
-            "Instant access to 49 curated fantasy character portraits",
+            "50 ready-made characters with backstories, traits and portraits",
+            "Curated fantasy portrait library for your own characters",
             "Atmospheric fantasy location backgrounds and landscape art",
             "Pre-calibrated genre tags, archetypes, and lighting presets",
             "Commercial publication rights for all built-in art assets",

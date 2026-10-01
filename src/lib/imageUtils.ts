@@ -108,3 +108,10 @@ export const FANTASY_PRESET_LOCATIONS = [
     url: "https://res.cloudinary.com/mekoxs1q/image/upload/v1788769186/07_ruined_citadel_beneath_the_green_storm_po3es7.jpg",
   },
 ];
+
+// Neutral placeholder for characters without an image on plans without the art library
+export const BLANK_PORTRAIT =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 300"><rect width="240" height="300" fill="#EFE9DE"/><circle cx="120" cy="118" r="46" fill="#D9CFBC"/><path d="M40 300c0-56 36-92 80-92s80 36 80 92z" fill="#D9CFBC"/></svg>'
+  );

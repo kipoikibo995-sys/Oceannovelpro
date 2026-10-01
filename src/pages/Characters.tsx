@@ -42,7 +42,7 @@ import ImageDropzoneCard from "@/components/ImageDropzoneCard";
 import ImagePickerModal from "@/components/ImagePickerModal";
 import CharacterPresetPickerModal from "@/components/CharacterPresetPickerModal";
 import { CharacterPreset } from "@/data/characterPresets";
-import { FANTASY_PRESET_PORTRAITS } from "@/lib/imageUtils";
+import { FANTASY_PRESET_PORTRAITS, BLANK_PORTRAIT } from "@/lib/imageUtils";
 import { cn } from "@/lib/utils";
 import {
   IconCopy,
@@ -466,8 +466,9 @@ export default function Characters() {
           let imageUrl = char.imageUrl;
           if (!imageUrl || imageUrl.includes("unsplash.com") || imageUrl.includes(".webp")) {
             hasModified = true;
+            const libraryUnlocked = PLAN_LIMITS[storage.getUserProfile()?.plan || 'free'].hasImageLibrary;
             const fallbackPreset = FANTASY_PRESET_PORTRAITS[index % FANTASY_PRESET_PORTRAITS.length];
-            imageUrl = fallbackPreset ? fallbackPreset.url : FANTASY_PRESET_PORTRAITS[0].url;
+            imageUrl = libraryUnlocked && fallbackPreset ? fallbackPreset.url : BLANK_PORTRAIT;
           }
 
           if (hasModified) hasChanges = true;
@@ -524,6 +525,10 @@ export default function Characters() {
   const maxCharacters = PLAN_LIMITS[profile?.plan || 'free'].maxCharactersPerProject;
   const hasImageLibrary = PLAN_LIMITS[profile?.plan || 'free'].hasImageLibrary;
   const isCharacterLimitReached = characters.length >= maxCharacters;
+  // New characters only get a library portrait by default on plans that include the art library
+  function defaultPortrait() {
+    return hasImageLibrary ? FANTASY_PRESET_PORTRAITS[0]?.url || BLANK_PORTRAIT : BLANK_PORTRAIT;
+  }
 
   // 50 Character Presets Modal State
   const [showPresetModal, setShowPresetModal] = useState(false);
@@ -541,7 +546,7 @@ export default function Characters() {
     aliases: [] as string[],
     backstory: "",
     traits: [] as string[],
-    imageUrl: FANTASY_PRESET_PORTRAITS[0]?.url || "https://res.cloudinary.com/mekoxs1q/image/upload/v1790564447/fantasy_01_under_100kb_klikgx.jpg",
+    imageUrl: defaultPortrait(),
     mbti: "",
     archetype: "",
     conflict: "",
@@ -606,7 +611,7 @@ export default function Characters() {
       aliases: [],
       backstory: "",
       traits: [],
-      imageUrl: FANTASY_PRESET_PORTRAITS[0]?.url || "https://res.cloudinary.com/mekoxs1q/image/upload/v1790564447/fantasy_01_under_100kb_klikgx.jpg",
+      imageUrl: defaultPortrait(),
       mbti: "",
       archetype: "",
       conflict: "",
@@ -757,7 +762,7 @@ export default function Characters() {
       backstory: backstoryContent,
       description: backstoryContent, // Synchronize for all AI prompts, search, and overview widgets
       traits: currentTraits,
-      imageUrl: formData.imageUrl || FANTASY_PRESET_PORTRAITS[0]?.url || "https://res.cloudinary.com/mekoxs1q/image/upload/v1790564447/fantasy_01_under_100kb_klikgx.jpg",
+      imageUrl: formData.imageUrl || defaultPortrait(),
       mbti: formData.mbti || "",
       archetype: formData.archetype || "",
       conflict: formData.conflict || "",
@@ -1136,6 +1141,11 @@ ${backstoryText}`;
             <button
               type="button"
               onClick={() => {
+                if (!hasImageLibrary) {
+                  setUpgradeModalFeature("image_library");
+                  setShowUpgradeModal(true);
+                  return;
+                }
                 setPresetModalMode("editor");
                 setShowPresetModal(true);
               }}
@@ -1748,14 +1758,20 @@ ${backstoryText}`;
               <button
                 type="button"
                 onClick={() => {
+                  if (!hasImageLibrary) {
+                    setUpgradeModalFeature("image_library");
+                    setShowUpgradeModal(true);
+                    return;
+                  }
                   setPresetModalMode("registry");
                   setShowPresetModal(true);
                 }}
-                title="Browse 50 premade character archetypes"
+                title={hasImageLibrary ? "Browse 50 premade character archetypes" : "50 ready-made characters (Pro feature)"}
                 className="h-10 px-4 rounded-full bg-white border border-[#E9E2D4] hover:border-[#0E1D26]/30 text-[13px] font-semibold flex items-center gap-2 transition-colors cursor-pointer"
               >
                 <IconUsers className="w-4 h-4 text-[#0E1D26]/55" />
                 <span className="hidden sm:inline">50 Archetypes</span>
+                {!hasImageLibrary && <IconLock className="w-3.5 h-3.5 text-[#0E1D26]/40" />}
               </button>
 
               <button type="button" onClick={() => setShowCharacterGuideModal(true)} className={iconBtn()} title="Character guide & AI prompt" aria-label="Character guide & AI prompt">
