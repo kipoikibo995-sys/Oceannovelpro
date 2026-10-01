@@ -49,12 +49,12 @@ export function mapProductToTier(
   const combined = (itemName + ' ' + itemNumber).toLowerCase();
 
   if (combined.includes('premium') || combined.includes('oto2') || combined.includes('ai') || combined.includes('ghostwriter') || combined.includes('lore')) {
-    return { tier: 'OTO2', defaultPrice: '$67.00' };
+    return { tier: 'OTO2', defaultPrice: '$97.00' };
   }
   if (combined.includes('pro') || combined.includes('oto1') || combined.includes('unlimited')) {
     return { tier: 'OTO1', defaultPrice: '$47.00' };
   }
-  return { tier: 'FrontEnd', defaultPrice: '$27.00' };
+  return { tier: 'FrontEnd', defaultPrice: '$17.00' };
 }
 
 /**

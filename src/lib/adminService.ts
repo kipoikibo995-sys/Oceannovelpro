@@ -142,7 +142,7 @@ export const adminService = {
                 id: "auto_" + docItem.id,
                 productItem: pendingData.productItem,
                 tier: pendingData.tier,
-                amount: pendingData.amount || (pendingData.tier === "OTO2" ? "$67.00" : pendingData.tier === "OTO1" ? "$47.00" : "$27.00"),
+                amount: pendingData.amount || (pendingData.tier === "OTO2" ? "$97.00" : pendingData.tier === "OTO1" ? "$47.00" : "$17.00"),
                 date: Date.now(),
                 txnId: pendingData.txnId || "WP-AUTO-" + Date.now().toString(36).toUpperCase(),
               },
@@ -327,7 +327,7 @@ export const adminService = {
   }): Promise<{ matchedUser: boolean; message: string; targetUser?: string }> => {
     const cleanEmail = payload.buyerEmail.toLowerCase().trim();
     const txnId = payload.txnId || "WP-TXN-" + Math.floor(100000 + Math.random() * 900000);
-    const amount = payload.amount || (payload.tier === "OTO2" ? "$67.00" : payload.tier === "OTO1" ? "$47.00" : "$27.00");
+    const amount = payload.amount || (payload.tier === "OTO2" ? "$97.00" : payload.tier === "OTO1" ? "$47.00" : "$17.00");
 
     try {
       const usersCol = collection(db, "registeredUsers");

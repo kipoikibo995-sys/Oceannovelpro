@@ -383,7 +383,7 @@ export default function ConsistencyCheckerPage() {
                 Logic & Continuity Conflict Engine
               </h2>
               <p className="text-xs font-serif text-stone-600 leading-relaxed max-w-md mx-auto">
-                Deep narrative analysis, location paradox detection, character appearance consistency tracking, and prose monotony rhythm scanning are exclusive features of <strong>Premium Edition ($67)</strong>.
+                Deep narrative analysis, location paradox detection, character appearance consistency tracking, and prose monotony rhythm scanning are exclusive features of <strong>Premium Edition ($97)</strong>.
               </p>
             </div>
 
@@ -414,7 +414,7 @@ export default function ConsistencyCheckerPage() {
                 onClick={() => setShowUpgradeModal(true)}
                 className="px-6 py-2.5 bg-[#8C503C] hover:bg-[#723F2F] text-white font-bold text-xs uppercase tracking-widest rounded-lg shadow-sm transition-all cursor-pointer"
               >
-                Upgrade to Premium Edition ($67)
+                Upgrade to Premium Edition ($97)
               </button>
             </div>
           </div>

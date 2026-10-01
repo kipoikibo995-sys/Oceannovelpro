@@ -32,7 +32,7 @@ export default function UpgradeModal({
         return {
           badge: "Premium Edition — Ocean Novel",
           heading: "Unlock AI Ghostwriter & Lore Generator",
-          desc: description || "The AI Prompt Hub and Ghostwriter Generation Suite are exclusively unlocked in Premium Edition ($67). Generate high-yield scene beats, character psychology prompts, and prose polish instructions instantly.",
+          desc: description || "The AI Prompt Hub and Ghostwriter Generation Suite are exclusively unlocked in Premium Edition ($97). Generate high-yield scene beats, character psychology prompts, and prose polish instructions instantly.",
           perks: [
             "AI Scene Drafting Prompts with custom tension, POV, and pacing controls",
             "Master Story System setup instructions for ChatGPT, Claude, and Gemini",

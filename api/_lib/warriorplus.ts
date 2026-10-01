@@ -11,7 +11,7 @@ export type Tier = 'Free' | 'FrontEnd' | 'OTO1' | 'OTO2';
 const PROJECT_ID = 'oceannovel';
 const DATABASE_ID = 'ai-studio-novelist-fca8c749-967d-46b4-9714-a261746c3222';
 const TIER_RANK: Record<Tier, number> = { Free: 0, FrontEnd: 1, OTO1: 2, OTO2: 3 };
-const DEFAULT_PRICE: Record<Tier, string> = { Free: '$0.00', FrontEnd: '$27.00', OTO1: '$47.00', OTO2: '$67.00' };
+const DEFAULT_PRICE: Record<Tier, string> = { Free: '$0.00', FrontEnd: '$17.00', OTO1: '$47.00', OTO2: '$97.00' };
 
 export interface IpnResult {
   status: 'upgraded' | 'pending' | 'refunded' | 'duplicate' | 'ignored';
@@ -56,6 +56,13 @@ function adminDb(): Firestore {
 /* Payload helpers                                                     */
 /* ------------------------------------------------------------------ */
 
+// WarriorPlus product codes for Ocean Novel (not secret). Vercel env vars can add more codes.
+const PRODUCT_CODES: Record<'FrontEnd' | 'OTO1' | 'OTO2', string[]> = {
+  FrontEnd: ['wso_pcqmrt'], // Ocean Novel — $17 ($27 after launch)
+  OTO1: ['wso_tvbftn'], // Pro — $47
+  OTO2: ['wso_wkn9q6'], // Premium — $97
+};
+
 const listEnv = (name: string) =>
   (process.env[name] || '')
     .split(',')
@@ -67,9 +74,9 @@ const listEnv = (name: string) =>
 export function mapProductToTier(itemName = '', itemNumber = ''): Tier {
   const num = itemNumber.trim().toLowerCase();
   if (num) {
-    if (listEnv('WPLUS_ITEMS_PREMIUM').includes(num)) return 'OTO2';
-    if (listEnv('WPLUS_ITEMS_PRO').includes(num)) return 'OTO1';
-    if (listEnv('WPLUS_ITEMS_FRONTEND').includes(num)) return 'FrontEnd';
+    if (PRODUCT_CODES.OTO2.includes(num) || listEnv('WPLUS_ITEMS_PREMIUM').includes(num)) return 'OTO2';
+    if (PRODUCT_CODES.OTO1.includes(num) || listEnv('WPLUS_ITEMS_PRO').includes(num)) return 'OTO1';
+    if (PRODUCT_CODES.FrontEnd.includes(num) || listEnv('WPLUS_ITEMS_FRONTEND').includes(num)) return 'FrontEnd';
   }
   const name = ` ${itemName.toLowerCase()} `;
   if (/\b(premium|oto\s*-?\s*2|ghostwriter)\b/.test(name)) return 'OTO2';

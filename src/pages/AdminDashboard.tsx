@@ -70,7 +70,7 @@ export default function AdminDashboard() {
 
   // IPN Test Tool Form State
   const [ipnEmail, setIpnEmail] = useState("");
-  const [ipnProduct, setIpnProduct] = useState("FrontEnd: Ocean Novel Studio ($27)");
+  const [ipnProduct, setIpnProduct] = useState("FrontEnd: Ocean Novel Studio ($17)");
   const [ipnTier, setIpnTier] = useState<'Free' | 'FrontEnd' | 'OTO1' | 'OTO2'>("FrontEnd");
   const [ipnTxnId, setIpnTxnId] = useState("");
   const [isSubmittingIpn, setIsSubmittingIpn] = useState(false);
@@ -867,9 +867,9 @@ app.post('/api/ipn/warriorplus', async (req, res) => {
                         }}
                         className="w-full h-10 px-3 bg-[#FAF8F5] border border-[#DCD5C9] focus:border-[#8C503C] focus:ring-1 focus:ring-[#8C503C] rounded-lg text-xs text-stone-800 outline-none font-medium cursor-pointer"
                       >
-                        <option value="Regular: Ocean Novel Studio ($27)">Regular: Ocean Novel Studio ($27)</option>
+                        <option value="Regular: Ocean Novel Studio ($17)">Regular: Ocean Novel Studio ($17)</option>
                         <option value="Pro: Unlimited Studio Edition ($47)">Pro: Unlimited Studio Edition ($47)</option>
-                        <option value="Premium: AI Ghostwriter & Lore Generator ($67)">Premium: AI Ghostwriter & Lore ($67)</option>
+                        <option value="Premium: AI Ghostwriter & Lore Generator ($97)">Premium: AI Ghostwriter & Lore ($97)</option>
                       </select>
                     </div>
 
@@ -967,7 +967,7 @@ app.post('/api/ipn/warriorplus', async (req, res) => {
                               </td>
                               <td className="py-3 px-4 text-stone-700">{item.productItem}</td>
                               <td className="py-3 px-4 font-mono font-bold text-emerald-700">
-                                {item.amount || "$27.00"}
+                                {item.amount || "$17.00"}
                               </td>
                               <td className="py-3 px-4">
                                 <span className="px-2 py-0.5 rounded bg-stone-100 font-mono text-[10px] uppercase font-bold text-stone-700 border border-stone-200">
@@ -1076,7 +1076,7 @@ app.post('/api/ipn/warriorplus', async (req, res) => {
                         <tr>
                           <td className="py-3 px-3 font-mono font-bold text-amber-800">Regular</td>
                           <td className="py-3 px-3 font-serif">Ocean Novel Studio - Standard</td>
-                          <td className="py-3 px-3 font-mono font-bold text-stone-900">$27.00</td>
+                          <td className="py-3 px-3 font-mono font-bold text-stone-900">$17.00</td>
                           <td className="py-3 px-3 text-stone-600">Standard Story Bible, Manuscript binder, Word/TXT export</td>
                         </tr>
                         <tr>
@@ -1088,7 +1088,7 @@ app.post('/api/ipn/warriorplus', async (req, res) => {
                         <tr>
                           <td className="py-3 px-3 font-mono font-bold text-purple-700">Premium</td>
                           <td className="py-3 px-3 font-serif">Ocean Novel Studio - AI Lore & Ghostwriter</td>
-                          <td className="py-3 px-3 font-mono font-bold text-stone-900">$67.00</td>
+                          <td className="py-3 px-3 font-mono font-bold text-stone-900">$97.00</td>
                           <td className="py-3 px-3 text-stone-600">Full AI Lore generation, plot suggestions, deep continuity engine</td>
                         </tr>
                       </tbody>
@@ -1172,7 +1172,7 @@ app.post('/api/ipn/warriorplus', async (req, res) => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-emerald-700">{rec.amount || "$27.00"}</div>
+                        <div className="font-bold text-emerald-700">{rec.amount || "$17.00"}</div>
                         <div className="text-[10px] font-mono text-stone-500 uppercase">{rec.tier}</div>
                       </div>
                     </div>
@@ -1224,9 +1224,9 @@ app.post('/api/ipn/warriorplus', async (req, res) => {
 
               <div className="space-y-2">
                 {[
-                  { id: "FrontEnd", label: "Regular Edition ($27)", desc: "Standard manuscript & story bible features" },
+                  { id: "FrontEnd", label: "Regular Edition ($17)", desc: "Standard manuscript & story bible features" },
                   { id: "OTO1", label: "Pro Edition ($47)", desc: "Unlimited projects & advanced exports" },
-                  { id: "OTO2", label: "Premium Edition ($67)", desc: "Full AI lore generation & plotting tools" },
+                  { id: "OTO2", label: "Premium Edition ($97)", desc: "Full AI lore generation & plotting tools" },
                   { id: "Free", label: "Free Demo Tier", desc: "Restricted evaluation access" },
                 ].map((tierOpt) => (
                   <label

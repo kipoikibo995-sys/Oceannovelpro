@@ -1,7 +1,7 @@
 // Ocean Novel License Tiers & Funnel Packages
-// Regular: Author Edition ($27)
+// Regular: Author Edition ($17)
 // Pro: Unlimited Studio Edition ($47)
-// Premium: Ocean Novel Premium - AI Ghostwriter & Lore Architecture ($67)
+// Premium: Ocean Novel Premium - AI Ghostwriter & Lore Architecture ($97)
 
 export type LicensePlan = 'free' | 'pro' | 'master' | 'commercial';
 
