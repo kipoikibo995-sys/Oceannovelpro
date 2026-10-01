@@ -1,9 +1,11 @@
 // Ocean Novel License Tiers & Funnel Packages
 // Regular: Author Edition ($17)
 // Pro: Unlimited Studio Edition ($47)
-// Premium: Ocean Novel Premium - AI Ghostwriter & Lore Architecture ($97)
+// Premium: AI Prompt Hub & Consistency tools ($97) — sold only to Pro buyers in the funnel.
+// Pro and Premium are separate add-ons that stack: 'premium' = Premium without Pro,
+// 'master' = Pro + Premium (and admins).
 
-export type LicensePlan = 'free' | 'pro' | 'master' | 'commercial';
+export type LicensePlan = 'free' | 'pro' | 'premium' | 'master' | 'commercial';
 
 export interface PlanLimits {
   tierCode: 'REGULAR' | 'PRO' | 'PREMIUM' | 'COMMERCIAL' | 'FE' | 'OTO1' | 'OTO2';
@@ -41,6 +43,18 @@ export const PLAN_LIMITS: Record<LicensePlan, PlanLimits> = {
     hasEpub3Export: true,
     hasAiGhostwriterHub: false,
     hasContinuityEngine: false,
+    hasCommercialKit: false,
+  },
+  premium: {
+    tierCode: 'PREMIUM',
+    tierName: 'Premium Edition',
+    maxProjects: 3,
+    maxCharactersPerProject: 25,
+    maxLocationsPerProject: 15,
+    hasImageLibrary: false,
+    hasEpub3Export: false,
+    hasAiGhostwriterHub: true,
+    hasContinuityEngine: true,
     hasCommercialKit: false,
   },
   master: {
@@ -84,8 +98,33 @@ export function tierToPlan(tier?: string | null): LicensePlan {
   return 'free';
 }
 
+// Premium purchases made before this moment were sold as "everything in Pro, plus…", so they keep Pro.
+const PREMIUM_INCLUDES_PRO_BEFORE = Date.UTC(2026, 9, 2); // 2 Oct 2026
+
+/**
+ * The plan a registered user is entitled to. Pro and Premium are separate add-ons, so the plan is
+ * built from the (server-written, rule-protected) purchase history; refunded purchases don't count.
+ * Accounts without purchase records (admin grants, very old accounts) fall back to the tier field.
+ */
+export function planFromRegistration(reg?: { tier?: string | null; purchaseHistory?: any[] } | null): LicensePlan {
+  if (!reg) return 'free';
+  const tierPlan = tierToPlan(reg.tier);
+  const history = (Array.isArray(reg.purchaseHistory) ? reg.purchaseHistory : []).filter((p) => p && !p.refunded);
+  const bought = (t: string) => history.filter((p) => String(p.tier || '').toUpperCase() === t);
+  if (history.length === 0) return tierPlan;
+
+  const premiumBuys = bought('OTO2');
+  const hasPremium = premiumBuys.length > 0;
+  const hasPro = bought('OTO1').length > 0 || premiumBuys.some((p) => Number(p.date) > 0 && Number(p.date) < PREMIUM_INCLUDES_PRO_BEFORE);
+  if (hasPro && hasPremium) return 'master';
+  if (hasPremium) return 'premium';
+  if (hasPro) return 'pro';
+  // Tier raised by an admin above what the history shows
+  return tierPlan === 'pro' || tierPlan === 'master' ? tierPlan : 'free';
+}
+
 export function planToTier(plan?: LicensePlan): 'Free' | 'FrontEnd' | 'OTO1' | 'OTO2' {
-  if (plan === 'master' || plan === 'commercial') return 'OTO2';
+  if (plan === 'master' || plan === 'commercial' || plan === 'premium') return 'OTO2';
   if (plan === 'pro') return 'OTO1';
   return 'FrontEnd';
 }

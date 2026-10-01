@@ -5,7 +5,7 @@ import { auth, db } from "@/lib/firebase";
 import { signOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { isUserAdmin } from "@/lib/adminService";
-import { tierToPlan } from "@/lib/license";
+import { planFromRegistration } from "@/lib/license";
 import { openSalesPage } from "@/lib/salesConfig";
 import { editorFamilyFromProfile, editorSizeFromProfile, saveEditorTypePrefs } from "@/lib/editorPrefs";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,10 @@ const TABS: { id: Tab; label: string; hint: string }[] = [
 ];
 
 const PLAN_INFO: Record<string, { name: string; features: string[] }> = {
+  premium: {
+    name: "Premium Edition",
+    features: ["AI Prompt Hub", "Consistency & continuity checker", "Word echoes & prose cadence scanner", "Up to 3 books (Regular limits)"],
+  },
   free: {
     name: "Regular Edition",
     features: ["Up to 3 books", "25 characters & 15 locations per book", "Smart @mentions", "Word (.docx) & plain text export"],
@@ -30,7 +34,7 @@ const PLAN_INFO: Record<string, { name: string; features: string[] }> = {
     features: ["Unlimited books", "Unlimited characters & locations", "50+ curated fantasy art library", "EPUB 3 export for Amazon KDP"],
   },
   master: {
-    name: "Premium Edition",
+    name: "Pro + Premium",
     features: [
       "Everything in Pro",
       "AI Prompt Hub",
@@ -105,7 +109,7 @@ export default function Settings() {
             doc(db, "registeredUsers", u.uid),
             (snap) => {
               if (snap.exists()) {
-                const livePlan = isAdminUser ? "master" : tierToPlan(snap.data()?.tier);
+                const livePlan = isAdminUser ? "master" : planFromRegistration(snap.data() as any);
                 if (storage.getUserProfile().plan !== livePlan) setProfile(storage.saveUserProfile({ plan: livePlan }, true));
               }
             },
@@ -122,9 +126,8 @@ export default function Settings() {
             (snap) => {
               if (snap.exists()) {
                 const pData = snap.data() as UserProfile;
-                const targetPlan = isAdminUser ? "master" : pData?.plan || "free";
-                if (storage.getUserProfile().plan !== targetPlan) setProfile(storage.saveUserProfile({ plan: targetPlan }, true));
-                else setProfile((prev) => ({ ...prev, ...pData, plan: targetPlan }));
+                // The profile document is user-writable, so its plan is ignored; the plan comes from registeredUsers.
+                setProfile((prev) => ({ ...prev, ...pData, plan: isAdminUser ? "master" : storage.getUserProfile().plan }));
               }
             },
             (err) => console.warn("Live profile snapshot notice:", err)
@@ -246,7 +249,9 @@ export default function Settings() {
 
   const plan = profile.plan || "free";
   const current = PLAN_INFO[plan] || PLAN_INFO.free;
-  const next = plan === "free" ? PLAN_INFO.pro : plan === "pro" ? PLAN_INFO.master : null;
+  // Funnel: Regular → Pro → Premium. Premium on its own still offers Pro.
+  const nextKey = plan === "free" || plan === "premium" ? "pro" : plan === "pro" ? "premium" : null;
+  const next = nextKey ? (nextKey === "premium" ? { ...PLAN_INFO.premium, features: PLAN_INFO.premium.features.slice(0, 3) } : PLAN_INFO.pro) : null;
   const initial = (profile.penName || firebaseUser?.displayName || profile.name || "A").trim().charAt(0).toUpperCase();
 
   return (
@@ -470,7 +475,7 @@ export default function Settings() {
                     ))}
                   </ul>
                   <button
-                    onClick={() => openSalesPage(plan === "pro" ? "premium" : "pro")}
+                    onClick={() => openSalesPage(nextKey === "premium" ? "premium" : "pro")}
                     className="mt-6 h-10 pl-4 pr-1.5 rounded-full bg-[#E8561F] hover:bg-[#D44B17] text-white text-[13px] font-bold inline-flex items-center gap-2 cursor-pointer transition-colors"
                   >
                     Upgrade to {next.name}

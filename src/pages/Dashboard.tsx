@@ -57,9 +57,15 @@ export default function Dashboard() {
 
   const versionBadge = useMemo(() => {
     switch (currentPlan) {
-      case 'master':
+      case 'premium':
         return {
           label: 'PREMIUM',
+          style: '',
+          tooltip: 'Premium Edition — AI Prompt Hub & consistency tools',
+        };
+      case 'master':
+        return {
+          label: 'PRO + PREMIUM',
           style: 'bg-[#241711] text-[#E5BF7C] border-[#5A3C28] ring-1 ring-[#D4A359]/40 shadow-xs hover:bg-[#1A100B]',
           tooltip: 'Premium Edition — Full Unrestricted Access',
         };
@@ -680,7 +686,7 @@ export default function Dashboard() {
               title={`${versionBadge.tooltip} • Click to view license status`}
               className={cn(
                 "ml-1 px-2.5 py-1 border text-[10px] font-bold uppercase tracking-[0.2em] leading-none transition-colors cursor-pointer",
-                currentPlan === "master"
+                currentPlan === "master" || currentPlan === "premium"
                   ? "bg-[#0E1D26] border-[#0E1D26] text-[#F0B54B]"
                   : currentPlan === "pro"
                     ? "bg-[#E8561F] border-[#E8561F] text-white"

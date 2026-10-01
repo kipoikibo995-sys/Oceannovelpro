@@ -60,7 +60,7 @@ const defaultTimelineSettings: AuthorTimelineSettings = {
   totalWritingMinutesTracked: 0,
 };
 
-import { LicensePlan, tierToPlan } from './license';
+import { LicensePlan, planFromRegistration } from './license';
 
 export interface UserProfile {
   name: string;
@@ -597,8 +597,8 @@ export const storage = {
 
           if (isAdmin) {
             authoritativePlan = 'master';
-          } else if (regData?.tier) {
-            authoritativePlan = tierToPlan(regData.tier);
+          } else if (regData) {
+            authoritativePlan = planFromRegistration(regData);
           }
         } catch (crmErr) {
           console.warn("Could not read CRM registeredUsers for plan sync:", crmErr);
