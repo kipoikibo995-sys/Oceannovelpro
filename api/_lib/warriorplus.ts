@@ -98,7 +98,7 @@ function highestTier(history: any[]): Tier {
 }
 
 // Keys pasted into dashboards often carry invisible characters or quotes; strip them at both ends
-function cleanKey(v: unknown): string {
+export function cleanKey(v: unknown): string {
   return String(v ?? '').replace(/^[\s​-‍﻿"'`]+|[\s​-‍﻿"'`]+$/g, '');
 }
 

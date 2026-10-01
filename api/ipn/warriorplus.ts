@@ -1,4 +1,4 @@
-import { processWarriorPlusIpn, IpnError } from '../_lib/warriorplus.js';
+import { processWarriorPlusIpn, IpnError, cleanKey } from '../_lib/warriorplus.js';
 
 // POST https://<your-domain>/api/ipn/warriorplus
 // Web-standard handler: request.formData() reads both multipart/form-data (what WarriorPlus sends)
@@ -38,7 +38,19 @@ export async function POST(request: Request): Promise<Response> {
     JSON.stringify({
       contentType: request.headers.get('content-type') || '',
       fields: Object.keys(body),
-      keyLength: String(body.WP_SECURITYKEY ?? '').trim().length,
+      keyLength: cleanKey(body.WP_SECURITYKEY).length,
+      // How the keys differ, without revealing either one
+      ...(() => {
+        const inc = cleanKey(body.WP_SECURITYKEY), exp = cleanKey(process.env.WARRIORPLUS_SECURITY_KEY);
+        return {
+          expectedLength: exp.length,
+          sameIgnoringCase: inc.toLowerCase() === exp.toLowerCase(),
+          expectedStartsWithIncoming: !!inc && exp.startsWith(inc),
+          expectedEndsWithIncoming: !!inc && exp.endsWith(inc),
+          expectedContainsIncoming: !!inc && exp.includes(inc),
+          deployMarker: 'ipn-diag-3',
+        };
+      })(),
     })
   );
 
