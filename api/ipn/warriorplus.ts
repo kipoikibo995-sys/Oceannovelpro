@@ -11,6 +11,12 @@ export default async function handler(req: any, res: any) {
   let body: Record<string, any> = req.body || {};
   if (typeof body === 'string') body = Object.fromEntries(new URLSearchParams(body));
 
+  // Diagnostics without secrets: which fields arrived and whether a key was present
+  const ct = String(req.headers?.['content-type'] || '');
+  const incomingKey = String(body.WP_SECURITYKEY ?? '');
+  const expected = String(process.env.WARRIORPLUS_SECURITY_KEY || '');
+  console.log('[WarriorPlus IPN] received', JSON.stringify({ contentType: ct, fields: Object.keys(body), keyLength: incomingKey.trim().length, expectedLength: expected.trim().length }));
+
   try {
     const result = await processWarriorPlusIpn(body);
     // Never log the security key; email + txn are enough to trace a sale
