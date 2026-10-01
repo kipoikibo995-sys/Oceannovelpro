@@ -23,7 +23,7 @@ const TABS: { id: Tab; label: string; hint: string }[] = [
 const PLAN_INFO: Record<string, { name: string; features: string[] }> = {
   premium: {
     name: "Premium Edition",
-    features: ["AI Prompt Hub", "Consistency & continuity checker", "Word echoes & prose cadence scanner", "Up to 3 books (Regular limits)"],
+    features: ["AI Prompt Hub", "Consistency & continuity checker", "Word echoes & prose cadence scanner", "Unlimited books, characters & places", "EPUB 3 export for Amazon KDP"],
   },
   free: {
     name: "Regular Edition",

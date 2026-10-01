@@ -1,7 +1,8 @@
 // Ocean Novel License Tiers & Funnel Packages
 // Regular: Author Edition ($17)
 // Pro: Unlimited Studio Edition ($47)
-// Premium: AI Prompt Hub & Consistency tools ($97) — sold only to Pro buyers in the funnel.
+// Premium: unlimited books + EPUB 3 + AI Prompt Hub & consistency tools ($97), without Pro's
+// 50 ready-made characters / art library — offered to Pro buyers in the funnel.
 // Pro and Premium are separate add-ons that stack: 'premium' = Premium without Pro,
 // 'master' = Pro + Premium (and admins).
 
@@ -48,11 +49,11 @@ export const PLAN_LIMITS: Record<LicensePlan, PlanLimits> = {
   premium: {
     tierCode: 'PREMIUM',
     tierName: 'Premium Edition',
-    maxProjects: 3,
-    maxCharactersPerProject: 25,
-    maxLocationsPerProject: 15,
-    hasImageLibrary: false,
-    hasEpub3Export: false,
+    maxProjects: Infinity,
+    maxCharactersPerProject: Infinity,
+    maxLocationsPerProject: Infinity,
+    hasImageLibrary: false, // 50 ready-made characters + art library stay Pro-only
+    hasEpub3Export: true,
     hasAiGhostwriterHub: true,
     hasContinuityEngine: true,
     hasCommercialKit: false,
