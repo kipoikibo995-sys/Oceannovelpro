@@ -97,6 +97,11 @@ function highestTier(history: any[]): Tier {
   return best;
 }
 
+// Keys pasted into dashboards often carry invisible characters or quotes; strip them at both ends
+function cleanKey(v: unknown): string {
+  return String(v ?? '').replace(/^[\s​-‍﻿"'`]+|[\s​-‍﻿"'`]+$/g, '');
+}
+
 // Constant-time comparison so the key cannot be guessed from response timing
 function sameSecret(a: string, b: string): boolean {
   const ha = createHash('sha256').update(a).digest();
@@ -109,10 +114,10 @@ function sameSecret(a: string, b: string): boolean {
 /* ------------------------------------------------------------------ */
 
 export async function processWarriorPlusIpn(body: Record<string, any>): Promise<IpnResult> {
-  const expectedKey = (process.env.WARRIORPLUS_SECURITY_KEY || '').trim();
+  const expectedKey = cleanKey(process.env.WARRIORPLUS_SECURITY_KEY);
   // Without a key anyone could POST a fake sale and unlock a plan, so refuse to run at all
   if (!expectedKey) throw new IpnError(500, 'Server not configured: WARRIORPLUS_SECURITY_KEY is missing.');
-  if (!sameSecret(String(body.WP_SECURITYKEY || '').trim(), expectedKey)) throw new IpnError(401, 'Invalid security key.');
+  if (!sameSecret(cleanKey(body.WP_SECURITYKEY), expectedKey)) throw new IpnError(401, 'Invalid security key.');
 
   const action = String(body.WP_ACTION || 'sale').toLowerCase().trim();
   const email = String(body.WP_BUYER_EMAIL || '').toLowerCase().trim();
