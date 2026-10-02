@@ -40,7 +40,7 @@ service cloud.firestore {
         && data.keys().hasOnly(['uid', 'email', 'displayName', 'tier', 'isBanned', 'lastActive', 'createdAt', 'purchaseHistory'])
         && data.uid == userId
         && data.email == authEmail()
-        && data.tier in ['Free', 'FrontEnd']
+        && data.tier == 'Free'
         && data.isBanned == false
         && data.get('purchaseHistory', []).size() == 0;
     }

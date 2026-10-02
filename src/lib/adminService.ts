@@ -59,8 +59,8 @@ export const adminService = {
     uid: string;
     email?: string | null;
     displayName?: string | null;
-  }): Promise<{ isBanned: boolean; matchedPurchases: number }> => {
-    if (!user.uid) return { isBanned: false, matchedPurchases: 0 };
+  }): Promise<{ isBanned: boolean; matchedPurchases: number; hasAccess: boolean | null }> => {
+    if (!user.uid) return { isBanned: false, matchedPurchases: 0, hasAccess: null };
 
     const cleanEmail = (user.email || "").toLowerCase().trim();
     const isAdmin = isUserAdmin(cleanEmail);
@@ -70,7 +70,8 @@ export const adminService = {
       const userSnap = await getDoc(userDocRef);
 
       let isBanned = false;
-      let currentTier: 'Free' | 'FrontEnd' | 'OTO1' | 'OTO2' = isAdmin ? "OTO2" : "FrontEnd";
+      // New sign-ups start without access; a WarriorPlus purchase (or an admin) raises the tier
+      let currentTier: 'Free' | 'FrontEnd' | 'OTO1' | 'OTO2' = isAdmin ? "OTO2" : "Free";
       let history: PurchaseRecord[] = [];
 
       const displayName = user.displayName || (isAdmin ? "Koji Academy Admin" : cleanEmail.split("@")[0] || "Author");
@@ -78,7 +79,7 @@ export const adminService = {
       if (userSnap.exists()) {
         const data = userSnap.data() as RegisteredUser;
         isBanned = isAdmin ? false : Boolean(data.isBanned);
-        currentTier = isAdmin ? "OTO2" : (data.tier || "FrontEnd");
+        currentTier = isAdmin ? "OTO2" : (data.tier || "Free");
         history = Array.isArray(data.purchaseHistory) ? data.purchaseHistory : [];
 
         await updateDoc(userDocRef, {
@@ -166,10 +167,11 @@ export const adminService = {
         }
       }
 
-      return { isBanned, matchedPurchases };
+      const hasAccess = isAdmin || currentTier !== "Free" || history.some((p: any) => p && !p.refunded);
+      return { isBanned, matchedPurchases, hasAccess };
     } catch (err) {
       console.warn("trackUserActivity error:", err);
-      return { isBanned: false, matchedPurchases: 0 };
+      return { isBanned: false, matchedPurchases: 0, hasAccess: null };
     }
   },
 
@@ -210,7 +212,7 @@ export const adminService = {
           uid: cur.uid,
           email: cleanEmail,
           displayName: cur.displayName || (isAdmin ? "Koji Academy Admin" : "Author"),
-          tier: isAdmin ? "OTO2" : "FrontEnd",
+          tier: isAdmin ? "OTO2" : "Free",
           isBanned: false,
           lastActive: Date.now(),
           createdAt: Date.now(),

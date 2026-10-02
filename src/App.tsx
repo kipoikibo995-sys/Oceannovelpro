@@ -59,11 +59,14 @@ function prefetchPages() {
   else setTimeout(run, 1500);
 }
 import { adminService } from "./lib/adminService";
+import { getCachedAccess, setStudioAccess } from "./lib/access";
 
 function ProtectedRoute() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
   const [loading, setLoading] = useState<boolean>(true);
   const [isBanned, setIsBanned] = useState<boolean>(false);
+  // null = not known yet on this device
+  const [hasAccess, setHasAccess] = useState<boolean | null>(() => getCachedAccess(auth.currentUser?.uid));
   const location = useLocation();
 
   useEffect(() => {
@@ -71,11 +74,25 @@ function ProtectedRoute() {
       setUser(currentUser);
       if (currentUser && !currentUser.isAnonymous) {
         storage.switchUser(currentUser.uid, currentUser.email, currentUser.displayName);
-        // Ban check and cloud sync run side by side
-        const work = Promise.all([
-          adminService.trackUserActivity(currentUser).then((res) => setIsBanned(res.isBanned)).catch(() => {}),
-          storage.syncFromCloud(currentUser.uid).catch(() => {}),
-        ]);
+        const cachedAccess = getCachedAccess(currentUser.uid);
+        // Ban check, purchase claim and access check
+        const track = adminService
+          .trackUserActivity(currentUser)
+          .then((res) => {
+            setIsBanned(res.isBanned);
+            const access = res.hasAccess ?? cachedAccess ?? false;
+            setStudioAccess(currentUser.uid, access);
+            setHasAccess(access);
+            // A purchase was just claimed: reload the plan it unlocked
+            if (res.matchedPurchases > 0) storage.syncFromCloud(currentUser.uid, { force: true }).catch(() => {});
+          })
+          .catch(() => {});
+        const work = Promise.all([track, storage.syncFromCloud(currentUser.uid).catch(() => {})]);
+        // Never open the studio before we know this account bought it
+        if (cachedAccess === null) {
+          await Promise.race([track, new Promise((resolve) => setTimeout(resolve, 10000))]);
+          setHasAccess((v) => v ?? false);
+        }
         // Books already on this device: open straight away and refresh in the background.
         // First sign-in here: wait for the library, but never longer than 1.5s — the
         // Dashboard shows a loading state and fills in when the data arrives.
@@ -123,6 +140,11 @@ function ProtectedRoute() {
         </div>
       </div>
     );
+  }
+
+  // Signed up without buying: only the (locked) dashboard is available
+  if (hasAccess === false && location.pathname !== "/dashboard") {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;

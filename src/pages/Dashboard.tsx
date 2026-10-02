@@ -37,10 +37,15 @@ import UpgradeModal from "@/components/UpgradeModal";
 import { PLAN_LIMITS } from "@/lib/license";
 
 import { isUserAdmin } from "@/lib/adminService";
+import { useStudioAccess } from "@/lib/access";
+import { openSalesPage } from "@/lib/salesConfig";
+import { sendEmailVerification } from "firebase/auth";
 
 export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
   const navigate = useNavigate();
+  // Signed up without buying: the dashboard is shown locked
+  const hasAccess = useStudioAccess(currentUser?.uid);
 
   const [savedProjects, setSavedProjects] = useState<ProjectMeta[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -1722,6 +1727,8 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
+      {!hasAccess && <LockedStudio user={currentUser} />}
+
       <UpgradeModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
@@ -1730,5 +1737,81 @@ export default function Dashboard() {
         maxLimit={maxAllowedProjects}
       />
     </motion.div>
+  );
+}
+
+// Shown over the dashboard for accounts that haven't bought Ocean Novel
+function LockedStudio({ user }: { user: User | null }) {
+  const [checking, setChecking] = useState(false);
+  const [sent, setSent] = useState(false);
+  // Purchases can only be claimed by a verified email (Google sign-ins always are)
+  const needsVerify = Boolean(user && !user.emailVerified);
+
+  const checkAgain = async () => {
+    setChecking(true);
+    try {
+      await auth.currentUser?.reload();
+      await auth.currentUser?.getIdToken(true);
+    } catch {}
+    window.location.reload();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#F6F1E7]/70 backdrop-blur-sm font-['Outfit'] text-[#0E1D26]">
+      <div role="dialog" aria-modal="true" aria-labelledby="locked-title" className="w-full max-w-md rounded-2xl border border-[#E4DAC8] bg-white p-7 shadow-xl text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#0E1D26] text-[#F0B54B]">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="4" y="11" width="16" height="10" rx="2" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
+        </div>
+        <h2 id="locked-title" className="text-[22px] font-bold tracking-tight">Your studio is locked</h2>
+        <p className="mt-2 text-[14px] leading-relaxed text-[#0E1D26]/65">
+          This account doesn't have Ocean Novel yet. Get it once, and your bookshelf, characters, world atlas and writing studio open right here.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => openSalesPage("fe")}
+          className="mt-6 h-12 w-full rounded-full bg-[#E8561F] hover:bg-[#cf4a17] text-white text-[14px] font-bold transition-colors cursor-pointer"
+        >
+          Get Ocean Novel
+        </button>
+
+        <div className="mt-5 border-t border-[#E4DAC8] pt-4 text-[13px] text-[#0E1D26]/60">
+          <p>
+            Already bought? Sign in with the email you used at checkout
+            {needsVerify ? ", and confirm it from the verification email we sent you" : ""}.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              disabled={checking}
+              onClick={checkAgain}
+              className="h-9 px-4 rounded-full border border-[#E4DAC8] font-semibold text-[#0E1D26] hover:bg-[#F6F1E7] cursor-pointer disabled:opacity-50"
+            >
+              {checking ? "Checking…" : "Check again"}
+            </button>
+            {needsVerify && (
+              <button
+                type="button"
+                disabled={sent}
+                onClick={() => auth.currentUser && sendEmailVerification(auth.currentUser).then(() => setSent(true)).catch(() => setSent(true))}
+                className="h-9 px-4 rounded-full border border-[#E4DAC8] font-semibold text-[#0E1D26] hover:bg-[#F6F1E7] cursor-pointer disabled:opacity-60"
+              >
+                {sent ? "Email sent" : "Resend verification email"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => auth.signOut()}
+              className="h-9 px-4 rounded-full font-semibold text-[#0E1D26]/60 hover:text-[#0E1D26] cursor-pointer"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
