@@ -380,10 +380,10 @@ export default function ConsistencyCheckerPage() {
                 Premium Edition
               </span>
               <h2 className="font-serif text-2xl font-bold text-[#4A3225]">
-                Logic & Continuity Conflict Engine
+                Consistency Checker
               </h2>
               <p className="text-xs font-serif text-stone-600 leading-relaxed max-w-md mx-auto">
-                Deep narrative analysis, location paradox detection, character appearance consistency tracking, and prose monotony rhythm scanning are exclusive features of <strong>Premium Edition ($97)</strong>.
+                Checking your manuscript against your Story Bible, plus word echo and sentence rhythm scanning, is part of <strong>Premium Edition ($97)</strong>.
               </p>
             </div>
 
@@ -393,7 +393,7 @@ export default function ConsistencyCheckerPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#5A9672] shrink-0" />
-                <span>Automatic manuscript-wide location & character conflict scanning</span>
+                <span>Misspelled names, unregistered names and characters who reappear after their death</span>
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#5A9672] shrink-0" />
@@ -401,11 +401,11 @@ export default function ConsistencyCheckerPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#5A9672] shrink-0" />
-                <span>Sentence rhythm & prose cadence cadence diagnosis</span>
+                <span>Repetitive sentence rhythm detection</span>
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#5A9672] shrink-0" />
-                <span>Full AI Prompt Hub with ChatGPT & Gemini context bridge</span>
+                <span>AI Prompt Hub: ready-made prompts for ChatGPT, Claude & Gemini</span>
               </div>
             </div>
 

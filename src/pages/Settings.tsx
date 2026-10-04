@@ -31,7 +31,7 @@ const PLAN_INFO: Record<string, { name: string; features: string[] }> = {
   },
   pro: {
     name: "Pro Edition",
-    features: ["Unlimited books", "Unlimited characters & locations", "50+ curated fantasy art library", "EPUB 3 export for Amazon KDP"],
+    features: ["Unlimited books", "Unlimited characters & locations", "50 ready-made characters & fantasy art library", "EPUB 3 export for Amazon KDP"],
   },
   master: {
     name: "Pro + Premium",

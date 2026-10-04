@@ -31,61 +31,61 @@ export default function UpgradeModal({
       case "ai_hub":
         return {
           badge: "Premium Edition — Ocean Novel",
-          heading: "Unlock AI Ghostwriter & Lore Generator",
-          desc: description || "The AI Prompt Hub and Ghostwriter Generation Suite are exclusively unlocked in Premium Edition ($97). Generate high-yield scene beats, character psychology prompts, and prose polish instructions instantly.",
+          heading: "Unlock the AI Prompt Hub",
+          desc: description || "The AI Prompt Hub is part of Premium Edition ($97). It writes ready-to-paste prompts for ChatGPT, Claude or Gemini, filled with your own characters, places and scene details. Ocean Novel doesn't write your book; it gives your AI tool the right context.",
           perks: [
-            "AI Scene Drafting Prompts with custom tension, POV, and pacing controls",
-            "Master Story System setup instructions for ChatGPT, Claude, and Gemini",
-            "Sensory-rich prose polish & show-don't-tell cadence enhancers",
-            "Automatic Story Bible character & location context injection into AI prompts",
+            "Scene drafting prompts with your POV, tone, tension and pacing",
+            "Story setup prompts to brief ChatGPT, Claude or Gemini on your book",
+            "Prose polish prompts: show-don't-tell, sensory detail, rhythm",
+            "Your Story Bible characters & places added to each prompt automatically",
           ],
         };
       case "continuity":
         return {
           badge: "Premium Edition — Ocean Novel",
-          heading: "Unlock Logic & Continuity Conflict Engine",
-          desc: description || "Deep narrative consistency scanning (character appearance inconsistencies, timeline paradoxes, alias misspellings, and prose monotony warnings) is powered by Premium Edition.",
+          heading: "Unlock the Consistency Checker",
+          desc: description || "The Consistency Checker is part of Premium Edition ($97). It reads your whole manuscript against your Story Bible and flags slips before your readers do.",
           perks: [
-            "Timeline chronology & scene timestamp paradox scanner",
-            "Character physical appearance and trait consistency tracker",
-            "Prose repetition, echo alert, and rhythm monotony diagnosis",
-            "One-click batch alias and terminology corrector across entire manuscript",
+            "Misspelled character and place names, with one-click fixes",
+            "Names in your manuscript that aren't in your Story Bible yet",
+            "Characters marked as dead who still appear in later scenes",
+            "Word echoes and repetitive sentence rhythm in your prose",
           ],
         };
       case "projects":
         return {
           badge: "Manuscript Limit Reached",
           heading: "You've Reached the 3 Manuscripts Quota",
-          desc: description || "The Regular Edition includes up to 3 active novel archives. Upgrade to Pro Edition to unlock unlimited manuscripts and series shelves.",
+          desc: description || "The Regular Edition includes up to 3 books. Pro Edition and Premium Edition both remove the limit.",
           perks: [
-            "Unlimited novel archives & multi-book series",
-            "Full EPUB 3 Amazon KDP export engine with ISBN formatting",
-            "High-resolution fantasy portrait & location art library (50+ presets)",
-            "Unlimited Story Bible characters & world locations",
+            "Unlimited books (Pro or Premium)",
+            "Unlimited characters & places in every book (Pro or Premium)",
+            "EPUB 3 export for Amazon KDP (Pro or Premium)",
+            "50 ready-made characters & fantasy art library (Pro)",
           ],
         };
       case "characters":
         return {
           badge: "Character Registry Quota",
           heading: `Story Bible Limit Reached (${currentCount || 25}/${maxLimit || 25})`,
-          desc: description || "The Regular Edition provides 25 deep character dossiers per novel. Upgrade to Pro Edition for infinite characters, clan hierarchies, and divine pantheons.",
+          desc: description || "The Regular Edition includes 25 characters per book. Pro Edition and Premium Edition both remove the limit.",
           perks: [
-            "Unlimited character dossiers per manuscript",
-            "Access to 49 high-res fantasy character portraits",
-            "Infinite relationship graph networks & family trees",
-            "Full character psychology & MBTI archetypes export",
+            "Unlimited characters in every book (Pro or Premium)",
+            "Unlimited books and places too (Pro or Premium)",
+            "EPUB 3 export for Amazon KDP (Pro or Premium)",
+            "50 ready-made characters with portraits (Pro)",
           ],
         };
       case "locations":
         return {
           badge: "World Atlas Quota",
           heading: `Atlas Landmark Limit Reached (${currentCount || 15}/${maxLimit || 15})`,
-          desc: description || "The Regular Edition provides 15 landmark dossiers per project. Upgrade to Pro Edition to map infinite kingdoms, realms, routes, and secret archives.",
+          desc: description || "The Regular Edition includes 15 places per book. Pro Edition and Premium Edition both remove the limit.",
           perks: [
-            "Unlimited locations, kingdoms, and landmarks",
-            "Interactive fantasy world map & route connecting canvas",
-            "Preset fantasy location art library",
-            "Regional lore and atmospheric climate matrices",
+            "Unlimited places in every book (Pro or Premium)",
+            "Unlimited books and characters too (Pro or Premium)",
+            "EPUB 3 export for Amazon KDP (Pro or Premium)",
+            "Fantasy location art library (Pro)",
           ],
         };
       case "image_library":
@@ -97,20 +97,19 @@ export default function UpgradeModal({
             "50 ready-made characters with backstories, traits and portraits",
             "Curated fantasy portrait library for your own characters",
             "Atmospheric fantasy location backgrounds and landscape art",
-            "Pre-calibrated genre tags, archetypes, and lighting presets",
-            "Commercial publication rights for all built-in art assets",
+            "Genre tags and archetypes to filter the library",
           ],
         };
       default:
         return {
           badge: "Premium Exclusive Feature",
-          heading: "Unlock Advanced Writing Architecture",
-          desc: description || "Upgrade your studio license to unleash the full power of Ocean Novel.",
+          heading: "Upgrade Ocean Novel",
+          desc: description || "Pro and Premium are separate add-ons. Pick the one that fits how you write, or get both.",
           perks: [
-            "Unlimited novel archives & multi-book series (Pro)",
-            "Full EPUB 3 Amazon KDP export engine (Pro)",
-            "AI Ghostwriter & Lore Generator Hub (Premium)",
-            "Deep Narrative Continuity & Logic Conflict Engine (Premium)",
+            "Unlimited books, characters & places (Pro or Premium)",
+            "EPUB 3 export for Amazon KDP (Pro or Premium)",
+            "50 ready-made characters & fantasy art library (Pro)",
+            "AI Prompt Hub & Consistency Checker (Premium)",
           ],
         };
     }

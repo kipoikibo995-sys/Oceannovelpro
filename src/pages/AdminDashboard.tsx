@@ -869,7 +869,7 @@ app.post('/api/ipn/warriorplus', async (req, res) => {
                       >
                         <option value="Regular: Ocean Novel Studio ($17)">Regular: Ocean Novel Studio ($17)</option>
                         <option value="Pro: Unlimited Studio Edition ($47)">Pro: Unlimited Studio Edition ($47)</option>
-                        <option value="Premium: AI Ghostwriter & Lore Generator ($97)">Premium: AI Ghostwriter & Lore ($97)</option>
+                        <option value="Premium: AI Prompt Hub & Consistency Checker ($97)">Premium: AI Prompt Hub & Consistency ($97)</option>
                       </select>
                     </div>
 
@@ -885,7 +885,7 @@ app.post('/api/ipn/warriorplus', async (req, res) => {
                       >
                         <option value="FrontEnd">Regular</option>
                         <option value="OTO1">Pro (Unlimited)</option>
-                        <option value="OTO2">Premium (AI Ghostwriter)</option>
+                        <option value="OTO2">Premium (AI Prompt Hub)</option>
                         <option value="Free">Free</option>
                       </select>
                     </div>
@@ -1083,13 +1083,13 @@ app.post('/api/ipn/warriorplus', async (req, res) => {
                           <td className="py-3 px-3 font-mono font-bold text-blue-700">Pro</td>
                           <td className="py-3 px-3 font-serif">Ocean Novel Studio - Unlimited Edition</td>
                           <td className="py-3 px-3 font-mono font-bold text-stone-900">$47.00</td>
-                          <td className="py-3 px-3 text-stone-600">Unlimited books, full EPUB KDP export, 50+ fantasy art assets</td>
+                          <td className="py-3 px-3 text-stone-600">Unlimited books, EPUB 3 export, 50 ready-made characters & art library</td>
                         </tr>
                         <tr>
                           <td className="py-3 px-3 font-mono font-bold text-purple-700">Premium</td>
-                          <td className="py-3 px-3 font-serif">Ocean Novel Studio - AI Lore & Ghostwriter</td>
+                          <td className="py-3 px-3 font-serif">Ocean Novel Studio - Premium Edition</td>
                           <td className="py-3 px-3 font-mono font-bold text-stone-900">$97.00</td>
-                          <td className="py-3 px-3 text-stone-600">Full AI Lore generation, plot suggestions, deep continuity engine</td>
+                          <td className="py-3 px-3 text-stone-600">Unlimited books, EPUB 3, AI Prompt Hub, Consistency Checker (no art library)</td>
                         </tr>
                       </tbody>
                     </table>
