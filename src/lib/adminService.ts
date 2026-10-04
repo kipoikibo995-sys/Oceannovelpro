@@ -22,7 +22,7 @@ export function isUserAdmin(email?: string | null): boolean {
 export interface PurchaseRecord {
   id: string;
   productItem: string;
-  tier: 'Free' | 'FrontEnd' | 'OTO1' | 'OTO2';
+  tier: 'Free' | 'FrontEnd' | 'OTO1' | 'OTO2' | 'WhiteLabel';
   amount: string;
   date: number;
   txnId: string;
@@ -44,7 +44,7 @@ export interface IpnPendingPurchase {
   id: string;
   buyerEmail: string;
   productItem: string;
-  tier: 'Free' | 'FrontEnd' | 'OTO1' | 'OTO2';
+  tier: 'Free' | 'FrontEnd' | 'OTO1' | 'OTO2' | 'WhiteLabel';
   amount: string;
   dateReceived: number;
   txnId: string;

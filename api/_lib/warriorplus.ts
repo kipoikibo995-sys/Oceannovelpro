@@ -7,16 +7,18 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 export type Tier = 'Free' | 'FrontEnd' | 'OTO1' | 'OTO2';
+// Products recorded in the buyer's purchase history; only the tiers change what the app unlocks
+export type Product = Tier | 'WhiteLabel';
 
 const PROJECT_ID = 'oceannovel';
 const DATABASE_ID = 'ai-studio-novelist-fca8c749-967d-46b4-9714-a261746c3222';
 const TIER_RANK: Record<Tier, number> = { Free: 0, FrontEnd: 1, OTO1: 2, OTO2: 3 };
-const DEFAULT_PRICE: Record<Tier, string> = { Free: '$0.00', FrontEnd: '$17.00', OTO1: '$47.00', OTO2: '$97.00' };
+const DEFAULT_PRICE: Record<Product, string> = { Free: '$0.00', FrontEnd: '$17.00', OTO1: '$47.00', OTO2: '$97.00', WhiteLabel: '$297.00' };
 
 export interface IpnResult {
   status: 'upgraded' | 'pending' | 'refunded' | 'duplicate' | 'ignored';
   email: string;
-  tier: Tier;
+  tier: Product;
   txnId: string;
   message: string;
 }
@@ -57,10 +59,11 @@ function adminDb(): Firestore {
 /* ------------------------------------------------------------------ */
 
 // WarriorPlus product codes for Ocean Novel (not secret). Vercel env vars can add more codes.
-const PRODUCT_CODES: Record<'FrontEnd' | 'OTO1' | 'OTO2', string[]> = {
+const PRODUCT_CODES: Record<'FrontEnd' | 'OTO1' | 'OTO2' | 'WhiteLabel', string[]> = {
   FrontEnd: ['wso_pcqmrt'], // Ocean Novel — $17 ($27 after launch)
   OTO1: ['wso_tvbftn'], // Pro — $47
   OTO2: ['wso_wkn9q6'], // Premium — $97
+  WhiteLabel: ['wso_yrzbf8'], // White Label (source code, 1-year licence) — $297; recorded, unlocks nothing extra
 };
 
 const listEnv = (name: string) =>
@@ -76,12 +79,13 @@ const listEnv = (name: string) =>
  * (White Label, membership, anything else sharing this IPN URL). A product code that isn't one of
  * ours is never guessed from its name: "… Premium Membership" must not unlock Premium.
  */
-export function mapProductToTier(itemName = '', itemNumber = ''): Tier | null {
+export function mapProductToTier(itemName = '', itemNumber = ''): Product | null {
   const num = itemNumber.trim().toLowerCase();
   if (num) {
     if (PRODUCT_CODES.OTO2.includes(num) || listEnv('WPLUS_ITEMS_PREMIUM').includes(num)) return 'OTO2';
     if (PRODUCT_CODES.OTO1.includes(num) || listEnv('WPLUS_ITEMS_PRO').includes(num)) return 'OTO1';
     if (PRODUCT_CODES.FrontEnd.includes(num) || listEnv('WPLUS_ITEMS_FRONTEND').includes(num)) return 'FrontEnd';
+    if (PRODUCT_CODES.WhiteLabel.includes(num)) return 'WhiteLabel';
     return null;
   }
   // No product code sent: fall back to the product name
@@ -152,7 +156,7 @@ export async function processWarriorPlusIpn(body: Record<string, any>): Promise<
   return sale(db, email, String(body.WP_BUYER_NAME || ''), itemName, tier, amount, txnId);
 }
 
-async function sale(db: Firestore, email: string, buyerName: string, itemName: string, tier: Tier, amount: string, txnId: string): Promise<IpnResult> {
+async function sale(db: Firestore, email: string, buyerName: string, itemName: string, tier: Product, amount: string, txnId: string): Promise<IpnResult> {
   const users = await db.collection('registeredUsers').where('email', '==', email).limit(1).get();
 
   if (!users.empty) {
@@ -167,7 +171,8 @@ async function sale(db: Firestore, email: string, buyerName: string, itemName: s
       }
       const nextHistory = [...history, { id: `wplus_${safeId(txnId)}`, productItem: itemName, tier, amount, date: Date.now(), txnId }];
       const current = (data.tier as Tier) || 'Free';
-      const finalTier = TIER_RANK[tier] > TIER_RANK[current] ? tier : current;
+      // White Label is recorded in the history but never changes the tier
+      const finalTier: Tier = tier !== 'WhiteLabel' && TIER_RANK[tier] > TIER_RANK[current] ? tier : current;
       tx.update(ref, { tier: finalTier, purchaseHistory: nextHistory, lastActive: Date.now() });
       return { status: 'upgraded' as const, email, tier: finalTier, txnId, message: `Account ${email} is now ${finalTier}.` };
     });
