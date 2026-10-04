@@ -71,13 +71,20 @@ const listEnv = (name: string) =>
 
 // Product → tier. Item numbers configured in Vercel win; names are matched on whole words only
 // (the old substring match turned "product" into Pro and "email" into the AI tier).
-export function mapProductToTier(itemName = '', itemNumber = ''): Tier {
+/**
+ * The app tier a WarriorPlus product unlocks, or null for products that don't unlock the app
+ * (White Label, membership, anything else sharing this IPN URL). A product code that isn't one of
+ * ours is never guessed from its name: "… Premium Membership" must not unlock Premium.
+ */
+export function mapProductToTier(itemName = '', itemNumber = ''): Tier | null {
   const num = itemNumber.trim().toLowerCase();
   if (num) {
     if (PRODUCT_CODES.OTO2.includes(num) || listEnv('WPLUS_ITEMS_PREMIUM').includes(num)) return 'OTO2';
     if (PRODUCT_CODES.OTO1.includes(num) || listEnv('WPLUS_ITEMS_PRO').includes(num)) return 'OTO1';
     if (PRODUCT_CODES.FrontEnd.includes(num) || listEnv('WPLUS_ITEMS_FRONTEND').includes(num)) return 'FrontEnd';
+    return null;
   }
+  // No product code sent: fall back to the product name
   const name = ` ${itemName.toLowerCase()} `;
   if (/\b(premium|oto\s*-?\s*2|ghostwriter)\b/.test(name)) return 'OTO2';
   if (/\b(pro|oto\s*-?\s*1|unlimited)\b/.test(name)) return 'OTO1';
@@ -128,6 +135,9 @@ export async function processWarriorPlusIpn(body: Record<string, any>): Promise<
   const txnId = String(body.WP_TXNID || body.WP_SALEID || '').trim();
   if (!txnId) throw new IpnError(400, 'Missing WP_TXNID.');
   const tier = mapProductToTier(itemName, itemNumber);
+  if (!tier) {
+    return { status: 'ignored', email, tier: 'Free', txnId, message: `Product ${itemNumber} doesn't unlock the app; ignored.` };
+  }
   const gross = parseFloat(String(body.WP_PAYMENT_GROSS || body.WP_SALE_AMOUNT || ''));
   const amount = Number.isFinite(gross) && gross > 0 ? `$${gross.toFixed(2)}` : DEFAULT_PRICE[tier];
 
