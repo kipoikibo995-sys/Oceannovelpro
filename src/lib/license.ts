@@ -99,9 +99,6 @@ export function tierToPlan(tier?: string | null): LicensePlan {
   return 'free';
 }
 
-// Premium purchases made before this moment were sold as "everything in Pro, plus…", so they keep Pro.
-const PREMIUM_INCLUDES_PRO_BEFORE = Date.UTC(2026, 9, 2); // 2 Oct 2026
-
 /**
  * The plan a registered user is entitled to. Pro and Premium are separate add-ons, so the plan is
  * built from the (server-written, rule-protected) purchase history; refunded purchases don't count.
@@ -116,7 +113,7 @@ export function planFromRegistration(reg?: { tier?: string | null; purchaseHisto
 
   const premiumBuys = bought('OTO2');
   const hasPremium = premiumBuys.length > 0;
-  const hasPro = bought('OTO1').length > 0 || premiumBuys.some((p) => Number(p.date) > 0 && Number(p.date) < PREMIUM_INCLUDES_PRO_BEFORE);
+  const hasPro = bought('OTO1').length > 0;
   if (hasPro && hasPremium) return 'master';
   if (hasPremium) return 'premium';
   if (hasPro) return 'pro';
