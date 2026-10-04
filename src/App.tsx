@@ -88,6 +88,8 @@ function ProtectedRoute() {
           })
           .catch(() => {});
         const work = Promise.all([track, storage.syncFromCloud(currentUser.uid).catch(() => {})]);
+        // Books on this device (IndexedDB) load in a few milliseconds; pages read them synchronously
+        await storage.whenLocalReady();
         // Never open the studio before we know this account bought it
         if (cachedAccess === null) {
           await Promise.race([track, new Promise((resolve) => setTimeout(resolve, 10000))]);

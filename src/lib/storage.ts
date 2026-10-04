@@ -1,10 +1,11 @@
 import { ManuscriptItem, MOCK_MANUSCRIPT, MOCK_CHARACTERS, MOCK_LOCATIONS } from "@/mockData";
 import { db, auth } from './firebase';
-import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where, limit } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where, limit, writeBatch } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { isUserAdmin } from './adminService';
 import { externalizePictures, internalizePictures, rememberPictures } from './imageStore';
-import { setCloudSave } from './saveStatus';
+import { setCloudSave, getCloudSave } from './saveStatus';
+import { getLocalBook, setLocalBook, deleteLocalBook } from './localBooks';
 
 export interface ProjectMeta {
   id: string;
@@ -19,6 +20,8 @@ export interface ProjectMeta {
   themeColor: string;
   coverUrl?: string;
   userId?: string;
+  /** When the book's content was last saved to the cloud (matches ProjectData.savedAt) */
+  dataSavedAt?: number;
 }
 
 export interface StoryBibleData {
@@ -99,6 +102,8 @@ export interface FrontBackMatterData {
 
 export interface ProjectData {
   id?: string;
+  /** Set on every cloud save; lets a device skip downloading a book it already has */
+  savedAt?: number;
   manuscript: ManuscriptItem[];
   characters: any[];
   locations: any[];
@@ -158,9 +163,9 @@ interface FirestoreErrorInfo {
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errMsg = error instanceof Error ? error.message : String(error);
-  const isOfflineOrUnavailable = 
-    errMsg.includes('unavailable') || 
-    errMsg.includes('could not reach') || 
+  const isOfflineOrUnavailable =
+    errMsg.includes('unavailable') ||
+    errMsg.includes('could not reach') ||
     errMsg.includes('offline') ||
     errMsg.includes('network');
 
@@ -314,6 +319,7 @@ function loadLocalUserCache(uid: string | null) {
   }
 
   cachedProjectData = {};
+  localBooksReady = loadLocalBooks(uid).catch(() => {});
 }
 
 /**
@@ -337,50 +343,155 @@ class BookTooLargeError extends Error {
   }
 }
 
-/** Writes a book to the cloud. Pictures are stored as their own documents (see imageStore). */
-async function writeProjectDataDoc(uid: string, id: string, data: ProjectData, merge = false) {
-  const slim = await externalizePictures(uid, id, cleanForFirestore(data));
+/**
+ * Writes a book to the cloud: the content document and its shelf entry together, stamped with the
+ * same savedAt so other devices can tell whether their copy is current. Pictures are stored as
+ * their own documents (see imageStore).
+ */
+async function writeBookToCloud(uid: string, id: string, data: ProjectData, meta?: ProjectMeta | null): Promise<number> {
+  const savedAt = Date.now();
+  const slim = await externalizePictures(uid, id, cleanForFirestore({ ...data, userId: uid, id, savedAt }));
   const bytes = new Blob([JSON.stringify(slim)]).size;
   if (bytes > MAX_BOOK_BYTES) throw new BookTooLargeError(bytes);
-  await setDoc(doc(db, `users/${uid}/projectData/${id}`), slim, merge ? { merge: true } : {});
+  const batch = writeBatch(db);
+  batch.set(doc(db, `users/${uid}/projectData/${id}`), slim);
+  if (meta) batch.set(doc(db, `users/${uid}/projects/${id}`), cleanForFirestore({ ...meta, userId: uid, dataSavedAt: savedAt }), { merge: true });
+  await batch.commit();
+  return savedAt;
 }
 
-// One write per book at a time; while a write is running only the newest version waits,
-// so saves never land out of order and a slow connection doesn't pile up writes.
-const bookWrites: Record<string, { running: boolean; next: ProjectData | null; uid: string }> = {};
-
-function queueBookWrite(uid: string, id: string, data: ProjectData) {
-  const q = (bookWrites[id] ||= { running: false, next: null, uid });
-  q.next = data;
-  q.uid = uid;
-  if (!q.running) void runBookWrites(id);
+/* ---- What this device knows about each book's cloud copy ---- */
+interface BookSync {
+  savedAt?: number; // savedAt of the last version this device saved or downloaded
+  dirty?: boolean; // edited here since then, not yet in the cloud
 }
-
-async function runBookWrites(id: string) {
-  const q = bookWrites[id];
-  q.running = true;
-  while (q.next) {
-    const data = q.next;
-    q.next = null;
-    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-    setCloudSave(id, { state: offline ? 'offline' : 'saving' });
-    try {
-      await writeProjectDataDoc(q.uid, id, data);
-      if (!q.next) setCloudSave(id, { state: 'saved' });
-    } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, `users/${q.uid}/projectData/${id}`);
-      if (!q.next) {
-        setCloudSave(id, {
-          state: 'error',
-          message:
-            e instanceof BookTooLargeError
-              ? 'This book has grown too large to save to the cloud in one piece.'
-              : 'Your latest changes could not be saved to the cloud.',
-        });
-      }
-    }
+function readBookSync(uid: string): Record<string, BookSync> {
+  try {
+    return JSON.parse(localStorage.getItem(getStorageKey('booksync', uid)) || '{}');
+  } catch {
+    return {};
   }
-  q.running = false;
+}
+function getBookSync(uid: string, id: string): BookSync {
+  return readBookSync(uid)[id] || {};
+}
+function setBookSync(uid: string, id: string, patch: BookSync | null) {
+  const all = readBookSync(uid);
+  if (patch) all[id] = { ...all[id], ...patch };
+  else delete all[id];
+  safeLocalStorageSet(getStorageKey('booksync', uid), JSON.stringify(all));
+}
+
+/*
+ * Cloud saves are batched. Every edit is kept on this device at once; the cloud gets the newest
+ * version at most every CLOUD_SAVE_INTERVAL per book (the first save after a quiet spell goes out
+ * straight away), plus immediately when the tab is hidden or closed. Typing used to cost one cloud
+ * write per pause, which burns through Firestore quota and money.
+ */
+const CLOUD_SAVE_INTERVAL = 10_000;
+const bookWrites: Record<string, { uid: string; pending: boolean; running: boolean; timer: ReturnType<typeof setTimeout> | null; lastStart: number }> = {};
+
+function queueBookWrite(uid: string, id: string) {
+  const q = (bookWrites[id] ||= { uid, pending: false, running: false, timer: null, lastStart: 0 });
+  q.uid = uid;
+  q.pending = true;
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  setCloudSave(id, { state: offline ? 'offline' : 'saving' });
+  scheduleBookWrite(id, false);
+}
+
+function scheduleBookWrite(id: string, now: boolean) {
+  const q = bookWrites[id];
+  if (!q || q.running || !q.pending) return;
+  const wait = now ? 0 : Math.max(0, q.lastStart + CLOUD_SAVE_INTERVAL - Date.now());
+  if (q.timer) {
+    if (!now) return;
+    clearTimeout(q.timer);
+  }
+  q.timer = setTimeout(() => {
+    q.timer = null;
+    void runBookWrite(id);
+  }, wait);
+}
+
+async function runBookWrite(id: string) {
+  const q = bookWrites[id];
+  if (!q || q.running || !q.pending) return;
+  // Signed out or switched account since the edit: that account's copy stays on its device
+  if (q.uid !== currentUserId) {
+    q.pending = false;
+    return;
+  }
+  q.running = true;
+  q.pending = false;
+  q.lastStart = Date.now();
+  const uid = q.uid;
+  try {
+    const data = cachedProjectData[id];
+    if (data) {
+      const savedAt = await writeBookToCloud(uid, id, data, cachedProjects.find((p) => p.id === id));
+      if (cachedProjectData[id]) cachedProjectData[id].savedAt = savedAt;
+      setBookSync(uid, id, q.pending ? { savedAt } : { savedAt, dirty: false });
+    }
+    if (!q.pending) setCloudSave(id, { state: 'saved' });
+  } catch (e) {
+    handleFirestoreError(e, OperationType.WRITE, `users/${uid}/projectData/${id}`);
+    if (!q.pending) {
+      setCloudSave(id, {
+        state: 'error',
+        message:
+          e instanceof BookTooLargeError
+            ? 'This book has grown too large to save to the cloud in one piece.'
+            : 'Your latest changes could not be saved to the cloud.',
+      });
+    }
+  } finally {
+    q.running = false;
+  }
+  if (q.pending) scheduleBookWrite(id, typeof document !== 'undefined' && document.visibilityState === 'hidden');
+}
+
+/** Sends every waiting book to the cloud now. */
+function flushBookWrites() {
+  Object.keys(bookWrites).forEach((id) => scheduleBookWrite(id, true));
+}
+
+function hasUnsavedBooks() {
+  return Object.keys(bookWrites).some((id) => bookWrites[id].pending || bookWrites[id].running || getCloudSave(id).state === 'error');
+}
+
+if (typeof window !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushBookWrites();
+  });
+  window.addEventListener('pagehide', flushBookWrites);
+  window.addEventListener('online', flushBookWrites);
+  // Closing the tab mid-save: send now and ask the browser to hold the page
+  window.addEventListener('beforeunload', (e) => {
+    if (!hasUnsavedBooks()) return;
+    flushBookWrites();
+    e.preventDefault();
+    e.returnValue = '';
+  });
+}
+
+/* ---- On-device books ---- */
+let localBooksReady: Promise<void> = Promise.resolve();
+
+/** Loads this account's books from the device into memory (moving old localStorage copies into IndexedDB). */
+async function loadLocalBooks(uid: string | null) {
+  const ids = cachedProjects.map((p) => p.id);
+  await Promise.all(
+    ids.map(async (id) => {
+      if (cachedProjectData[id]) return;
+      const key = getStorageKey(`data_${id}`, uid);
+      const book = await getLocalBook<ProjectData>(key);
+      if (book && uid === currentUserId && !cachedProjectData[id]) {
+        cachedProjectData[id] = book;
+        if (localStorage.getItem(key)) void setLocalBook(key, book);
+      }
+    })
+  );
 }
 
 function canSyncWithFirestore(targetUserId?: string | null): boolean {
@@ -506,7 +617,7 @@ function createStarterProjectsForUser(userId: string): { meta: ProjectMeta; data
 
 export const storage = {
   getCurrentUserId: () => currentUserId,
-  
+
   /**
    * Switch the active user context. Completely isolates and reloads the cache.
    */
@@ -540,7 +651,7 @@ export const storage = {
       window.dispatchEvent(new CustomEvent('novelist-storage-updated', { detail: { userId: null } }));
     }
   },
-  
+
   syncAllLocalDataToCloud: async (userId?: string) => {
     const effectiveUid = userId || currentUserId;
     if (!effectiveUid || !auth.currentUser || !canSyncWithFirestore(effectiveUid)) {
@@ -555,12 +666,12 @@ export const storage = {
       // 2. Projects & ProjectData (for this user only)
       const projs = storage.getProjects();
       for (const p of projs) {
-        const pWithUser = cleanForFirestore({ ...p, userId: effectiveUid });
-        await setDoc(doc(db, `users/${effectiveUid}/projects/${p.id}`), pWithUser, { merge: true });
-        
         const pData = storage.getProjectData(p.id);
         if (pData) {
-          await writeProjectDataDoc(effectiveUid, p.id, { ...pData, userId: effectiveUid, id: p.id }, true);
+          const savedAt = await writeBookToCloud(effectiveUid, p.id, pData, p);
+          setBookSync(effectiveUid, p.id, { savedAt, dirty: false });
+        } else {
+          await setDoc(doc(db, `users/${effectiveUid}/projects/${p.id}`), cleanForFirestore({ ...p, userId: effectiveUid }), { merge: true });
         }
       }
 
@@ -576,8 +687,8 @@ export const storage = {
       await setDoc(doc(db, `users/${effectiveUid}/settings/timeline`), cleanForFirestore(tl), { merge: true });
 
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('novelist-cloud-synced', { 
-          detail: { success: true, timestamp: Date.now(), userId: effectiveUid, email: prof.email } 
+        window.dispatchEvent(new CustomEvent('novelist-cloud-synced', {
+          detail: { success: true, timestamp: Date.now(), userId: effectiveUid, email: prof.email }
         }));
       }
 
@@ -604,6 +715,9 @@ export const storage = {
     }
   },
 
+  /** Resolves once this account's books on the device are loaded into memory. */
+  whenLocalReady: (): Promise<void> => localBooksReady,
+
   syncFromCloud: (userId: string, options?: { force?: boolean }): Promise<void> => {
     if (!userId || userId === 'null') return Promise.resolve();
     if (syncInFlight && syncInFlight.uid === userId) return syncInFlight.promise;
@@ -621,6 +735,8 @@ export const storage = {
   _syncFromCloudOnce: async (userId: string) => {
     if (!userId || userId === 'null') return;
     if (!canSyncWithFirestore(userId)) return;
+    // Books already on this device decide what needs downloading
+    await localBooksReady;
 
     currentUserId = userId;
 
@@ -702,7 +818,7 @@ export const storage = {
       // 3. Load Projects from Cloud (100% User Isolated)
       try {
         const projSnapshot = await getDocs(collection(db, `users/${userId}/projects`));
-        
+
         if (projSnapshot.empty) {
           // Brand new user on Cloud: check if local scoped cache has projects
           if (!cachedProjects || cachedProjects.length === 0) {
@@ -713,28 +829,73 @@ export const storage = {
 
             for (const s of starters) {
               cachedProjectData[s.meta.id] = s.data;
-              safeLocalStorageSet(getStorageKey(`data_${s.meta.id}`, userId), JSON.stringify(s.data));
-              await setDoc(doc(db, `users/${userId}/projects/${s.meta.id}`), cleanForFirestore(s.meta));
-              await writeProjectDataDoc(userId, s.meta.id, s.data);
+              void setLocalBook(getStorageKey(`data_${s.meta.id}`, userId), s.data);
+              const savedAt = await writeBookToCloud(userId, s.meta.id, s.data, s.meta);
+              setBookSync(userId, s.meta.id, { savedAt, dirty: false });
             }
           } else {
             // Upload current user's local projects
             for (const p of cachedProjects) {
-              await setDoc(doc(db, `users/${userId}/projects/${p.id}`), cleanForFirestore({ ...p, userId }));
               const pData = storage.getProjectData(p.id);
               if (pData) {
-                await writeProjectDataDoc(userId, p.id, { ...pData, userId, id: p.id });
+                const savedAt = await writeBookToCloud(userId, p.id, pData, p);
+                setBookSync(userId, p.id, { savedAt, dirty: false });
+              } else {
+                await setDoc(doc(db, `users/${userId}/projects/${p.id}`), cleanForFirestore({ ...p, userId }));
               }
             }
           }
         } else {
           // User has projects in Firestore: populate user cache from Firestore
+          const busy = (id: string) => Boolean(bookWrites[id] && (bookWrites[id].pending || bookWrites[id].running));
           const cloudProjects: ProjectMeta[] = [];
           projSnapshot.docs.forEach(d => {
-            cloudProjects.push({ ...d.data(), id: d.id } as ProjectMeta);
+            const meta = { ...d.data(), id: d.id } as ProjectMeta;
+            // A book being saved from this device keeps its local shelf entry
+            const local = busy(d.id) ? cachedProjects.find(p => p.id === d.id) : null;
+            cloudProjects.push(local || meta);
           });
           cachedProjects = cloudProjects.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
           safeLocalStorageSet(getStorageKey('projects', userId), JSON.stringify(cachedProjects));
+
+          // Download only the books whose cloud copy differs from the one on this device
+          await Promise.all(projSnapshot.docs.map(async d => {
+            const id = d.id;
+            const cloudSavedAt = (d.data() as ProjectMeta).dataSavedAt;
+            const local = cachedProjectData[id];
+            const sync = getBookSync(userId, id);
+            if (busy(id)) return;
+            if (local && cloudSavedAt && sync.savedAt === cloudSavedAt) {
+              // Same version as the cloud; edits made here offline still need sending
+              if (sync.dirty) queueBookWrite(userId, id);
+              return;
+            }
+            if (local && sync.dirty && (!cloudSavedAt || (sync.savedAt || 0) >= cloudSavedAt)) {
+              // Unsent edits from this device are the newest version
+              queueBookWrite(userId, id);
+              return;
+            }
+            try {
+              const snap = await getDoc(doc(db, `users/${userId}/projectData/${id}`));
+              if (!snap.exists()) {
+                if (local) queueBookWrite(userId, id);
+                return;
+              }
+              if (local && sync.dirty) {
+                // Another device saved a newer version over unsent edits here: keep a copy of ours
+                void setLocalBook(getStorageKey(`backup_${id}_${Date.now()}`, userId), local);
+              }
+              // Pictures already on this device don't need downloading again
+              if (local) await rememberPictures(local);
+              const cloudPData = await internalizePictures(userId, snap.data() as ProjectData);
+              if (busy(id)) return;
+              cachedProjectData[id] = cloudPData;
+              void setLocalBook(getStorageKey(`data_${id}`, userId), cloudPData);
+              setBookSync(userId, id, { savedAt: cloudPData.savedAt || cloudSavedAt, dirty: false });
+            } catch (e) {
+              handleFirestoreError(e, OperationType.GET, `users/${userId}/projectData/${id}`);
+            }
+          }));
         }
 
         if (typeof window !== 'undefined') {
@@ -760,22 +921,6 @@ export const storage = {
         handleFirestoreError(e, OperationType.LIST, `users/${userId}/tasks`);
       }
       })(),
-      (async () => {
-      // 5. Load Project Data from Cloud
-      try {
-        const pdSnapshot = await getDocs(collection(db, `users/${userId}/projectData`));
-        await Promise.all(pdSnapshot.docs.map(async d => {
-          // Pictures already on this device don't need downloading again
-          const local = cachedProjectData[d.id];
-          if (local) await rememberPictures(local);
-          const cloudPData = await internalizePictures(userId, d.data() as ProjectData);
-          cachedProjectData[d.id] = cloudPData;
-          safeLocalStorageSet(getStorageKey(`data_${d.id}`, userId), JSON.stringify(cloudPData));
-        }));
-      } catch(e) {
-        handleFirestoreError(e, OperationType.LIST, `users/${userId}/projectData`);
-      }
-      })(),
       ]);
     } catch (e) {
       console.error("Critical Cloud Sync Error:", e);
@@ -798,7 +943,7 @@ export const storage = {
     } else {
       cachedTasks.unshift(taskWithUser);
     }
-    
+
     safeLocalStorageSet(getStorageKey('tasks'), JSON.stringify(cachedTasks));
     if (canSyncWithFirestore()) {
       setDoc(doc(db, `users/${currentUserId}/tasks/${task.id}`), cleanForFirestore(taskWithUser))
@@ -842,7 +987,7 @@ export const storage = {
     } else {
       cachedProjects.push(sanitizedProject);
     }
-    
+
     safeLocalStorageSet(getStorageKey('projects'), JSON.stringify(cachedProjects));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('novelist-storage-updated', { detail: { projectId: sanitizedProject.id } }));
@@ -873,9 +1018,13 @@ export const storage = {
     cachedProjects = cachedProjects.filter(p => p.id !== id);
     delete cachedProjectData[id];
     safeLocalStorageSet(getStorageKey('projects'), JSON.stringify(cachedProjects));
-    try {
-      localStorage.removeItem(getStorageKey(`data_${id}`));
-    } catch {}
+    void deleteLocalBook(getStorageKey(`data_${id}`));
+    if (bookWrites[id]) {
+      if (bookWrites[id].timer) clearTimeout(bookWrites[id].timer!);
+      delete bookWrites[id];
+    }
+    if (currentUserId) setBookSync(currentUserId, id, null);
+    setCloudSave(id, { state: 'saved' });
     if (canSyncWithFirestore()) {
       deleteDoc(doc(db, `users/${currentUserId}/projects/${id}`))
         .catch(e => handleFirestoreError(e, OperationType.DELETE, `users/${currentUserId}/projects/${id}`));
@@ -886,7 +1035,7 @@ export const storage = {
 
   getProjectData: (id: string): ProjectData | null => {
     if (cachedProjectData[id]) return cachedProjectData[id];
-    
+
     try {
       const data = localStorage.getItem(getStorageKey(`data_${id}`));
       if (data) {
@@ -895,7 +1044,7 @@ export const storage = {
         return parsed;
       }
     } catch { return null; }
-    
+
     return null;
   },
 
@@ -903,12 +1052,13 @@ export const storage = {
     const existing = storage.getProjectData(id) || { manuscript: [], characters: [], locations: [] };
     const newData: ProjectData = { ...existing, ...data, id, userId: currentUserId || existing.userId };
     cachedProjectData[id] = newData;
-    safeLocalStorageSet(getStorageKey(`data_${id}`), JSON.stringify(newData));
-    
+    void setLocalBook(getStorageKey(`data_${id}`), newData);
+    if (currentUserId) setBookSync(currentUserId, id, { dirty: true });
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('novelist-storage-updated', { detail: { projectId: id } }));
     }
-    
+
     const project = cachedProjects.find(p => p.id === id);
     if (project) {
       project.lastModified = Date.now();
@@ -929,18 +1079,22 @@ export const storage = {
         countWords(data.manuscript);
         project.currentWords = totalWords;
       }
-      storage.saveProject(project);
+      // The shelf entry goes to the cloud together with the book (see writeBookToCloud)
+      safeLocalStorageSet(getStorageKey('projects'), JSON.stringify(cachedProjects));
     }
 
     if (canSyncWithFirestore() && currentUserId) {
-      queueBookWrite(currentUserId, id, newData);
+      queueBookWrite(currentUserId, id);
     }
   },
 
   /** Tries the cloud save of a book again (after a failed save). */
   retryCloudSave: (id: string) => {
     const data = storage.getProjectData(id);
-    if (data && currentUserId && canSyncWithFirestore()) queueBookWrite(currentUserId, id, data);
+    if (data && currentUserId && canSyncWithFirestore()) {
+      queueBookWrite(currentUserId, id);
+      scheduleBookWrite(id, true);
+    }
   },
 
   getUserProfile: (): UserProfile => {
