@@ -34,7 +34,7 @@ const PLAN_INFO: Record<string, { name: string; features: string[] }> = {
     features: ["Unlimited books", "Unlimited characters & locations", "50 ready-made characters & fantasy art library", "EPUB 3 export for Amazon KDP"],
   },
   master: {
-    name: "Pro + Premium",
+    name: "Premium Edition (with Pro)",
     features: [
       "Everything in Pro",
       "AI Prompt Hub",

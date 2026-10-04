@@ -70,9 +70,9 @@ export default function Dashboard() {
         };
       case 'master':
         return {
-          label: 'PRO + PREMIUM',
+          label: 'PREMIUM',
           style: 'bg-[#241711] text-[#E5BF7C] border-[#5A3C28] ring-1 ring-[#D4A359]/40 shadow-xs hover:bg-[#1A100B]',
-          tooltip: 'Premium Edition — Full Unrestricted Access',
+          tooltip: 'Premium Edition with Pro — everything unlocked',
         };
       case 'pro':
         return {
