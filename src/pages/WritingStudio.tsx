@@ -7,6 +7,7 @@ import { ManuscriptItem } from "@/mockData";
 import MentionEditor from "@/components/MentionEditor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { storage, ProjectData } from "@/lib/storage";
+import { useCloudSave } from "@/lib/saveStatus";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import GlobalSearchModal from "@/components/GlobalSearchModal";
 import AIPromptModal from "@/components/AIPromptModal";
@@ -308,6 +309,8 @@ export default function WritingStudio() {
   
 
   const [isSaving, setIsSaving] = useState(false);
+  // "Saved" only once the cloud has it, not just this device
+  const cloudSave = useCloudSave(projectId);
 
   // Binder State
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => new Set(collectFolderIds(manuscript)));
@@ -1299,8 +1302,19 @@ export default function WritingStudio() {
 
           <div className="flex items-center gap-1.5 shrink-0">
 
-            <span className="w-[74px] flex items-center justify-end gap-1.5 text-[12px] text-[#0E1D26]/45">
-              {isSaving ? <><RefreshCw className="w-3 h-3 animate-spin" /> Saving</> : <><Check className="w-3.5 h-3.5 text-[#2F7A4F]" /> Saved</>}
+            <span
+              className={`min-w-[74px] flex items-center justify-end gap-1.5 text-[12px] whitespace-nowrap ${cloudSave.state === "error" ? "text-[#C2410C] font-semibold" : "text-[#0E1D26]/45"}`}
+              title={cloudSave.state === "error" ? cloudSave.message : cloudSave.state === "offline" ? "You're offline. Changes are kept on this device and upload when you reconnect." : undefined}
+            >
+              {cloudSave.state === "error" ? (
+                <><AlertTriangle className="w-3.5 h-3.5" /> Not saved</>
+              ) : cloudSave.state === "offline" || (cloudSave.state === "saving" && typeof navigator !== "undefined" && !navigator.onLine) ? (
+                <>Offline</>
+              ) : isSaving || cloudSave.state === "saving" ? (
+                <><RefreshCw className="w-3 h-3 animate-spin" /> Saving</>
+              ) : (
+                <><Check className="w-3.5 h-3.5 text-[#2F7A4F]" /> Saved</>
+              )}
             </span>
 
             <div className="relative" data-studio-menu>

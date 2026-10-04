@@ -96,8 +96,8 @@ export default function ImagePickerModal({
     setIsProcessing(true);
     try {
       // Compress & optimize for storage
-      const maxDim = type === "character" ? 800 : 1080;
-      const dataUrl = await fileToOptimizedDataUrl(file, maxDim, maxDim, 0.85);
+      const maxDim = type === "character" ? 640 : 960;
+      const dataUrl = await fileToOptimizedDataUrl(file, maxDim, maxDim, 0.8);
       setPreviewImage(dataUrl);
       setActiveTab("upload");
     } catch (err) {

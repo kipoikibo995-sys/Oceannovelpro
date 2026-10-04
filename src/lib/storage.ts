@@ -3,6 +3,8 @@ import { db, auth } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where, limit } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { isUserAdmin } from './adminService';
+import { externalizePictures, internalizePictures, rememberPictures } from './imageStore';
+import { setCloudSave } from './saveStatus';
 
 export interface ProjectMeta {
   id: string;
@@ -327,6 +329,60 @@ function cleanForFirestore<T>(data: T): T {
   );
 }
 
+// Firestore rejects documents over 1 MiB; leave headroom for field overhead
+const MAX_BOOK_BYTES = 1_000_000;
+class BookTooLargeError extends Error {
+  constructor(public bytes: number) {
+    super(`Book document is ${bytes} bytes, over the Firestore limit`);
+  }
+}
+
+/** Writes a book to the cloud. Pictures are stored as their own documents (see imageStore). */
+async function writeProjectDataDoc(uid: string, id: string, data: ProjectData, merge = false) {
+  const slim = await externalizePictures(uid, id, cleanForFirestore(data));
+  const bytes = new Blob([JSON.stringify(slim)]).size;
+  if (bytes > MAX_BOOK_BYTES) throw new BookTooLargeError(bytes);
+  await setDoc(doc(db, `users/${uid}/projectData/${id}`), slim, merge ? { merge: true } : {});
+}
+
+// One write per book at a time; while a write is running only the newest version waits,
+// so saves never land out of order and a slow connection doesn't pile up writes.
+const bookWrites: Record<string, { running: boolean; next: ProjectData | null; uid: string }> = {};
+
+function queueBookWrite(uid: string, id: string, data: ProjectData) {
+  const q = (bookWrites[id] ||= { running: false, next: null, uid });
+  q.next = data;
+  q.uid = uid;
+  if (!q.running) void runBookWrites(id);
+}
+
+async function runBookWrites(id: string) {
+  const q = bookWrites[id];
+  q.running = true;
+  while (q.next) {
+    const data = q.next;
+    q.next = null;
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    setCloudSave(id, { state: offline ? 'offline' : 'saving' });
+    try {
+      await writeProjectDataDoc(q.uid, id, data);
+      if (!q.next) setCloudSave(id, { state: 'saved' });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, `users/${q.uid}/projectData/${id}`);
+      if (!q.next) {
+        setCloudSave(id, {
+          state: 'error',
+          message:
+            e instanceof BookTooLargeError
+              ? 'This book has grown too large to save to the cloud in one piece.'
+              : 'Your latest changes could not be saved to the cloud.',
+        });
+      }
+    }
+  }
+  q.running = false;
+}
+
 function canSyncWithFirestore(targetUserId?: string | null): boolean {
   const uid = targetUserId || currentUserId;
   const user = auth.currentUser;
@@ -504,8 +560,7 @@ export const storage = {
         
         const pData = storage.getProjectData(p.id);
         if (pData) {
-          const pdWithUser = cleanForFirestore({ ...pData, userId: effectiveUid, id: p.id });
-          await setDoc(doc(db, `users/${effectiveUid}/projectData/${p.id}`), pdWithUser, { merge: true });
+          await writeProjectDataDoc(effectiveUid, p.id, { ...pData, userId: effectiveUid, id: p.id }, true);
         }
       }
 
@@ -660,7 +715,7 @@ export const storage = {
               cachedProjectData[s.meta.id] = s.data;
               safeLocalStorageSet(getStorageKey(`data_${s.meta.id}`, userId), JSON.stringify(s.data));
               await setDoc(doc(db, `users/${userId}/projects/${s.meta.id}`), cleanForFirestore(s.meta));
-              await setDoc(doc(db, `users/${userId}/projectData/${s.meta.id}`), cleanForFirestore(s.data));
+              await writeProjectDataDoc(userId, s.meta.id, s.data);
             }
           } else {
             // Upload current user's local projects
@@ -668,7 +723,7 @@ export const storage = {
               await setDoc(doc(db, `users/${userId}/projects/${p.id}`), cleanForFirestore({ ...p, userId }));
               const pData = storage.getProjectData(p.id);
               if (pData) {
-                await setDoc(doc(db, `users/${userId}/projectData/${p.id}`), cleanForFirestore({ ...pData, userId, id: p.id }));
+                await writeProjectDataDoc(userId, p.id, { ...pData, userId, id: p.id });
               }
             }
           }
@@ -709,11 +764,14 @@ export const storage = {
       // 5. Load Project Data from Cloud
       try {
         const pdSnapshot = await getDocs(collection(db, `users/${userId}/projectData`));
-        pdSnapshot.docs.forEach(d => {
-          const cloudPData = d.data() as ProjectData;
+        await Promise.all(pdSnapshot.docs.map(async d => {
+          // Pictures already on this device don't need downloading again
+          const local = cachedProjectData[d.id];
+          if (local) await rememberPictures(local);
+          const cloudPData = await internalizePictures(userId, d.data() as ProjectData);
           cachedProjectData[d.id] = cloudPData;
           safeLocalStorageSet(getStorageKey(`data_${d.id}`, userId), JSON.stringify(cloudPData));
-        });
+        }));
       } catch(e) {
         handleFirestoreError(e, OperationType.LIST, `users/${userId}/projectData`);
       }
@@ -874,10 +932,15 @@ export const storage = {
       storage.saveProject(project);
     }
 
-    if (canSyncWithFirestore()) {
-      setDoc(doc(db, `users/${currentUserId}/projectData/${id}`), cleanForFirestore(newData))
-        .catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${currentUserId}/projectData/${id}`));
+    if (canSyncWithFirestore() && currentUserId) {
+      queueBookWrite(currentUserId, id, newData);
     }
+  },
+
+  /** Tries the cloud save of a book again (after a failed save). */
+  retryCloudSave: (id: string) => {
+    const data = storage.getProjectData(id);
+    if (data && currentUserId && canSyncWithFirestore()) queueBookWrite(currentUserId, id, data);
   },
 
   getUserProfile: (): UserProfile => {

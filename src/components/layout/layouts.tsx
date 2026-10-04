@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import CloudSaveNotice from "@/components/CloudSaveNotice";
 import {
   IconArrow,
   IconBook,
@@ -26,6 +27,7 @@ export function AppLayout() {
           <Outlet />
         </Suspense>
       </main>
+      <CloudSaveNotice />
     </div>
   );
 }

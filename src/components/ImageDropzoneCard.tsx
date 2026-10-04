@@ -43,8 +43,8 @@ export default function ImageDropzoneCard({
     if (file && file.type.startsWith("image/")) {
       setIsOptimizing(true);
       try {
-        const maxDim = aspectRatio === "portrait" ? 800 : 1080;
-        const dataUrl = await fileToOptimizedDataUrl(file, maxDim, maxDim, 0.85);
+        const maxDim = aspectRatio === "portrait" ? 640 : 960;
+        const dataUrl = await fileToOptimizedDataUrl(file, maxDim, maxDim, 0.8);
         onImageChange(dataUrl);
       } catch (err) {
         console.error(err);
@@ -59,8 +59,8 @@ export default function ImageDropzoneCard({
     if (file && file.type.startsWith("image/")) {
       setIsOptimizing(true);
       try {
-        const maxDim = aspectRatio === "portrait" ? 800 : 1080;
-        const dataUrl = await fileToOptimizedDataUrl(file, maxDim, maxDim, 0.85);
+        const maxDim = aspectRatio === "portrait" ? 640 : 960;
+        const dataUrl = await fileToOptimizedDataUrl(file, maxDim, maxDim, 0.8);
         onImageChange(dataUrl);
       } catch (err) {
         console.error(err);

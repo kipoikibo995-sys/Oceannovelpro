@@ -3,15 +3,18 @@ import { CHARACTER_PRESETS } from "@/data/characterPresets";
  * Utility to process uploaded image files (resize and compress to base64)
  * to ensure fast client-side rendering and protect against localStorage quota limits.
  */
+// Each picture is stored as its own cloud document (1 MiB cap); keep uploads well under that
+const MAX_PICTURE_CHARS = 300_000;
+
 export async function fileToOptimizedDataUrl(
   file: File,
   maxWidth = 960,
   maxHeight = 960,
-  quality = 0.85
+  quality = 0.8
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    // For SVG or GIF (to preserve animation/vectors), return direct data URL
-    if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
+    // SVG stays vector; everything else (GIF included) is re-encoded as a JPEG
+    if (file.type === 'image/svg+xml') {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
@@ -46,8 +49,17 @@ export async function fileToOptimizedDataUrl(
             return;
           }
 
+          // White behind transparent PNGs, otherwise JPEG turns them black
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
-          const compressed = canvas.toDataURL('image/jpeg', quality);
+          // Step the quality down until the picture is small enough
+          let q = quality;
+          let compressed = canvas.toDataURL('image/jpeg', q);
+          while (compressed.length > MAX_PICTURE_CHARS && q > 0.5) {
+            q = Math.round((q - 0.1) * 100) / 100;
+            compressed = canvas.toDataURL('image/jpeg', q);
+          }
           resolve(compressed);
         } catch {
           resolve(rawDataUrl);
