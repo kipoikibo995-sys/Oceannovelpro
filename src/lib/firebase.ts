@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { initializeFirestore, getFirestore, setLogLevel } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -21,8 +21,7 @@ try {
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
 export const auth = getAuth(app);
 
-// A sign-in lasts for this tab only: reloading keeps it, closing the tab signs out.
-// Setting it here also moves sessions saved by older builds out of permanent storage.
-export const authReady = setPersistence(auth, browserSessionPersistence).catch((e) =>
+// A sign-in stays on this device until the user signs out (survives closing the tab/browser).
+export const authReady = setPersistence(auth, browserLocalPersistence).catch((e) =>
   console.warn('Auth persistence note:', e)
 );
