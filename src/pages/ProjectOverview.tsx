@@ -44,8 +44,9 @@ export default function ProjectOverview() {
     const file = event.target.files?.[0];
     if (file && id) {
       try {
-        // Optimize cover image to max 480x720, 75% JPEG quality to save localStorage quota
-        const optimizedUrl = await fileToOptimizedDataUrl(file, 480, 720, 0.75);
+        // Covers sit in the book list, which storage caps at 80,000 characters per cover
+        // (a larger one is swapped for the default cover), so compress to fit under that
+        const optimizedUrl = await fileToOptimizedDataUrl(file, 480, 720, 0.75, 78_000);
         setCoverUrl(optimizedUrl);
         storage.updateProject(id, { coverUrl: optimizedUrl });
       } catch (err) {

@@ -10,7 +10,8 @@ export async function fileToOptimizedDataUrl(
   file: File,
   maxWidth = 960,
   maxHeight = 960,
-  quality = 0.8
+  quality = 0.8,
+  maxChars = MAX_PICTURE_CHARS
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // SVG stays vector; everything else (GIF included) is re-encoded as a JPEG
@@ -56,8 +57,19 @@ export async function fileToOptimizedDataUrl(
           // Step the quality down until the picture is small enough
           let q = quality;
           let compressed = canvas.toDataURL('image/jpeg', q);
-          while (compressed.length > MAX_PICTURE_CHARS && q > 0.5) {
+          while (compressed.length > maxChars && q > 0.5) {
             q = Math.round((q - 0.1) * 100) / 100;
+            compressed = canvas.toDataURL('image/jpeg', q);
+          }
+          // Still too big at the lowest quality: shrink the picture until it fits
+          while (compressed.length > maxChars && width > 160 && height > 160) {
+            width = Math.round(width * 0.85);
+            height = Math.round(height * 0.85);
+            canvas.width = width;
+            canvas.height = height;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
             compressed = canvas.toDataURL('image/jpeg', q);
           }
           resolve(compressed);
