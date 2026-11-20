@@ -4,6 +4,7 @@ import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where, limi
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { isUserAdmin } from './adminService';
 import { externalizePictures, internalizePictures, rememberPictures } from './imageStore';
+import { splitText, partDocId, type BookPartsRef } from './bookParts';
 import { setCloudSave, getCloudSave } from './saveStatus';
 import { getLocalBook, setLocalBook, deleteLocalBook } from './localBooks';
 
@@ -337,27 +338,68 @@ function cleanForFirestore<T>(data: T): T {
 
 // Firestore rejects documents over 1 MiB; leave headroom for field overhead
 const MAX_BOOK_BYTES = 1_000_000;
-class BookTooLargeError extends Error {
-  constructor(public bytes: number) {
-    super(`Book document is ${bytes} bytes, over the Firestore limit`);
+
+// The parts each book's cloud copy is made of right now (absent = one document), so the next
+// save or a delete can clear them away
+const cloudParts: Record<string, BookPartsRef | undefined> = {};
+
+const bookPartRef = (uid: string, id: string, set: number, index: number) =>
+  doc(db, `users/${uid}/projectData/${id}/parts/${partDocId(set, index)}`);
+
+function deleteBookParts(uid: string, id: string, parts: BookPartsRef | undefined) {
+  if (!parts) return;
+  for (let i = 0; i < parts.count; i++) {
+    deleteDoc(bookPartRef(uid, id, parts.set, i)).catch((e) => console.warn('[books] could not remove an old part', e));
   }
 }
 
 /**
  * Writes a book to the cloud: the content document and its shelf entry together, stamped with the
  * same savedAt so other devices can tell whether their copy is current. Pictures are stored as
- * their own documents (see imageStore).
+ * their own documents (see imageStore). A book too large for one document is written in parts
+ * first (see bookParts), then the content document is pointed at them.
  */
 async function writeBookToCloud(uid: string, id: string, data: ProjectData, meta?: ProjectMeta | null): Promise<number> {
   const savedAt = Date.now();
   const slim = await externalizePictures(uid, id, cleanForFirestore({ ...data, userId: uid, id, savedAt }));
-  const bytes = new Blob([JSON.stringify(slim)]).size;
-  if (bytes > MAX_BOOK_BYTES) throw new BookTooLargeError(bytes);
+  const json = JSON.stringify(slim);
+  const previous = cloudParts[id];
+  let parts: BookPartsRef | undefined;
+  let content: unknown = slim;
+  if (new Blob([json]).size > MAX_BOOK_BYTES) {
+    const pieces = splitText(json);
+    parts = { set: savedAt, count: pieces.length };
+    await Promise.all(pieces.map((piece, i) => setDoc(bookPartRef(uid, id, savedAt, i), { data: piece, index: i, savedAt })));
+    content = { id, userId: uid, savedAt, parts };
+  }
   const batch = writeBatch(db);
-  batch.set(doc(db, `users/${uid}/projectData/${id}`), slim);
-  if (meta) batch.set(doc(db, `users/${uid}/projects/${id}`), cleanForFirestore({ ...meta, userId: uid, dataSavedAt: savedAt }), { merge: true });
+  batch.set(doc(db, `users/${uid}/projectData/${id}`), content);
+  if (meta) batch.set(doc(db, `users/${uid}/projects/${id}`), cleanForFirestore({ ...meta, userId: uid, dataSavedAt: savedAt, dataParts: parts || null }), { merge: true });
   await batch.commit();
+  cloudParts[id] = parts;
+  // The cloud now points at the new version; the parts of the one before are no longer read
+  deleteBookParts(uid, id, previous);
   return savedAt;
+}
+
+/** Reads a book's content document, putting a book saved in parts back together. Null if there is none. */
+async function readBookFromCloud(uid: string, id: string): Promise<ProjectData | null> {
+  for (let attempt = 0; ; attempt++) {
+    const snap = await getDoc(doc(db, `users/${uid}/projectData/${id}`));
+    if (!snap.exists()) return null;
+    const parts = (snap.data() as { parts?: BookPartsRef }).parts;
+    if (!parts || !parts.count) {
+      cloudParts[id] = undefined;
+      return snap.data() as ProjectData;
+    }
+    const snaps = await Promise.all(Array.from({ length: parts.count }, (_, i) => getDoc(bookPartRef(uid, id, parts.set, i))));
+    if (snaps.every((part) => part.exists())) {
+      cloudParts[id] = parts;
+      return JSON.parse(snaps.map((part) => part.data()!.data as string).join('')) as ProjectData;
+    }
+    // Another device saved a newer version while we were reading: read again, once
+    if (attempt >= 1) throw new Error(`Book ${id} is missing parts in the cloud`);
+  }
 }
 
 /* ---- What this device knows about each book's cloud copy ---- */
@@ -439,10 +481,7 @@ async function runBookWrite(id: string) {
     if (!q.pending) {
       setCloudSave(id, {
         state: 'error',
-        message:
-          e instanceof BookTooLargeError
-            ? 'This book has grown too large to save to the cloud in one piece.'
-            : 'Your latest changes could not be saved to the cloud.',
+        message: 'Your latest changes could not be saved to the cloud.',
       });
     }
   } finally {
@@ -862,6 +901,7 @@ export const storage = {
           await Promise.all(projSnapshot.docs.map(async d => {
             const id = d.id;
             const cloudSavedAt = (d.data() as ProjectMeta).dataSavedAt;
+            if (!busy(id)) cloudParts[id] = (d.data() as { dataParts?: BookPartsRef | null }).dataParts || undefined;
             const local = cachedProjectData[id];
             const sync = getBookSync(userId, id);
             if (busy(id)) return;
@@ -876,8 +916,8 @@ export const storage = {
               return;
             }
             try {
-              const snap = await getDoc(doc(db, `users/${userId}/projectData/${id}`));
-              if (!snap.exists()) {
+              const cloudBook = await readBookFromCloud(userId, id);
+              if (!cloudBook) {
                 if (local) queueBookWrite(userId, id);
                 return;
               }
@@ -887,7 +927,7 @@ export const storage = {
               }
               // Pictures already on this device don't need downloading again
               if (local) await rememberPictures(local);
-              const cloudPData = await internalizePictures(userId, snap.data() as ProjectData);
+              const cloudPData = await internalizePictures(userId, cloudBook);
               if (busy(id)) return;
               cachedProjectData[id] = cloudPData;
               void setLocalBook(getStorageKey(`data_${id}`, userId), cloudPData);
@@ -1030,6 +1070,8 @@ export const storage = {
         .catch(e => handleFirestoreError(e, OperationType.DELETE, `users/${currentUserId}/projects/${id}`));
       deleteDoc(doc(db, `users/${currentUserId}/projectData/${id}`))
         .catch(e => handleFirestoreError(e, OperationType.DELETE, `users/${currentUserId}/projectData/${id}`));
+      deleteBookParts(currentUserId!, id, cloudParts[id]);
+      delete cloudParts[id];
     }
   },
 
